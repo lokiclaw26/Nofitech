@@ -359,3 +359,107 @@
   - 0 blocking bugs
 - **Deployment decision is NOFI's. NOT deploying yet.**
 
+### 014. Stage 11 Stabilization shipped (Mission Control v1.7.0-mvp)
+- **When:** 2026-06-10 20:30
+- **Decision:** Address 6 stabilization items, no overbuild.
+  Git checkpoint + tag, task filter, auto-detect LAN IP, LAN
+  warning banner, start-mc.sh idempotency confirmed, Stage 12
+  plan written.
+- **Real sub-agent flow (with partial Forge run):**
+  - **Forge** built: 50 tool calls (hit max_iterations),
+    ~420s. Built 5/6 items. Did NOT write build report, Stage
+    12 plan, or update state.json.
+  - **Thor** completed the 3 missing artifacts directly (file
+    writes only, no logic changes). Then:
+  - **Argus** verified: 41 tool calls, 294s, 7758-byte report
+    at `argus-1781117100.md`. Verdict: **Verified**, 7/7 items
+    PASS.
+- **Git checkpoint:** commit `7b8e4ce`, annotated tag
+  `mission-control-v1.7.0-mvp`. 0 secrets in repo.
+- **Auto-detect works:** `/api/version` now returns
+  `lan_ip: "192.168.0.29"`, `lan_ip_auto: true`, `port: 8767`.
+  0 hardcoded IPs in source files.
+- **Filter UI:** 3 buttons (All / Demo only / Real only) with
+  active state, fetch counts dynamically. API supports
+  `?filter=demo|real|<none>`. Invalid filter falls back to all.
+- **LAN warning:** amber-bordered banner above all sections:
+  "⚠ Local/LAN use only. This dashboard has no authentication
+  in v1. Do not expose to the public internet."
+- **Stage 12 plan** at `00_company_os/stage-12-plan.md`:
+  3 orthogonal workstreams (Auth, Autostart, Provider).
+  Each ~1 sub-agent round. NOFI picks which to approve.
+- **Remaining risks documented** (not hidden):
+  - No auth (banner added, not a gate)
+  - No autostart
+  - No /api/chat endpoint
+  - Port still 8767 (now exposed via API, easy to change)
+- **Why:** NOFI accepted MVP, identified 6 risks. Stabilization
+  addresses 3 directly (git, IP, demo separation), adds visible
+  warning for 1 (auth), and plans the remaining 2 in Stage 12.
+### 015. Stage 12 Live Data shipped (Mission Control v1.8.0-live-data)
+- **When:** 2026-06-10 20:55
+- **Decision:** All dashboard data must be REAL, no demo in
+  main view, no fake success. Strict mode for log levels
+  (only explicit `level:` in frontmatter, no body-inference).
+  Added Refresh + Last refreshed timestamp.
+- **Demo data hidden by default:** `data_tasks()` excludes
+  `data_source: local-demo` unless `?include=demo` is passed.
+  7 demo tasks still on disk (MC-001..MC-007) but invisible in
+  the main panel. Default filter button is "Real only".
+- **Empty states (NOFI's exact wording):**
+  - Tasks: "No real tasks yet."
+  - Projects: "No active project found."
+  - Logs: "No logs available."
+- **Real sub-agent flow:**
+  - **Forge** built: 46 tool calls, 415s, 4400-byte report at
+    `forge-1781117200.md`. Verdict: Verified.
+  - **Argus** timed out at 600s (27/41 calls done). Thor
+    completed the remaining checks: live-update test (created/
+    edited/deleted ARGUS-TEST-001.md, verified all transitions
+    + counts), jsdom render, security scan, start-mc.sh test,
+    git verification. Argus report at `argus-1781117200.md`.
+- **Live-update behavior verified:**
+  - Baseline count=0, reason="No real tasks yet."
+  - Create ARGUS-TEST-001.md → count=1, ID present
+  - Overview active_tasks: 3→4
+  - Edit status in-progress→done → API shows done
+  - Overview active_tasks: 4→3
+  - Delete file → count=0, reason="No real tasks yet."
+  - Overview active_tasks: 3 (unchanged)
+- **Git:** commit `f1fc0a3`, annotated tag
+  `mission-control-v1.8.0-live-data`. 0 secrets in repo.
+- **Refresh + timestamp:** "Last refreshed: HH:MM:SS" appears
+  next to REFRESH button, updates on every successful loadAll().
+- **Why:** NOFI demanded "real and live data" + "no demo in
+  main dashboard" + "no fake success" + "no guessed values".
+  v1.8.0 satisfies all of these. The dashboard now tells the
+  truth at every layer.
+
+### 016. NOFI approves simple LAN deployment
+- **When:** 2026-06-10 21:00
+- **Decision:** NOFI explicitly approved: "NOFI approves
+  simple LAN deployment." Scope: home lab / LAN only.
+  URL: http://192.168.0.29:8767/. No public internet. No
+  password. No token usage. No provider chat. No systemd.
+  start-mc.sh is the approved run method.
+- **Server state at approval:** PID 115802, bound 0.0.0.0:8767,
+  uptime 70+ min, version 1.8.0-live-data, 0 key leaks,
+  1 process (no duplicate), 0 real tasks (panel shows
+  "No real tasks yet."), 7 demo hidden, 1 real project,
+  3 real agents.
+- **Deployment rules locked (NOFI):**
+  - Keep server running
+  - Do not kill after tests
+  - Do not pkill unless NOFI explicitly approves
+  - If host reboots, NOFI manually runs start-mc.sh
+  - Do not change code unless blocking issue found
+  - Do not expose secrets
+  - Do not open to public internet
+- **Run method:** `~/NofiTech-Ind/01_projects/mission-control/code/start-mc.sh`
+  (idempotent, nohup-style, writes PID + log to `code/logs/`)
+- **Why:** This is the LOCKED deployment state. Sub-agents
+  must NOT touch the running server, MUST NOT issue pkill,
+  and MUST NOT change code without a blocking-issue brief.
+  The dashboard is the live product; tests and verification
+  happen against it, not at the expense of it.
+

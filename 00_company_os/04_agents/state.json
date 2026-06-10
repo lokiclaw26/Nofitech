@@ -1,20 +1,23 @@
 {
   "schema": "nofitech-agent-state/v1",
-  "updated": "2026-06-10T20:40:00+00:00",
+  "updated": "2026-06-11T01:55:00+00:00",
   "agents": {
     "thor": {
       "status": "active",
-      "current_assignment": "Stage 12 — Live data (in progress)",
+      "current_assignment": "Stage 14 wiring in progress",
+      "last_activity": "2026-06-11T01:55:00+00:00",
       "blocker": ""
     },
     "forge": {
       "status": "active",
-      "current_assignment": "Built Stage 12 live data (task stage-12-live-data-1781117200)",
+      "current_assignment": "MC-LIVE-TEST-001: wire tasks+events",
+      "last_activity": "2026-06-11T01:55:00+00:00",
       "blocker": ""
     },
     "argus": {
       "status": "active",
-      "current_assignment": "Verified Stage 11 stabilization (task argus-verify-stage-11-1781117100)",
+      "current_assignment": "verifying Stage 14 wiring",
+      "last_activity": "2026-06-11T01:55:00+00:00",
       "blocker": ""
     }
   }

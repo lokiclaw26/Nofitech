@@ -598,11 +598,13 @@ async function loadAll() {
   if (lr) {
     const now = new Date();
     const pad = (n) => String(n).padStart(2, "0");
-    lr.textContent = `Last refreshed: ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    lr.textContent = `Last refreshed: ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}  (auto-refresh: 30s)`;
   }
 }
 
 loadAll();
+// Stage 14: optional auto-refresh every 30s. Manual REFRESH button still works.
+setInterval(loadAll, 30000);
 </script>
 
 </body>

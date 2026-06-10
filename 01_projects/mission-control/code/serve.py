@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 """
-NofiTech Mission Control v1.8.0 (Live Data)
+NofiTech Mission Control v1.9.0 (Stage 14 — auto task+event wiring)
 Local-only dashboard for NOFI. 3-agent company. 6 sections.
 Stage 9: Logs/Health panel with 7 fields (events, errors, warnings, app/api health, last verification, env status).
 Stage 11: stabilization — task filter (demo/real), auto-detect LAN IP, LAN warning banner.
 Stage 12: live data only — demo tasks hidden by default (?include=demo opt-in),
           strict log level detection (explicit `level:` only, no body inference),
           real projects only, "Last refreshed" timestamp, v1.8.0 bump.
+Stage 14: automatic task and event wiring — data_tasks() reads 14-field
+          frontmatter for real tasks; data_overview() counts only real
+          tasks; new /api/data/events endpoint serves events.jsonl;
+          data_logs() merges events.jsonl into the Logs/Health panel.
 
 Endpoints:
   GET  /                              → static HTML
@@ -18,7 +22,8 @@ Endpoints:
   GET  /api/data/tasks                → real tasks by default; ?include=demo to also show demo
   GET  /api/data/projects             → 0+ rows from 01_projects/*/status.md
   GET  /api/data/provider             → 2 rows: free, paid
-  GET  /api/data/logs                 → events + health + env (no secret values)
+  GET  /api/data/logs                 → events + health + env + jsonl_events
+  GET  /api/data/events               → last 50 events from events.jsonl
 """
 import http.server
 import socketserver
@@ -38,8 +43,8 @@ HERE = Path(__file__).parent.resolve()
 PROJECT_ROOT = HERE.parent              # 01_projects/mission-control
 COMPANY_ROOT = PROJECT_ROOT.parent.parent  # ~/NofiTech-Ind
 START_TIME = time.time()
-VERSION = "1.8.0"
-COMMIT = "v1.8.0-live-data"  # v1.8.0 — Stage 12 Live Data (demo hidden by default, strict log levels)
+VERSION = "1.9.0"
+COMMIT = "v1.9.0-stage14-wiring"  # v1.9.0 — Stage 14 auto task+event wiring
 
 # ---- 3-agent company (locked 2026-06-10, charter v3.0) ----
 AGENTS = ["thor", "forge", "argus"]
@@ -181,11 +186,17 @@ def data_overview():
             "reason": "no projects yet — 01_projects/ is empty",
         }
 
-    # 3. Active tasks count: tasks with status open|in-progress across all projects
+    # 3. Active tasks count: tasks with status in the active set across all
+    #    REAL projects (data_source=real). Stage 14 schema: assigned,
+    #    in_progress, verification. We also keep the legacy 'in-progress'
+    #    mapping for backward compatibility with any older real tasks.
     active = 0
     failed = 0
     blocked = 0
     total = 0
+    active_statuses = {"assigned", "in_progress", "in-progress", "verification", "triage"}
+    failed_statuses = {"failed"}
+    blocked_statuses = {"blocked"}
     tasks_dirs = list((COMPANY_ROOT / "01_projects").glob("*/tasks"))
     for td in tasks_dirs:
         for tf in td.glob("*.md"):
@@ -193,21 +204,28 @@ def data_overview():
             if not txt:
                 continue
             meta, _ = parse_frontmatter(txt)
+            # Stage 14: only count REAL tasks toward active/failed/blocked.
+            # Demo tasks (data_source: local-demo) are excluded from these
+            # top-level counters — they were authored for the Stage 6 demo
+            # and the Stage 12 lock hides them from the main dashboard.
+            ds = (meta.get("data_source") or "").strip().lower()
+            if ds != "real":
+                continue
             total += 1
             st = (meta.get("status") or "").lower()
-            if st in ("open", "in-progress", "blocked"):
+            if st in active_statuses:
                 active += 1
-            if st == "failed":
+            if st in failed_statuses:
                 failed += 1
-            if st == "blocked":
+            if st in blocked_statuses:
                 blocked += 1
     out["active_tasks"] = {
         "value": active if total else None,
-        "reason": None if total else "no tasks yet",
+        "reason": None if total else "no real tasks yet",
     }
     out["failed_tasks"] = {
         "value": failed if total else None,
-        "reason": None if total else "no tasks yet",
+        "reason": None if total else "no real tasks yet",
     }
 
     # 3b. Warnings: count tasks with status=blocked (UI badge uses WARN color)
@@ -366,9 +384,13 @@ def data_tasks(include_demo=False):
     Pass include_demo=True to also include local-demo tasks.
     A task is "demo" if its frontmatter has data_source: local-demo.
     Stage 12: live-data dashboard — demo is opt-in via ?include=demo.
+    Stage 14: returns the full 14-field schema for real tasks; legacy
+    Stage 6 demo tasks get a 'description' / 'evidence' / 'argus_result'
+    passthrough so they still render the same way as before.
     """
     rows = []
-    for td in (COMPANY_ROOT / "01_projects").glob("*/tasks"):
+    tasks_dirs = sorted((COMPANY_ROOT / "01_projects").glob("*/tasks"))
+    for td in tasks_dirs:
         for tf in td.glob("*.md"):
             txt = safe_read(tf)
             if not txt:
@@ -377,23 +399,53 @@ def data_tasks(include_demo=False):
             ds = (meta.get("data_source") or "").strip()
             if ds == "local-demo" and not include_demo:
                 continue  # hide demo from main dashboard (Stage 12)
-            rows.append({
-                "id": meta.get("id") or tf.stem,
-                "title": meta.get("title") or tf.stem,
-                "project": meta.get("project") or td.parent.name,
-                "agent": meta.get("agent") or "—",
-                "status": meta.get("status") or "open",
-                "priority": meta.get("priority") or "P2",
-                "created": meta.get("created") or "—",
-                "updated": meta.get("updated") or "—",
-                "description": meta.get("description") or "",
-                "evidence": meta.get("evidence") or "none",
-                "blockers": meta.get("blockers") or "",
-                "argus_result": meta.get("argus_result") or "pending",
-                "data_source": meta.get("data_source") or "",
-                "path": str(tf.relative_to(COMPANY_ROOT)),
-            })
-    rows.sort(key=lambda r: r.get("updated") or "", reverse=True)
+
+            is_real = ds == "real"
+            if is_real:
+                # Stage 14 schema — 14 fields. Use '—' for missing values
+                # so the UI never renders an empty cell.
+                def _or_dash(v):
+                    return v if (v is not None and str(v).strip() not in ("", "none")) else "—"
+                rows.append({
+                    "id": meta.get("id") or tf.stem,
+                    "title": meta.get("title") or tf.stem,
+                    "project": meta.get("project") or td.parent.name,
+                    "created_by": _or_dash(meta.get("created_by") or meta.get("agent")),
+                    "assigned_to": _or_dash(meta.get("assigned_to") or meta.get("agent")),
+                    "status": (meta.get("status") or "triage").lower(),
+                    "priority": (meta.get("priority") or "normal").lower(),
+                    "created": _or_dash(meta.get("created_at") or meta.get("created")),
+                    "updated": _or_dash(meta.get("updated_at") or meta.get("updated")),
+                    "created_at": _or_dash(meta.get("created_at")),
+                    "updated_at": _or_dash(meta.get("updated_at")),
+                    "current_stage": _or_dash(meta.get("current_stage")),
+                    "blocker": _or_dash(meta.get("blocker") or meta.get("blockers")),
+                    "description": meta.get("description") or "",
+                    "acceptance": meta.get("acceptance") or "",
+                    "evidence": meta.get("evidence") or "none",
+                    "argus_result": meta.get("argus_result") or "pending",
+                    "data_source": "real",
+                    "path": str(tf.relative_to(COMPANY_ROOT)),
+                })
+            else:
+                # Legacy / demo shape — keep the old render path intact.
+                rows.append({
+                    "id": meta.get("id") or tf.stem,
+                    "title": meta.get("title") or tf.stem,
+                    "project": meta.get("project") or td.parent.name,
+                    "agent": meta.get("agent") or "—",
+                    "status": meta.get("status") or "open",
+                    "priority": meta.get("priority") or "P2",
+                    "created": meta.get("created") or "—",
+                    "updated": meta.get("updated") or "—",
+                    "description": meta.get("description") or "",
+                    "evidence": meta.get("evidence") or "none",
+                    "blockers": meta.get("blockers") or "",
+                    "argus_result": meta.get("argus_result") or "pending",
+                    "data_source": meta.get("data_source") or "",
+                    "path": str(tf.relative_to(COMPANY_ROOT)),
+                })
+    rows.sort(key=lambda r: r.get("updated") or r.get("updated_at") or "", reverse=True)
     sources = set()
     for r in rows:
         if r.get("data_source"):
@@ -404,6 +456,45 @@ def data_tasks(include_demo=False):
         "data_sources": sorted(sources) if sources else [],
         "include_demo": include_demo,
         "reason": None if rows else "No real tasks yet.",
+    }
+
+
+# ---------- events.jsonl (Stage 14) ----------
+
+def _read_events_tail(limit: int = 50):
+    """Read the last `limit` lines of events.jsonl as parsed dicts.
+    Returns ([], 'No events yet.') if the file is missing or empty.
+    Tolerates malformed lines (skips them)."""
+    p = COMPANY_ROOT / "00_company_os" / "events.jsonl"
+    if not p.is_file() or p.stat().st_size == 0:
+        return [], "No events yet."
+    out = []
+    try:
+        with p.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    out.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+    except Exception:
+        return out, None
+    if not out:
+        return [], "No events yet."
+    # Keep last `limit`, most recent first
+    return out[-limit:][::-1], None
+
+
+def data_events(limit: int = 50):
+    """Public wrapper for /api/data/events."""
+    events, reason = _read_events_tail(limit=limit)
+    return {
+        "events": events,
+        "count": len(events),
+        "limit": limit,
+        "reason": reason,
     }
 
 
@@ -657,6 +748,13 @@ def data_logs():
     events.sort(key=lambda e: e["ts"], reverse=True)
     events = events[:20]
 
+    # Stage 14: merge events.jsonl into the Logs/Health panel. The last 20
+    # entries from 00_company_os/events.jsonl surface alongside the log-file
+    # events so the user sees the full activity stream in one place.
+    jsonl_events, jsonl_reason = _read_events_tail(limit=20)
+    # jsonl_events is already most-recent-first; UI sorts by ts desc which
+    # is the same direction, so we just pass it through.
+
     # App health: derived from errors count
     if errors > 0:
         app_health = "degraded"
@@ -686,6 +784,10 @@ def data_logs():
         "last_verification_rel": rel_time(last_verification) if last_verification else "—",
         "last_verification_source": last_verification_source,
         "env": _env_status(),
+        # Stage 14: events.jsonl surface area
+        "jsonl_events": jsonl_events,
+        "jsonl_count": len(jsonl_events),
+        "jsonl_reason": jsonl_reason,
     }
 
 
@@ -770,6 +872,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self._json(data_provider())
             if path == "/api/data/logs":
                 return self._json(data_logs())
+            if path == "/api/data/events":
+                # Stage 14: serve the last 50 events from events.jsonl
+                qs_e = urllib.parse.parse_qs(p.query)
+                try:
+                    limit = int((qs_e.get("limit", [50])[0] or "50"))
+                except (TypeError, ValueError):
+                    limit = 50
+                limit = max(1, min(limit, 200))
+                return self._json(data_events(limit=limit))
 
             return self._json({"error": "not found", "path": path}, 404)
 
