@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 """
-NofiTech Mission Control v1.7.0 (Logs/Health panel)
+NofiTech Mission Control v1.8.0 (Live Data)
 Local-only dashboard for NOFI. 3-agent company. 6 sections.
 Stage 9: Logs/Health panel with 7 fields (events, errors, warnings, app/api health, last verification, env status).
+Stage 11: stabilization — task filter (demo/real), auto-detect LAN IP, LAN warning banner.
+Stage 12: live data only — demo tasks hidden by default (?include=demo opt-in),
+          strict log level detection (explicit `level:` only, no body inference),
+          real projects only, "Last refreshed" timestamp, v1.8.0 bump.
 
 Endpoints:
   GET  /                              → static HTML
   GET  /mission-control.html          → static HTML (alt)
   GET  /api/health                    → {status, version, uptime_sec}
-  GET  /api/version                   → {version, commit, uptime_sec, started_at}
+  GET  /api/version                   → {version, commit, uptime_sec, started_at, lan_ip, port}
   GET  /api/data/overview             → 6 fields, real or null+reason
   GET  /api/data/agents               → 3 rows: thor, forge, argus
-  GET  /api/data/tasks                → 0+ rows from 01_projects/*/tasks/*.md
+  GET  /api/data/tasks                → real tasks by default; ?include=demo to also show demo
   GET  /api/data/projects             → 0+ rows from 01_projects/*/status.md
   GET  /api/data/provider             → 2 rows: free, paid
   GET  /api/data/logs                 → events + health + env (no secret values)
@@ -24,18 +28,18 @@ import re
 import time
 import urllib.parse
 import glob
+import socket
 from pathlib import Path
 from datetime import datetime, timezone
 
 PORT = 8767
 HOST = "0.0.0.0"  # v1.3.0 — full LAN access (reversed Stage-1 'local only' lock per NOFI directive)
-HOST_IP = "192.168.0.29"  # NOFI's local network IP, for banner display only
 HERE = Path(__file__).parent.resolve()
 PROJECT_ROOT = HERE.parent              # 01_projects/mission-control
 COMPANY_ROOT = PROJECT_ROOT.parent.parent  # ~/NofiTech-Ind
 START_TIME = time.time()
-VERSION = "1.7.0"
-COMMIT = "v1.7.0-logs-health-panel"  # v1.7.0 — Stage 9 Logs/Health panel (7 fields, real level detection, env status w/o values)
+VERSION = "1.8.0"
+COMMIT = "v1.8.0-live-data"  # v1.8.0 — Stage 12 Live Data (demo hidden by default, strict log levels)
 
 # ---- 3-agent company (locked 2026-06-10, charter v3.0) ----
 AGENTS = ["thor", "forge", "argus"]
@@ -48,6 +52,29 @@ AGENT_META = {
 
 
 # ---------- helpers ----------
+
+def _detect_lan_ip():
+    """Detect primary outbound LAN IP via UDP-socket trick.
+    Opens a UDP socket, 'connects' to 8.8.8.8:80 (no packet sent), reads
+    the local endpoint the OS assigned, closes. Falls back to 127.0.0.1.
+    Returns (ip, ok) tuple so callers can show a banner on failure."""
+    s = None
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(0.3)
+        s.connect(("8.8.8.8", 80))
+        return s.getsockname()[0], True
+    except Exception:
+        return "127.0.0.1", False
+    finally:
+        if s:
+            try: s.close()
+            except Exception: pass
+
+
+# Detect once at import time so the value is stable across requests
+HOST_IP, _LAN_IP_OK = _detect_lan_ip()
+
 
 def safe_read(path, max_bytes=256 * 1024):
     try:
@@ -334,8 +361,12 @@ def data_agents():
     return {"agents": rows, "count": len(rows)}
 
 
-def data_tasks():
-    """All tasks across all projects."""
+def data_tasks(include_demo=False):
+    """All tasks across all projects. By default, EXCLUDES demo data.
+    Pass include_demo=True to also include local-demo tasks.
+    A task is "demo" if its frontmatter has data_source: local-demo.
+    Stage 12: live-data dashboard — demo is opt-in via ?include=demo.
+    """
     rows = []
     for td in (COMPANY_ROOT / "01_projects").glob("*/tasks"):
         for tf in td.glob("*.md"):
@@ -343,6 +374,9 @@ def data_tasks():
             if not txt:
                 continue
             meta, body = parse_frontmatter(txt)
+            ds = (meta.get("data_source") or "").strip()
+            if ds == "local-demo" and not include_demo:
+                continue  # hide demo from main dashboard (Stage 12)
             rows.append({
                 "id": meta.get("id") or tf.stem,
                 "title": meta.get("title") or tf.stem,
@@ -368,7 +402,8 @@ def data_tasks():
         "tasks": rows,
         "count": len(rows),
         "data_sources": sorted(sources) if sources else [],
-        "reason": None if rows else "no tasks yet — Thor hasn't opened one",
+        "include_demo": include_demo,
+        "reason": None if rows else "No real tasks yet.",
     }
 
 
@@ -594,18 +629,12 @@ def data_logs():
                 continue
             meta, body = parse_frontmatter(txt)
 
-            # Real level detection
-            level = (meta.get("level") or "").lower()
-            if not level:
-                # Infer from filename and body
-                fname = f.stem.lower()
-                body_low = (body or "")[:500].lower()
-                if any(k in fname for k in ["error", "fail"]) or any(k in body_low for k in ["error:", "failed", "exception", "traceback"]):
-                    level = "error"
-                elif any(k in fname for k in ["warn"]) or "warn:" in body_low or "warning" in body_low:
-                    level = "warn"
-                else:
-                    level = "info"
+            # Strict level detection (Stage 12) — ONLY explicit `level:` in frontmatter.
+            # No body-inference, no filename-inference. If a log has no `level:` field,
+            # it is treated as `info`. This is the rule visible to the user.
+            level = (meta.get("level") or "").strip().lower()
+            if level not in ("error", "warn", "info"):
+                level = "info"  # default to info, not error
             if level == "error":
                 errors += 1
             elif level == "warn":
@@ -697,6 +726,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         try:
             p = urllib.parse.urlparse(self.path)
             path = p.path
+            qs = urllib.parse.parse_qs(p.query)
 
             if path in ("/", "/mission-control.html", "/index.html"):
                 return self._static("mission-control.html")
@@ -714,6 +744,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     "commit": COMMIT,
                     "uptime_sec": int(time.time() - START_TIME),
                     "started_at": datetime.fromtimestamp(START_TIME, tz=timezone.utc).isoformat(),
+                    "lan_ip": HOST_IP,
+                    "lan_ip_auto": _LAN_IP_OK,
+                    "port": PORT,
                 })
 
             if path == "/api/data/overview":
@@ -721,7 +754,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if path == "/api/data/agents":
                 return self._json(data_agents())
             if path == "/api/data/tasks":
-                return self._json(data_tasks())
+                # Stage 12: demo hidden by default. Use ?include=demo to opt in.
+                # Backward compat: legacy ?filter=demo|real still respected.
+                qs_p = urllib.parse.parse_qs(p.query)
+                include_demo = "demo" in qs_p.get("include", [])
+                _legacy = (qs_p.get("filter", [None])[0] or "").strip().lower()
+                if _legacy == "demo":
+                    include_demo = True
+                elif _legacy == "real":
+                    include_demo = False  # explicit real → keep demo hidden
+                return self._json(data_tasks(include_demo=include_demo))
             if path == "/api/data/projects":
                 return self._json(data_projects())
             if path == "/api/data/provider":
@@ -741,10 +783,11 @@ class ReuseTCPServer(socketserver.TCPServer):
 
 def main():
     os.chdir(HERE)
+    lan_note = "" if _LAN_IP_OK else " (auto-detect failed, using loopback)"
     print(f"NofiTech Mission Control {VERSION} ({COMMIT})")
     print(f"  project:  {PROJECT_ROOT}")
     print(f"  company:  {COMPANY_ROOT}")
-    print(f"  serving:  http://0.0.0.0:{PORT}/  (LAN access: http://{HOST_IP}:{PORT}/)")
+    print(f"  serving:  http://0.0.0.0:{PORT}/  (LAN access: http://{HOST_IP}:{PORT}/{lan_note})")
     with ReuseTCPServer((HOST, PORT), Handler) as httpd:
         httpd.serve_forever()
 

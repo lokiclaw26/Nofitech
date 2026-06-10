@@ -1,20 +1,20 @@
 {
   "schema": "nofitech-agent-state/v1",
-  "updated": "2026-06-10T23:55:00+00:00",
+  "updated": "2026-06-10T20:40:00+00:00",
   "agents": {
     "thor": {
       "status": "active",
-      "current_assignment": "Stage 5 — Agents panel (in progress)",
+      "current_assignment": "Stage 12 — Live data (in progress)",
       "blocker": ""
     },
     "forge": {
       "status": "active",
-      "current_assignment": "Stage 10 deployment readiness check (task stage-10-deployment-readiness-1781117000)",
+      "current_assignment": "Built Stage 12 live data (task stage-12-live-data-1781117200)",
       "blocker": ""
     },
     "argus": {
       "status": "active",
-      "current_assignment": "Led Stage 10 full QA (task stage-10-full-qa-1781117000)",
+      "current_assignment": "Verified Stage 11 stabilization (task argus-verify-stage-11-1781117100)",
       "blocker": ""
     }
   }

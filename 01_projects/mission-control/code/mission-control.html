@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NofiTech Mission Control v1.7 — Logs</title>
+<title>NofiTech Mission Control v1.8 — Live Data</title>
 <style>
   :root {
     --bg: #0e1116;
@@ -92,6 +92,29 @@
     font-size: 12px;
   }
   .demo-banner code { color: var(--amber); background: transparent; }
+  .lan-warning {
+    background: rgba(255, 165, 0, 0.08);
+    border: 1px solid var(--amber);
+    color: var(--amber);
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+    font-size: 12px;
+  }
+  .lan-warning strong { color: var(--amber); }
+  .filter-bar { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; font-size: 12px; flex-wrap: wrap; }
+  .filter-bar .muted { color: var(--text3); font-size: 11px; }
+  .filter-btn {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--text2);
+    padding: 3px 9px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+  }
+  .filter-btn:hover { color: var(--text); border-color: var(--text3); }
+  .filter-btn.active { color: var(--cyan); border-color: var(--cyan); }
   .agent-emoji { font-size: 14px; }
   .ts-iso { color: var(--text3); font-size: 10px; margin-left: 4px; opacity: 0.7; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: auto; }
@@ -127,10 +150,13 @@
 
 <header>
   <h1>🛡️ NofiTech Mission Control</h1>
-  <span class="pill" id="version-pill">v1.7.0 · logs</span>
+  <span class="pill" id="version-pill">v1.8.0 · live</span>
   <span class="spacer"></span>
   <button onclick="loadAll()">REFRESH</button>
+  <span class="muted" id="last-refreshed" style="font-size: 11px; margin-left: 8px">Last refreshed: never</span>
 </header>
+
+<div class="lan-warning" id="lan-warning">⚠ <strong>Local/LAN use only.</strong> This dashboard has no authentication in v1. Do not expose to the public internet. Intended for trusted networks (home/lab).</div>
 
 <section>
   <h2><span class="num">1.</span> Overview</h2>
@@ -163,8 +189,8 @@
 </section>
 
 <footer>
-  <span id="foot-version">v1.7.0 · logs</span>
-  <span id="foot-lan">LAN: http://192.168.0.29:8767/</span>
+  <span id="foot-version">v1.8.0 · live</span>
+  <span id="foot-lan">LAN: detecting…</span>
   <span id="foot-uptime">up —</span>
   <span id="foot-key">API key: not loaded</span>
   <span class="spacer" style="flex:1"></span>
@@ -181,6 +207,41 @@ async function fetchJSON(url) {
   const r = await fetch(url, { cache: "no-store" });
   if (!r.ok) throw new Error(`HTTP ${r.status} on ${url}`);
   return await r.json();
+}
+
+// --- Stage 12: task filter state — Real only is the default ---
+let _tasksFilter = 'real';
+let _tasksCounts = { all: 0, demo: 0, real: 0 };
+async function setTasksFilter(f) {
+  if (!['all','demo','real'].includes(f)) f = 'real';
+  _tasksFilter = f;
+  // Stage 12: 'real' = default (no query), 'all' = ?include=demo, 'demo' = ?include=demo&filter=demo
+  let url;
+  if (f === 'real') url = '/api/data/tasks';
+  else if (f === 'all') url = '/api/data/tasks?include=demo';
+  else url = '/api/data/tasks?include=demo&filter=demo';
+  try {
+    const d = await fetchJSON(url);
+    renderTasks(d);
+  } catch (e) {
+    renderTasks({ tasks: [], reason: 'fetch failed: ' + e.message });
+  }
+}
+async function refreshTasksCounts() {
+  try {
+    const [a, dm, rl] = await Promise.all([
+      fetchJSON('/api/data/tasks?include=demo'),         // all (was old "all" — now means with demo)
+      fetchJSON('/api/data/tasks?include=demo&filter=demo'),  // demo only (legacy filter)
+      fetchJSON('/api/data/tasks'),                       // real only (default)
+    ]);
+    _tasksCounts = { all: a.count || 0, demo: dm.count || 0, real: rl.count || 0 };
+  } catch (e) {
+    _tasksCounts = { all: 0, demo: 0, real: 0 };
+  }
+  const setLabel = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+  setLabel('tasks-filter-real', `Real only (${_tasksCounts.real})`);
+  setLabel('tasks-filter-all',  `All (${_tasksCounts.all})`);
+  setLabel('tasks-filter-demo', `Demo only (${_tasksCounts.demo})`);
 }
 
 function renderOverview(d) {
@@ -250,12 +311,12 @@ function renderAgents(d) {
     else if (a.status === "idle") cls = "amber";
     else if (a.status === "blocked") cls = "red";
     else cls = "gray";  // never-active
-    // current assignment — show "—" with tooltip if null
+    // current assignment — show "Idle" if null/empty (Stage 12)
     let caHtml;
-    if (a.current_assignment) {
+    if (a.current_assignment && String(a.current_assignment).trim()) {
       caHtml = esc(a.current_assignment);
     } else {
-      caHtml = `<span class="dash" title="${esc((a.reasons || []).join("; ") || "no current assignment")}">—</span>`;
+      caHtml = `<span class="dash" title="${esc((a.reasons || []).join("; ") || "no current assignment")}">Idle</span>`;
     }
     // blocker — red badge if present, "—" otherwise
     let blHtml;
@@ -287,7 +348,16 @@ function renderAgents(d) {
 
 function renderTasks(d) {
   if (!d.tasks || !d.tasks.length) {
-    $("#tasks").innerHTML = `<div class="empty">${esc(d.reason || "no tasks")}</div>`;
+    // Stage 12: default view is real-only; reason is set by server
+    const emptyText = d.reason || (_tasksFilter === 'demo' ? "No demo tasks." : "No real tasks yet.");
+    $("#tasks").innerHTML = `
+      <div class="filter-bar">
+        <span class="muted">View:</span>
+        <button id="tasks-filter-real" class="filter-btn ${_tasksFilter==='real'?'active':''}" onclick="setTasksFilter('real')">Real only (…)</button>
+        <button id="tasks-filter-all"  class="filter-btn ${_tasksFilter==='all'?'active':''}"  onclick="setTasksFilter('all')">All (…)</button>
+        <button id="tasks-filter-demo" class="filter-btn ${_tasksFilter==='demo'?'active':''}" onclick="setTasksFilter('demo')">Demo only (…)</button>
+      </div>
+      <div class="empty">${esc(emptyText)}</div>`;
     return;
   }
   const rows = d.tasks.map(t => {
@@ -311,14 +381,23 @@ function renderTasks(d) {
   const demoBanner = demoCount > 0
     ? `<div class="demo-banner">⚠ ${demoCount} task(s) shown are <strong>local/demo</strong> data — see frontmatter <code>data_source: local-demo</code>. Replace with real task files when the agent system produces them.</div>`
     : "";
-  $("#tasks").innerHTML = `${demoBanner}<table>
+  // Stage 12: reorder buttons so "Real only" (the default) is first/most prominent
+  const filterBar = `<div class="filter-bar">
+    <span class="muted">View:</span>
+    <button id="tasks-filter-real" class="filter-btn ${_tasksFilter==='real'?'active':''}" onclick="setTasksFilter('real')">Real only (…)</button>
+    <button id="tasks-filter-all"  class="filter-btn ${_tasksFilter==='all'?'active':''}"  onclick="setTasksFilter('all')">All (…)</button>
+    <button id="tasks-filter-demo" class="filter-btn ${_tasksFilter==='demo'?'active':''}" onclick="setTasksFilter('demo')">Demo only (…)</button>
+    <span class="muted" style="margin-left:8px">${esc(d.include_demo ? "showing all (demo included)" : "real only — demo hidden")}</span>
+  </div>`;
+  $("#tasks").innerHTML = `${filterBar}${demoBanner}<table>
     <thead><tr><th>ID</th><th>Title</th><th>Agent</th><th>Status</th><th>Priority</th><th>Blocked reason</th><th>Updated</th><th>Evidence</th></tr></thead>
     <tbody>${rows}</tbody></table>`;
 }
 
 function renderProjects(d) {
   if (!d.projects || !d.projects.length) {
-    $("#projects").innerHTML = `<div class="empty">${esc(d.reason || "no projects")}</div>`;
+    // Stage 12: NOFI-mandated exact wording
+    $("#projects").innerHTML = `<div class="empty">No active project found.</div>`;
     return;
   }
   // Demo banner — flags clearly when projects are local/demo
@@ -432,7 +511,10 @@ function renderLogs(d) {
   `;
 
   if (!d.events || !d.events.length) {
-    $("#logs").innerHTML = summary + `<div class="empty">${esc(d.reason || "no events")}</div>`;
+    // Stage 12: NOFI-mandated exact wording when no events
+    const noEvents = (d.count === 0 && d.errors === 0 && d.warnings === 0);
+    const emptyText = noEvents ? "No logs available." : (d.reason || "No logs available.");
+    $("#logs").innerHTML = summary + `<div class="empty">${esc(emptyText)}</div>`;
     return;
   }
   const rows = d.events.map(e => {
@@ -484,6 +566,12 @@ async function loadAll() {
   renderProvider(results.provider || {});
   renderLogs(results.logs || {});
 
+  // Stage 11: fetch real task counts and update filter button labels
+  refreshTasksCounts().then(() => {
+    // Re-render tasks panel so button labels reflect real counts
+    if (results.tasks) renderTasks(results.tasks);
+  });
+
   // Footer
   try {
     const v = await fetchJSON("/api/version");
@@ -491,11 +579,27 @@ async function loadAll() {
     $("#foot-version").textContent = `v${v.version} · ${v.commit}`;
     const up = v.uptime_sec;
     $("#foot-uptime").textContent = `up ${up < 60 ? up + "s" : Math.floor(up/60) + "m"}`;
+    // Stage 11: footer LAN URL from /api/version (auto-detected, no hardcoding)
+    const lanEl = $("#foot-lan");
+    if (lanEl) {
+      const ip = v.lan_ip || "127.0.0.1";
+      const port = v.port || 8767;
+      const note = v.lan_ip_auto ? "" : " (auto-detect failed)";
+      lanEl.textContent = `LAN: http://${ip}:${port}/${note}`;
+    }
     if (results.provider?.providers) {
       const paid = results.provider.providers.find(p => p.slot === "paid");
       $("#foot-key").textContent = paid?.key_configured ? "API key: loaded" : "API key: not loaded";
     }
   } catch {}
+
+  // Stage 12: update "Last refreshed" timestamp
+  const lr = document.getElementById("last-refreshed");
+  if (lr) {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    lr.textContent = `Last refreshed: ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  }
 }
 
 loadAll();
