@@ -1,0 +1,19 @@
+# Secrets
+.env
+.config/nofitech/.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Mission Control runtime artifacts (any depth)
+**/code/logs/*.log
+**/code/logs/*.pid
+
+# OS / editor cruft
+.DS_Store
+*.swp
+*.swo
+.vscode/
+.idea/

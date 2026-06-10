@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NofiTech Mission Control v1.7 — Logs</title>
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #161b22;
+    --line: #30363d;
+    --text: #e6edf3;
+    --text2: #8b949e;
+    --text3: #6e7681;
+    --green: #3fb950;
+    --amber: #d29922;
+    --red:   #f85149;
+    --cyan:  #58a6ff;
+    --pink:  #f778ba;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  body { padding: 16px; max-width: 1000px; margin: 0 auto; }
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; border: 1px solid var(--line);
+    border-radius: 8px; background: var(--panel);
+    margin-bottom: 16px;
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  header .spacer { flex: 1; }
+  header button {
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 6px 12px; cursor: pointer; font-size: 12px;
+  }
+  header button:hover { border-color: var(--cyan); }
+  header .pill {
+    font-size: 11px; padding: 3px 8px; border-radius: 4px;
+    background: var(--bg); border: 1px solid var(--line); color: var(--text2);
+  }
+  section {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel);
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+  section > h2 {
+    font-size: 13px; font-weight: 600;
+    margin: 0; padding: 10px 14px;
+    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 8px;
+  }
+  section > h2 .num { color: var(--text3); font-weight: 400; }
+  section .body { padding: 12px 14px; }
+  dl { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; margin: 0; }
+  dt { color: var(--text2); font-size: 12px; }
+  dd { margin: 0; font-size: 13px; }
+  .muted { color: var(--text3); }
+  .badge {
+    display: inline-flex; align-items: center;
+    font-size: 12px;
+    padding: 2px 7px; border-radius: 4px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .badge .muted { background: transparent; border: none; padding: 0; }
+  .badge .ts { color: var(--text3); margin-left: 6px; font-size: 11px; }
+  .badge.green  { color: var(--green); border-color: var(--green); }
+  .badge.amber  { color: var(--amber); border-color: var(--amber); }
+  .badge.red    { color: var(--red);   border-color: var(--red); }
+  .badge.cyan   { color: var(--cyan);  border-color: var(--cyan); }
+  .badge.gray   { color: var(--text3); }
+  .dash { color: var(--text3); cursor: help; border-bottom: 1px dotted var(--text3); }
+  .demo-banner {
+    background: rgba(255, 165, 0, 0.1);
+    border: 1px solid var(--amber);
+    color: var(--amber);
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    font-size: 12px;
+  }
+  .demo-banner code { color: var(--amber); background: transparent; }
+  .agent-emoji { font-size: 14px; }
+  .ts-iso { color: var(--text3); font-size: 10px; margin-left: 4px; opacity: 0.7; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: auto; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; word-break: break-word; }
+  th { color: var(--text2); font-weight: 500; font-size: 11px; }
+  tr:last-child td { border-bottom: none; }
+  .empty {
+    color: var(--text3); font-style: italic; font-size: 12px;
+    padding: 8px 0;
+  }
+  .ts { color: var(--text3); font-size: 11px; }
+  footer {
+    margin-top: 16px; padding: 10px 14px;
+    border-top: 1px solid var(--line);
+    color: var(--text3); font-size: 11px;
+    display: flex; gap: 14px; flex-wrap: wrap;
+  }
+  footer code { color: var(--text2); }
+  @media (max-width: 600px) {
+    body { padding: 10px; }
+    dl { grid-template-columns: 110px 1fr; }
+    table { font-size: 11px; }
+    th, td { padding: 5px 4px; }
+    /* Agents table is now 6 columns — let text wrap on small screens */
+    #agents table { font-size: 10px; }
+    #agents th, #agents td { padding: 4px 3px; word-break: break-word; }
+    #agents .ts-iso { display: none; }  /* hide ISO on phone, keep only relative time */
+    #agents .agent-emoji { display: none; }  /* emoji eats space on phone */
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🛡️ NofiTech Mission Control</h1>
+  <span class="pill" id="version-pill">v1.7.0 · logs</span>
+  <span class="spacer"></span>
+  <button onclick="loadAll()">REFRESH</button>
+</header>
+
+<section>
+  <h2><span class="num">1.</span> Overview</h2>
+  <div class="body"><dl id="overview"></dl></div>
+</section>
+
+<section>
+  <h2><span class="num">2.</span> Agents</h2>
+  <div class="body"><div id="agents"></div></div>
+</section>
+
+<section>
+  <h2><span class="num">3.</span> Tasks</h2>
+  <div class="body"><div id="tasks"></div></div>
+</section>
+
+<section>
+  <h2><span class="num">4.</span> Projects</h2>
+  <div class="body"><div id="projects"></div></div>
+</section>
+
+<section>
+  <h2><span class="num">5.</span> Provider / Model</h2>
+  <div class="body"><div id="provider"></div></div>
+</section>
+
+<section>
+  <h2><span class="num">6.</span> Logs / Health</h2>
+  <div class="body"><div id="logs"></div></div>
+</section>
+
+<footer>
+  <span id="foot-version">v1.7.0 · logs</span>
+  <span id="foot-lan">LAN: http://192.168.0.29:8767/</span>
+  <span id="foot-uptime">up —</span>
+  <span id="foot-key">API key: not loaded</span>
+  <span class="spacer" style="flex:1"></span>
+  <span>local only · manual refresh · 3 agents</span>
+</footer>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "—").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+const dashOr = (v, reason) => v === null || v === undefined || v === "" ? `<span class="muted" title="${esc(reason || 'no source')}">—</span>` : esc(v);
+const badge = (label, cls) => `<span class="badge ${cls || 'gray'}">${esc(label)}</span>`;
+
+async function fetchJSON(url) {
+  const r = await fetch(url, { cache: "no-store" });
+  if (!r.ok) throw new Error(`HTTP ${r.status} on ${url}`);
+  return await r.json();
+}
+
+function renderOverview(d) {
+  // Each row: [label, valueHTML, badgeColor]. valueHTML is fully formed.
+  // Helper: render the value as a colored badge (so color + text together).
+  // The shell's `badge(label, cls)` expects (label, class) — pass (text, className).
+  const renderValue = (html, cls) => {
+    // html may be plain text (a number) or HTML (e.g. <span class="muted" title=…>—</span>).
+    // We want to put the value INSIDE the badge so color and text stay together.
+    return `<span class="badge ${cls || 'gray'}">${html}</span>`;
+  };
+  // Hermes status
+  const hermesHtml = d.hermes_status?.value
+    ? esc(d.hermes_status.value)
+    : `<span class="muted" title="${esc(d.hermes_status?.reason || 'no source')}">—</span>`;
+  const hermesCls = d.hermes_status?.value === "ok" ? "green"
+                  : d.hermes_status?.value === "unknown" ? "amber" : "red";
+  // Current project
+  const projHtml = d.current_project?.value
+    ? esc(d.current_project.value)
+    : `<span class="muted" title="${esc(d.current_project?.reason || 'no source')}">—</span>`;
+  const projCls = d.current_project?.value ? "cyan" : "gray";
+  // Active tasks
+  const at = d.active_tasks?.value;
+  const atHtml = at === null || at === undefined
+    ? `<span class="muted" title="${esc(d.active_tasks?.reason || 'no source')}">—</span>`
+    : esc(String(at));
+  const atCls = at > 0 ? "amber" : "gray";
+  // Failed tasks
+  const ft = d.failed_tasks?.value;
+  const ftHtml = ft === null || ft === undefined
+    ? `<span class="muted" title="${esc(d.failed_tasks?.reason || 'no source')}">—</span>`
+    : esc(String(ft));
+  const ftCls = ft > 0 ? "red" : "gray";
+  // Warnings (NEW in Stage 4)
+  const w = d.warnings?.value;
+  const wBreak = d.warnings?.breakdown;
+  const wTooltip = wBreak
+    ? `blocked tasks: ${wBreak.blocked_tasks}, log warns: ${wBreak.log_warns}`
+    : (d.warnings?.reason || "no source");
+  const wHtml = w === null || w === undefined
+    ? `<span class="muted" title="${esc(wTooltip)}">—</span>`
+    : esc(String(w));
+  const wCls = w > 0 ? "amber" : "gray";
+  // Last check
+  const lc = d.last_check;
+  const lcHtml = lc?.value
+    ? `${esc(lc.rel)}&nbsp;<span class="ts">${esc(lc.value)}</span>`
+    : `<span class="muted" title="${esc(lc?.reason || 'no source')}">—</span>`;
+
+  const row = (k, v, cls) => `<dt>${esc(k)}</dt><dd>${renderValue(v, cls)}</dd>`;
+  $("#overview").innerHTML = [
+    row("Hermes status",  hermesHtml, hermesCls),
+    row("Current project", projHtml,   projCls),
+    row("Active tasks",    atHtml,     atCls),
+    row("Failed tasks",    ftHtml,     ftCls),
+    row("Warnings",        wHtml,      wCls),
+    row("Last check",      lcHtml,     "gray"),
+  ].join("");
+}
+
+function renderAgents(d) {
+  if (!d.agents || !d.agents.length) { $("#agents").innerHTML = `<div class="empty">no agents</div>`; return; }
+  const rows = d.agents.map(a => {
+    let cls = "gray";
+    if (a.status === "active") cls = "green";
+    else if (a.status === "idle") cls = "amber";
+    else if (a.status === "blocked") cls = "red";
+    else cls = "gray";  // never-active
+    // current assignment — show "—" with tooltip if null
+    let caHtml;
+    if (a.current_assignment) {
+      caHtml = esc(a.current_assignment);
+    } else {
+      caHtml = `<span class="dash" title="${esc((a.reasons || []).join("; ") || "no current assignment")}">—</span>`;
+    }
+    // blocker — red badge if present, "—" otherwise
+    let blHtml;
+    if (a.blocker) {
+      blHtml = `<span class="badge red" title="${esc(a.blocker)}">${esc(a.blocker)}</span>`;
+    } else {
+      blHtml = `<span class="dash" title="no blocker">—</span>`;
+    }
+    // last activity
+    let laHtml;
+    if (a.last_activity_iso) {
+      laHtml = `<span class="ts">${esc(a.last_activity)} <span class="ts-iso">${esc(a.last_activity_iso)}</span></span>`;
+    } else {
+      laHtml = `<span class="dash" title="${esc((a.reasons || []).join("; ") || "no activity yet")}">—</span>`;
+    }
+    return `<tr>
+      <td><span class="agent-emoji">${esc(a.emoji)}</span> <strong>${esc(a.name)}</strong></td>
+      <td><span class="muted">${esc(a.role)}</span></td>
+      <td>${badge(a.status, cls)}</td>
+      <td>${caHtml}</td>
+      <td>${laHtml}</td>
+      <td>${blHtml}</td>
+    </tr>`;
+  }).join("");
+  $("#agents").innerHTML = `<table>
+    <thead><tr><th>Agent</th><th>Role</th><th>Status</th><th>Current assignment</th><th>Last activity</th><th>Blocker</th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+}
+
+function renderTasks(d) {
+  if (!d.tasks || !d.tasks.length) {
+    $("#tasks").innerHTML = `<div class="empty">${esc(d.reason || "no tasks")}</div>`;
+    return;
+  }
+  const rows = d.tasks.map(t => {
+    const stCls = t.status === "done" ? "green" : t.status === "failed" || t.status === "blocked" ? "red" : t.status === "in-progress" ? "amber" : "gray";
+    const prCls = t.priority === "P0" ? "red" : t.priority === "P1" ? "amber" : "gray";
+    const blockedHtml = (t.status === "blocked" && t.blockers)
+      ? `<span class="dash" title="${esc(t.blockers)}">${esc(t.blockers.length > 40 ? t.blockers.slice(0, 40) + "…" : t.blockers)}</span>`
+      : (t.status === "blocked" ? `<span class="dash" title="no blocker reason given">—</span>` : `<span class="muted">—</span>`);
+    return `<tr>
+      <td>${esc(t.id)}</td>
+      <td>${esc(t.title)}</td>
+      <td>${esc(t.agent)}</td>
+      <td>${badge(t.status, stCls)}</td>
+      <td>${badge(t.priority, prCls)}</td>
+      <td>${blockedHtml}</td>
+      <td><span class="ts">${esc(t.updated)}</span></td>
+      <td><span class="ts">${esc(t.evidence || "none")}</span></td>
+    </tr>`;
+  }).join("");
+  const demoCount = (d.tasks || []).filter(t => t.data_source === "local-demo").length;
+  const demoBanner = demoCount > 0
+    ? `<div class="demo-banner">⚠ ${demoCount} task(s) shown are <strong>local/demo</strong> data — see frontmatter <code>data_source: local-demo</code>. Replace with real task files when the agent system produces them.</div>`
+    : "";
+  $("#tasks").innerHTML = `${demoBanner}<table>
+    <thead><tr><th>ID</th><th>Title</th><th>Agent</th><th>Status</th><th>Priority</th><th>Blocked reason</th><th>Updated</th><th>Evidence</th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+}
+
+function renderProjects(d) {
+  if (!d.projects || !d.projects.length) {
+    $("#projects").innerHTML = `<div class="empty">${esc(d.reason || "no projects")}</div>`;
+    return;
+  }
+  // Demo banner — flags clearly when projects are local/demo
+  const demoCount = (d.projects || []).filter(p => p.data_source === "local-demo").length;
+  const demoBanner = demoCount > 0
+    ? `<div class="demo-banner">⚠ ${demoCount} project(s) shown are <strong>local/demo</strong> data — see frontmatter <code>data_source: local-demo</code>. Replace with real status.md when the project system produces them.</div>`
+    : "";
+  const rows = d.projects.map(p => {
+    const phaseCls = p.phase === "ship" ? "green" : p.phase === "verify" ? "cyan" : p.phase === "build" ? "amber" : p.phase === "killed" ? "red" : "gray";
+    const statusCls = p.status === "active" ? "green" : p.status === "paused" ? "amber" : p.status === "killed" ? "red" : "gray";
+    const blockerHtml = p.blocker
+      ? `<span class="dash" title="${esc(p.blocker)}">${esc(p.blocker.length > 40 ? p.blocker.slice(0, 40) + "…" : p.blocker)}</span>`
+      : `<span class="muted">—</span>`;
+    return `<tr>
+      <td><strong>${esc(p.name)}</strong></td>
+      <td>${badge(p.status, statusCls)}</td>
+      <td>${badge(p.phase, phaseCls)}</td>
+      <td>${esc(p.progress_pct)}</td>
+      <td>${esc(p.next_action)}</td>
+      <td>${blockerHtml}</td>
+      <td>${p.approval_needed ? badge("YES", "red") : badge("no", "gray")}</td>
+    </tr>`;
+  }).join("");
+  $("#projects").innerHTML = demoBanner + `<table>
+    <thead><tr><th>Project</th><th>Status</th><th>Phase</th><th>Progress</th><th>Next action</th><th>Blocker</th><th>Approval</th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+}
+
+function renderProvider(d) {
+  if (!d.providers || !d.providers.length) { $("#provider").innerHTML = `<div class="empty">no providers</div>`; return; }
+  const rows = d.providers.map(p => {
+    // Connection status badge: green=Connected (only if actually verified), amber=Unknown, red=Not connected/Unreachable/Not configured
+    const cs = p.connection_status || "Unknown";
+    const csCls = cs === "Connected" ? "green" : cs === "Unknown" ? "amber" : "red";
+    const csTitle = p.connection_detail ? ` title="${esc(p.connection_detail)}"` : "";
+    // Last ok
+    const lastOk = p.last_ok
+      ? `<span class="ts">${esc(relTime(p.last_ok.at))}</span><br><span class="muted" style="font-size:10px">${esc(p.last_ok.model)}</span>`
+      : `<span class="dash" title="never verified in current session">—</span>`;
+    // Last failed
+    const lastFail = p.last_fail
+      ? `<span class="ts">${esc(relTime(p.last_fail.at))}</span><br><span class="muted" style="font-size:10px">${esc(p.last_fail.source || "")}</span>`
+      : `<span class="dash" title="no failure recorded">—</span>`;
+    // Config badge (renamed from "Key" to "Config"; honest labels: port up/down for free, key set/no key for paid)
+    const cfgText = p.key_configured ? (p.slot === "free" ? "port up" : "key set") : (p.slot === "free" ? "port down" : "no key");
+    const cfgCls = p.key_configured ? "green" : "red";
+    return `<tr>
+      <td>${esc(p.slot)}</td>
+      <td>${esc(p.provider)}</td>
+      <td>${esc(p.model)}</td>
+      <td title="${esc(p.connection_detail || "")}">${badge(cs, csCls)}</td>
+      <td>${lastOk}</td>
+      <td>${lastFail}</td>
+      <td>${badge(cfgText, cfgCls)}</td>
+    </tr>`;
+  }).join("");
+  $("#provider").innerHTML = `<table>
+    <thead><tr><th>Slot</th><th>Provider</th><th>Model</th><th>Connection</th><th>Last ok</th><th>Last failed</th><th>Config</th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+}
+
+function renderLogs(d) {
+  // Build health summary block + events table. Stage 9 — 7 fields.
+  const appCls = d.app_health === "ok" ? "green" : d.app_health === "degraded" ? "amber" : "gray";
+  const apiCls = d.api_health === "ok" ? "green" : d.api_health === "degraded" ? "amber" : "gray";
+  const env = d.env || {};
+  const envKeys = Object.keys(env).filter(k => k !== "__env_file_present__");
+  const envHtml = envKeys.length === 0
+    ? `<span class="muted">no env vars tracked</span>`
+    : envKeys.map(k => {
+        const status = env[k];
+        const cls = status === "configured" ? "green" : status === "missing" ? "red" : "amber";
+        return `<div style="display:flex;gap:8px;align-items:center;margin:3px 0">
+          <span class="ts" style="min-width:240px">${esc(k)}</span>
+          ${badge(status, cls)}
+        </div>`;
+      }).join("");
+
+  const summary = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div>
+        <div class="muted" style="font-size:11px;margin-bottom:4px">App health</div>
+        ${badge(d.app_health || "unknown", appCls)}${d.app_health_reason ? `<span class="muted" style="font-size:11px;margin-left:6px">${esc(d.app_health_reason)}</span>` : ""}
+      </div>
+      <div>
+        <div class="muted" style="font-size:11px;margin-bottom:4px">API health</div>
+        ${badge(d.api_health || "unknown", apiCls)}${d.api_health_reason ? `<span class="muted" style="font-size:11px;margin-left:6px">${esc(d.api_health_reason)}</span>` : ""}
+      </div>
+      <div>
+        <div class="muted" style="font-size:11px;margin-bottom:4px">Errors</div>
+        ${badge(String(d.errors || 0), d.errors > 0 ? "red" : "gray")}
+      </div>
+      <div>
+        <div class="muted" style="font-size:11px;margin-bottom:4px">Warnings</div>
+        ${badge(String(d.warnings || 0), d.warnings > 0 ? "amber" : "gray")}
+      </div>
+      <div style="grid-column:1 / -1">
+        <div class="muted" style="font-size:11px;margin-bottom:4px">Last verification (Argus)</div>
+        ${d.last_verification
+          ? `<span class="ts">${esc(d.last_verification_rel)}</span> <span class="ts-iso">${esc(d.last_verification)}</span><br><span class="muted" style="font-size:10px">${esc(d.last_verification_source || "")}</span>`
+          : `<span class="dash" title="no Argus verification log found">—</span>`}
+      </div>
+      <div style="grid-column:1 / -1">
+        <div class="muted" style="font-size:11px;margin-bottom:4px">Environment</div>
+        ${envHtml}
+        ${env.__env_file_present__ === false
+          ? `<div class="muted" style="font-size:10px;margin-top:4px">.env file not present at .config/nofitech/.env</div>`
+          : ""}
+      </div>
+    </div>
+  `;
+
+  if (!d.events || !d.events.length) {
+    $("#logs").innerHTML = summary + `<div class="empty">${esc(d.reason || "no events")}</div>`;
+    return;
+  }
+  const rows = d.events.map(e => {
+    const cls = e.level === "error" ? "red" : e.level === "warn" ? "amber" : "gray";
+    return `<tr>
+      <td><span class="ts">${esc(e.rel)}</span></td>
+      <td>${badge(e.level, cls)}</td>
+      <td>${esc(e.title)}</td>
+      <td>${esc(e.officer || "—")}</td>
+      <td><span class="ts">${esc(e.source)}</span></td>
+    </tr>`;
+  }).join("");
+  $("#logs").innerHTML = summary + `<table>
+    <thead><tr><th>When</th><th>Level</th><th>Title</th><th>Officer</th><th>Source</th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+}
+
+function relTime(iso) {
+  if (!iso) return "—";
+  try {
+    const t = new Date(iso).getTime();
+    const diff = (Date.now() - t) / 1000;
+    if (diff < 60) return Math.floor(diff) + "s ago";
+    if (diff < 3600) return Math.floor(diff / 60) + "m ago";
+    if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
+    return Math.floor(diff / 86400) + "d ago";
+  } catch { return "—"; }
+}
+
+async function loadAll() {
+  const endpoints = [
+    ["overview", "/api/data/overview"],
+    ["agents",   "/api/data/agents"],
+    ["tasks",    "/api/data/tasks"],
+    ["projects", "/api/data/projects"],
+    ["provider", "/api/data/provider"],
+    ["logs",     "/api/data/logs"],
+  ];
+  const results = {};
+  await Promise.all(endpoints.map(async ([k, url]) => {
+    try { results[k] = await fetchJSON(url); }
+    catch (e) { results[k] = { error: e.message }; }
+  }));
+
+  renderOverview(results.overview || {});
+  renderAgents(results.agents || {});
+  renderTasks(results.tasks || {});
+  renderProjects(results.projects || {});
+  renderProvider(results.provider || {});
+  renderLogs(results.logs || {});
+
+  // Footer
+  try {
+    const v = await fetchJSON("/api/version");
+    $("#version-pill").textContent = `v${v.version} · ${v.commit}`;
+    $("#foot-version").textContent = `v${v.version} · ${v.commit}`;
+    const up = v.uptime_sec;
+    $("#foot-uptime").textContent = `up ${up < 60 ? up + "s" : Math.floor(up/60) + "m"}`;
+    if (results.provider?.providers) {
+      const paid = results.provider.providers.find(p => p.slot === "paid");
+      $("#foot-key").textContent = paid?.key_configured ? "API key: loaded" : "API key: not loaded";
+    }
+  } catch {}
+}
+
+loadAll();
+</script>
+
+</body>
+</html>
