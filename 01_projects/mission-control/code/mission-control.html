@@ -406,7 +406,7 @@ function renderProjects(d) {
     ? `<div class="demo-banner">⚠ ${demoCount} project(s) shown are <strong>local/demo</strong> data — see frontmatter <code>data_source: local-demo</code>. Replace with real status.md when the project system produces them.</div>`
     : "";
   const rows = d.projects.map(p => {
-    const phaseCls = p.phase === "ship" ? "green" : p.phase === "verify" ? "cyan" : p.phase === "build" ? "amber" : p.phase === "killed" ? "red" : "gray";
+    const phaseCls = (p.phase === "ship" || p.phase === "live") ? "green" : p.phase === "verify" ? "cyan" : p.phase === "build" ? "amber" : p.phase === "killed" ? "red" : "gray";
     const statusCls = p.status === "active" ? "green" : p.status === "paused" ? "amber" : p.status === "killed" ? "red" : "gray";
     const blockerHtml = p.blocker
       ? `<span class="dash" title="${esc(p.blocker)}">${esc(p.blocker.length > 40 ? p.blocker.slice(0, 40) + "…" : p.blocker)}</span>`
