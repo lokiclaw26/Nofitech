@@ -3,9 +3,9 @@ id: roguelike-v1
 title: Roguelike V1 — Dungeon Spark
 phase: build
 status: active
-progress_pct: 88%
+progress_pct: 100%
 approval_needed: true
-next_action: "Stage 8 — Restart (R key resets game to playing state from win/lose), AWAITING NOFI APPROVAL (Stage 7 complete and Argus-verified)"
+next_action: "Stage 9 — Final Playable QA Pass and v0.1 Prototype Checkpoint, AWAITING NOFI APPROVAL (Stage 8 complete and Argus-verified — prototype feature-complete)"
 blocker: ""
 data_source: real
 created: 2026-06-11
