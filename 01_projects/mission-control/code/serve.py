@@ -34,6 +34,7 @@ import time
 import urllib.parse
 import glob
 import socket
+import subprocess
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -43,8 +44,48 @@ HERE = Path(__file__).parent.resolve()
 PROJECT_ROOT = HERE.parent              # 01_projects/mission-control
 COMPANY_ROOT = PROJECT_ROOT.parent.parent  # ~/NofiTech-Ind
 START_TIME = time.time()
-VERSION = "1.9.0"
-COMMIT = "v1.9.0-stage14-wiring"  # v1.9.0 — Stage 14 auto task+event wiring
+
+# v1.10.0 — live version: read from git at request time (no restart needed).
+# Fallback to manual values if git is unavailable or this is a fresh checkout.
+FALLBACK_VERSION = "1.10.0"
+FALLBACK_COMMIT = "live"
+
+def _git(*args):
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(COMPANY_ROOT), *args],
+            capture_output=True, text=True, timeout=2
+        )
+        return out.stdout.strip() if out.returncode == 0 else ""
+    except Exception:
+        return ""
+
+def get_version():
+    """Read version + commit from git tags/HEAD at call time. Falls back to constants."""
+    # Prefer: latest annotated tag matching 'mission-control-v*'
+    tag = _git("describe", "--tags", "--abbrev=0", "--match", "mission-control-v*")
+    head_short = _git("rev-parse", "--short", "HEAD")
+    head_long = _git("rev-parse", "HEAD")
+    dirty = _git("status", "--porcelain")
+    branch = _git("rev-parse", "--abbrev-ref", "HEAD")
+    if tag:
+        # tag looks like "mission-control-v1.10.0-ui-ux" — strip prefix
+        ver = tag.replace("mission-control-", "")
+        commit = ver + (f"+{head_short}-dirty" if dirty else f" @ {head_short}")
+    elif head_short:
+        ver = FALLBACK_VERSION
+        commit = head_short + ("-dirty" if dirty else "")
+    else:
+        ver = FALLBACK_VERSION
+        commit = FALLBACK_COMMIT
+    return {
+        "version": ver,
+        "commit": commit,
+        "commit_full": head_long or None,
+        "branch": branch or None,
+        "dirty": bool(dirty),
+        "tag": tag or None,
+    }
 
 # ---- 3-agent company (locked 2026-06-10, charter v3.0) ----
 AGENTS = ["thor", "forge", "argus"]
@@ -834,16 +875,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self._static("mission-control.html")
 
             if path == "/api/health":
+                v = get_version()
                 return self._json({
                     "status": "ok",
-                    "version": VERSION,
+                    "version": v["version"],
+                    "commit": v["commit"],
                     "uptime_sec": int(time.time() - START_TIME),
                 })
 
             if path == "/api/version":
+                v = get_version()
                 return self._json({
-                    "version": VERSION,
-                    "commit": COMMIT,
+                    **v,
                     "uptime_sec": int(time.time() - START_TIME),
                     "started_at": datetime.fromtimestamp(START_TIME, tz=timezone.utc).isoformat(),
                     "lan_ip": HOST_IP,
@@ -895,7 +938,8 @@ class ReuseTCPServer(socketserver.TCPServer):
 def main():
     os.chdir(HERE)
     lan_note = "" if _LAN_IP_OK else " (auto-detect failed, using loopback)"
-    print(f"NofiTech Mission Control {VERSION} ({COMMIT})")
+    _v = get_version()
+    print(f"NofiTech Mission Control {_v['version']} ({_v['commit']})")
     print(f"  project:  {PROJECT_ROOT}")
     print(f"  company:  {COMPANY_ROOT}")
     print(f"  serving:  http://0.0.0.0:{PORT}/  (LAN access: http://{HOST_IP}:{PORT}/{lan_note})")
