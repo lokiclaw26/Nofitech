@@ -192,6 +192,53 @@
   .action-row.ok    { border-left-color: var(--green); }
   .action-row .icon { margin-right: 8px; }
 
+  /* ---------- Warnings panel (Stage 17) ---------- */
+  .warnings-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-left: 3px solid var(--text3);
+    font-size: 0.95em;
+  }
+  .warnings-row.warn  { border-left-color: var(--yellow); }
+  .warnings-row.error { border-left-color: var(--red); }
+  .warnings-row.ok    { border-left-color: var(--green); }
+  .warnings-row .meta {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .warnings-row .meta .title-line {
+    font-weight: 600;
+    margin-bottom: 2px;
+    word-break: break-word;
+  }
+  .warnings-row .meta .sub-line {
+    color: var(--text3);
+    font-size: 0.85em;
+    word-break: break-all;
+  }
+  .warnings-row .fix-btn {
+    flex: 0 0 auto;
+    padding: 5px 10px;
+    background: var(--bg1);
+    color: var(--text1);
+    border: 1px solid var(--yellow);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85em;
+    white-space: nowrap;
+  }
+  .warnings-row .fix-btn:hover {
+    background: var(--yellow);
+    color: var(--bg0);
+  }
+  .warnings-row .fix-btn.sent {
+    border-color: var(--green);
+    color: var(--green);
+    cursor: default;
+  }
+
   /* ---------- Badges (kept for tables) ---------- */
   .muted { color: var(--text3); }
   .badge {
@@ -373,16 +420,21 @@
   <div class="body"><div id="projects"></div></div>
 </section>
 
-<!-- ========== 5. Provider / Model ========== -->
-<section>
-  <h2><span class="num">6.</span> Provider / Model <span class="hint" id="provider-hint">…</span></h2>
-  <div class="body"><div id="provider"></div></div>
-</section>
+<!-- ========== 5. Provider / Model (REMOVED at Stage 17) ========== -->
+<!-- Panel removed per NOFI directive. The /api/data/provider endpoint is
+     still served (some hidden API consumer may rely on it), but the panel
+     itself is no longer rendered. No panel render call in loadAll(). -->
 
 <!-- ========== 6. Logs / Health ========== -->
 <section>
-  <h2><span class="num">7.</span> Logs / Health <span class="hint" id="logs-hint">…</span></h2>
+  <h2><span class="num">6.</span> Logs / Health <span class="hint" id="logs-hint">…</span></h2>
   <div class="body"><div id="logs"></div></div>
+</section>
+
+<!-- ========== 6b. Warnings (NEW at Stage 17) ========== -->
+<section>
+  <h2><span class="num">7.</span> Warnings <span class="hint" id="warnings-hint">…</span></h2>
+  <div class="body"><div id="warnings" class="action-panel"></div></div>
 </section>
 
 <footer>
@@ -752,38 +804,11 @@ function renderProjects(d) {
 }
 
 // ============================================================
-// 5. Provider
+// 5. Provider (REMOVED at Stage 17) — panel gone; endpoint still served
 // ============================================================
-function renderProvider(d) {
-  if (!d.providers || !d.providers.length) { $("#provider").innerHTML = `<div class="empty">no providers</div>`; return; }
-  const rows = d.providers.map(p => {
-    const cs = p.connection_status || "Unknown";
-    const csCls = cs === "Connected" ? "green" : cs === "Unknown" ? "amber" : "red";
-    const csTitle = p.connection_detail ? ` title="${esc(p.connection_detail)}"` : "";
-    const lastOk = p.last_ok
-      ? `<span class="ts">${esc(relTime(p.last_ok.at))}</span><br><span class="muted" style="font-size:10px">${esc(p.last_ok.model)}</span>`
-      : `<span class="dash" title="never verified in current session">—</span>`;
-    const lastFail = p.last_fail
-      ? `<span class="ts">${esc(relTime(p.last_fail.at))}</span><br><span class="muted" style="font-size:10px">${esc(p.last_fail.source || "")}</span>`
-      : `<span class="dash" title="no failure recorded">—</span>`;
-    const cfgText = p.key_configured ? (p.slot === "free" ? "port up" : "key set") : (p.slot === "free" ? "port down" : "no key");
-    const cfgCls = p.key_configured ? "green" : "red";
-    return `<tr>
-      <td>${esc(p.slot)}</td>
-      <td>${esc(p.provider)}</td>
-      <td>${esc(p.model)}</td>
-      <td title="${esc(p.connection_detail || "")}">${badge(cs, csCls)}</td>
-      <td>${lastOk}</td>
-      <td>${lastFail}</td>
-      <td>${badge(cfgText, cfgCls)}</td>
-    </tr>`;
-  }).join("");
-  $("#provider").innerHTML = `<table>
-    <thead><tr><th>Slot</th><th>Provider</th><th>Model</th><th>Connection</th><th>Last ok</th><th>Last failed</th><th>Config</th></tr></thead>
-    <tbody>${rows}</tbody></table>`;
-  const h = document.getElementById('provider-hint');
-  if (h) h.textContent = `${d.providers.length} provider(s)`;
-}
+// The dashboard no longer has a Provider/Model render function — the
+// panel was retired at Stage 17. data_provider() in serve.py is still
+// called by /api/data/provider for any hidden API consumer.
 
 // ============================================================
 // 6. Logs / Health — recent activity + details block
@@ -890,6 +915,115 @@ function renderLogs(d) {
 }
 
 // ============================================================
+// 6b. Warnings (NEW at Stage 17) — read from logs.events (warn/error)
+//     + overview.warnings.breakdown. Per-row "Send fix order to Thor"
+//     button POSTs /api/data/order with a small JSON body; server
+//     appends a system_event to events.jsonl.
+// ============================================================
+function renderWarnings(logs, overview) {
+  const hint = document.getElementById('warnings-hint');
+  // Pull warning-level events from the logs payload. Strict rule per
+  // Stage 12: only events with explicit level=warn|error surface here.
+  const rawEvents = (logs && Array.isArray(logs.events)) ? logs.events : [];
+  const warns = rawEvents.filter(e => e.level === "warn" || e.level === "error");
+  const breakdown = (overview && overview.warnings && overview.warnings.breakdown) || {};
+  const blockedTasks = breakdown.blocked_tasks || 0;
+  const logWarns = breakdown.log_warns || 0;
+
+  if (warns.length === 0 && blockedTasks === 0) {
+    $("#warnings").innerHTML =
+      `<div class="action-row ok"><span class="icon">✓</span> No active warnings — all systems nominal.</div>`;
+    if (hint) hint.textContent = `0 warn · ${logWarns} log / ${blockedTasks} task`;
+    return;
+  }
+
+  // Build rows. Each row gets a stable DOM id so the click handler can
+  // read back the warning's text/id from data-* attributes.
+  const rows = [];
+  for (const w of warns) {
+    const level = w.level === "error" ? "error" : "warn";
+    const title = w.title || w.message || "—";
+    const source = w.source || "";
+    const ts = w.ts || "";
+    const rel = w.rel || (ts ? relTime(ts) : "—");
+    // Stable warning_id: source + ts is unique per file. Fallback to a
+    // short random hex so multiple same-source warnings still differ.
+    const wid = (source || "src") + "::" + (ts || Date.now());
+    const titleLine = esc(title);
+    const subBits = [];
+    if (rel) subBits.push(esc(rel));
+    if (source) subBits.push(`<span class="ts">${esc(source)}</span>`);
+    if (ts) subBits.push(`<span class="ts-iso">${esc(ts)}</span>`);
+    rows.push(
+      `<div class="warnings-row ${level}" data-warning-id="${esc(wid)}" data-warning-text="${esc(title)}" data-warning-source="${esc(source)}" data-warning-ts="${esc(ts)}" data-warning-level="${esc(level)}">
+        <span class="meta">
+          <div class="title-line">${badge(level, level === "error" ? "red" : "amber")} ${titleLine}</div>
+          <div class="sub-line">${subBits.join(" · ")}</div>
+        </span>
+        <button class="fix-btn" onclick="sendFixOrder(this)">Send fix order to Thor</button>
+      </div>`
+    );
+  }
+
+  // If overview reports blocked tasks but no log warnings surfaced, add a
+  // synthetic row that lets NOFI trigger the same fix-order flow.
+  if (warns.length === 0 && blockedTasks > 0) {
+    const wid = "blocked::" + (overview && overview.last_check && overview.last_check.value || "now");
+    const titleText = `${blockedTasks} task(s) blocked — see Tasks panel`;
+    const ts = (overview && overview.last_check && overview.last_check.value) || "";
+    rows.push(
+      `<div class="warnings-row warn" data-warning-id="${esc(wid)}" data-warning-text="${esc(titleText)}" data-warning-source="00_company_os/data_overview" data-warning-ts="${esc(ts)}" data-warning-level="warn">
+        <span class="meta">
+          <div class="title-line">${badge("warn", "amber")} ${esc(titleText)}</div>
+          <div class="sub-line">${esc(ts ? relTime(ts) : "—")} · <span class="ts">00_company_os/data_overview</span></div>
+        </span>
+        <button class="fix-btn" onclick="sendFixOrder(this)">Send fix order to Thor</button>
+      </div>`
+    );
+  }
+
+  $("#warnings").innerHTML = rows.join("");
+  if (hint) hint.textContent = `${warns.length} log · ${blockedTasks} blocked`;
+}
+
+// Stage 17: send fix order to Thor. POSTs to /api/data/order. On 200,
+// the button briefly shows "✓ Order sent" then is disabled.
+async function sendFixOrder(btn) {
+  if (!btn || btn.dataset.sent === "1") return;
+  const row = btn.closest(".warnings-row");
+  if (!row) return;
+  const body = {
+    warning_id:   row.dataset.warningId   || "",
+    warning_text: row.dataset.warningText || "",
+    warning_source: row.dataset.warningSource || "",
+    warning_level:  row.dataset.warningLevel  || "warn",
+    ts: row.dataset.warningTs || new Date().toISOString(),
+  };
+  const origText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Sending…";
+  try {
+    const r = await fetch("/api/data/order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const j = await r.json().catch(() => ({}));
+    btn.dataset.sent = "1";
+    btn.classList.add("sent");
+    btn.textContent = "✓ Order sent";
+    // 2s feedback per spec
+    setTimeout(() => { btn.textContent = origText + " (sent)"; }, 2000);
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = "✗ failed — retry";
+    setTimeout(() => { btn.textContent = origText; }, 2000);
+  }
+}
+
+// ============================================================
 // Relative time
 // ============================================================
 function relTime(iso) {
@@ -952,6 +1086,9 @@ function updateHeaderPills(version, overview, logs) {
 // Main loader
 // ============================================================
 async function loadAll() {
+  // Stage 17: provider panel removed, but we still fetch /api/data/provider
+  // so the footer API-key pill (foot-key) keeps showing the correct state.
+  // No panel render function call — that function is gone.
   const endpoints = [
     ["overview", "/api/data/overview"],
     ["agents",   "/api/data/agents"],
@@ -977,8 +1114,9 @@ async function loadAll() {
   );
   renderTasks(results.tasks || {});
   renderProjects(results.projects || {});
-  renderProvider(results.provider || {});
   renderLogs(results.logs || {});
+  // Stage 17: new Warnings panel — needs logs (events) and overview (breakdown)
+  renderWarnings(results.logs || {}, results.overview || {});
 
   refreshTasksCounts().then(() => {
     if (results.tasks) renderTasks(results.tasks);

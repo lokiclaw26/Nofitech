@@ -1,16 +1,16 @@
 ---
 id: mission-control
 title: NofiTech Mission Control
-phase: verify
+phase: build
 status: active
 progress_pct: "100% code / audit in progress"
 approval_needed: false
-next_action: "Stage 15.2 data-source audit — backfilling real task files, then handing to Argus for full verification"
+next_action: "Stage 17 — Warnings panel + fix-order buttons + remove Provider/Model. Awaiting NOFI approval to start."
 blocker: ""
 data_source: real
 created: 2026-06-10
 updated: 2026-06-11
-version: 1.10.1-live-version
+version: 1.11.0-live-lan-ip
 charter: 01_projects/mission-control/charter.md
 tasks: 01_projects/mission-control/tasks/
 evidence: 00_company_os/04_agents/logs/2026-06-11/
@@ -21,17 +21,19 @@ evidence: 00_company_os/04_agents/logs/2026-06-11/
 Local-only dashboard for the 3-agent NofiTech Ind. (Thor / Forge / Argus).
 
 ## Current state
-- **v1.10.1-live-version — LIVE on LAN, version + commit rendered live**
+- **v1.11.0-live-lan-ip — LIVE on LAN, version + commit rendered live**
 - URL: http://127.0.0.1:8767/ (local) and http://192.168.0.29:8767/ (LAN)
-- 6 panels: Overview, Agents, Tasks, Projects, Provider, Logs/Health
+- 6 panels: Overview, Agents, Tasks, Projects, Logs/Health
+  (Provider/Model panel removed at Stage 17; provider data still served by
+  `/api/data/provider` for any hidden API consumer.)
 - 1 start script: `start-mc.sh` (idempotent, NO systemd, manual restart after reboot)
 - Server bound to 0.0.0.0:8767, no auth, no token usage, real data only
 - Demo data hidden from main view (`?include=demo` to opt-in)
-- **Stage 15.2 — in audit phase**: data sources and task surface being verified
-  end-to-end. Forge is backfilling the four task files (MC-013..MC-015-1) that
-  document work shipped since Stage 12, plus one new task for this stage
-  (MC-015-2-DATA-AUDIT). Once backfill lands, Argus runs a full data-source
-  audit and either passes or pushes back.
+- **Stage 17 — in build phase**: (1) project next_action now reflects
+  current reality, (2) Provider/Model panel removed from HTML, (3) new
+  Warnings panel with fix-order buttons (POST `/api/data/order` appends a
+  system_event to events.jsonl). After build lands, Argus runs a full
+  UI + endpoint audit and either passes or pushes back.
 
 ## Completed stages
 - Stage 1 — Discovery: archive audited
@@ -51,11 +53,15 @@ Local-only dashboard for the 3-agent NofiTech Ind. (Thor / Forge / Argus).
 - Stage 14 — Automatic task and event wiring (MC-014-AUTO-WIRING, complete)
 - Stage 15 — Mission Control UI/UX upgrade (MC-015-UI-UX, complete)
 - Stage 15.1 — Make version and commit live (MC-015-1-LIVE-VERSION, complete, v1.10.1-live-version)
-- Stage 15.2 — Full data-source audit and backfill (MC-015-2-DATA-AUDIT, in_progress)
+- Stage 15.2 — Full data-source audit and backfill (MC-015-2-DATA-AUDIT, complete, v1.10.2-audit)
+- Stage 16 — Live LAN IP detection (per-request with last-known-good fallback) (MC-016-LAN-IP-LIVE, complete, v1.11.0-live-lan-ip)
+- Stage 17 — Warnings panel + fix-order buttons + remove Provider/Model (MC-017-WARNINGS-FIX-UI, in_progress)
 
 ## Open
-- Stage 15.2 audit: verify all real tasks are visible, all events surface,
-  all state.json fields reflect current activity, no key leaks, demo data
-  still hidden by default.
+- Stage 17 build: Provider/Model panel gone, Warnings panel rendering
+  real warnings from `/api/data/logs` + `/api/data/overview` with
+  per-row "Send fix order to Thor" buttons that POST `/api/data/order`
+  and append a `system_event` to events.jsonl. After build lands, Argus
+  runs a full UI + endpoint audit and either passes or pushes back.
 - Future work tracked in `00_company_os/stage-12-plan.md` (3 workstreams:
   real project charter/plan, real LLM provider, autostart).

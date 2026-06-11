@@ -11,6 +11,9 @@ Stage 14: automatic task and event wiring — data_tasks() reads 14-field
           frontmatter for real tasks; data_overview() counts only real
           tasks; new /api/data/events endpoint serves events.jsonl;
           data_logs() merges events.jsonl into the Logs/Health panel.
+Stage 17: Provider/Model panel retired from the HTML; new Warnings panel
+          with fix-order buttons (POST /api/data/order). The /api/data/provider
+          endpoint is still served for any hidden API consumer.
 
 Endpoints:
   GET  /                              → static HTML
@@ -21,9 +24,10 @@ Endpoints:
   GET  /api/data/agents               → 3 rows: thor, forge, argus
   GET  /api/data/tasks                → real tasks by default; ?include=demo to also show demo
   GET  /api/data/projects             → 0+ rows from 01_projects/*/status.md
-  GET  /api/data/provider             → 2 rows: free, paid
+  GET  /api/data/provider             → 2 rows: free, paid  (panel retired; endpoint kept)
   GET  /api/data/logs                 → events + health + env + jsonl_events
   GET  /api/data/events               → last 50 events from events.jsonl
+  POST /api/data/order                → append a system_event to events.jsonl (Stage 17)
 """
 import http.server
 import socketserver
@@ -561,6 +565,53 @@ def data_events(limit: int = 50):
     }
 
 
+# ---------- Stage 17: append a single system_event to events.jsonl ----------
+
+def _append_fix_order_event(payload: dict) -> dict:
+    """Append one nofitech-event/v1 line to events.jsonl.
+
+    Schema fields (per 00_company_os/event-schema.md) are all populated.
+    event_type is locked to "system_event" (the catch-all in the 13-value
+    allow-list — there is no "nofi_approval_required" event_type, so we
+    use the closest valid one and surface the fix-order semantics in the
+    `message` field).
+
+    Returns a dict with ok / event_id / ts. The caller is responsible for
+    the HTTP response.
+    """
+    import uuid  # stdlib only; deferred import keeps the module top clean
+    warning_text = (payload.get("warning_text") or "").strip()
+    if not warning_text:
+        raise ValueError("warning_text is required")
+    warning_id   = (payload.get("warning_id")   or "").strip()
+    warning_src  = (payload.get("warning_source") or "").strip()
+    warning_lvl  = (payload.get("warning_level")  or "warn").strip().lower()
+    if warning_lvl not in ("warn", "error", "info"):
+        warning_lvl = "warn"
+    ts = datetime.now(timezone.utc).isoformat()
+    short = uuid.uuid4().hex[:8]
+    event_id = f"fix-order-{int(time.time())}-{short}"
+    line = {
+        "ts":          ts,
+        "actor":       "nofi",
+        "event_type":  "system_event",
+        "project":     "mission-control",
+        "task_id":     "",
+        "title":       f"FIX ORDER: {warning_text[:80]}",
+        "message":     f"FIX ORDER: {warning_text} — NOFI requests Thor address this. (warning_id={warning_id}, level={warning_lvl})",
+        "status":      "pending",
+        "source_file": warning_src or "00_company_os/events.jsonl",
+        "schema":      "nofitech-event/v1",
+    }
+    p = COMPANY_ROOT / "00_company_os" / "events.jsonl"
+    # Append in a single open() so concurrent writers can't interleave a
+    # half-line. No secrets are echoed; warning_text is a user-visible
+    # warning message, not a key.
+    with p.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(line, ensure_ascii=False) + "\n")
+    return {"ok": True, "event_id": event_id, "ts": ts}
+
+
 def data_projects():
     """All projects in 01_projects/."""
     rows = []
@@ -953,6 +1004,41 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self._json(data_events(limit=limit))
 
             return self._json({"error": "not found", "path": path}, 404)
+
+        except Exception as e:
+            return self._json({"error": "server error", "detail": str(e)}, 500)
+
+    def do_POST(self):
+        """Stage 17: POST /api/data/order — append a single system_event
+        to events.jsonl (nofitech-event/v1 schema). Open endpoint, no
+        auth, no secrets logged. 400 on bad JSON / missing warning_text,
+        200 on success with {ok, event_id, ts}.
+        """
+        try:
+            p = urllib.parse.urlparse(self.path)
+            if p.path != "/api/data/order":
+                return self._json({"error": "not found", "path": p.path}, 404)
+
+            # Read the body (Content-Length, capped to 16 KiB to be safe)
+            try:
+                length = int(self.headers.get("Content-Length") or "0")
+            except (TypeError, ValueError):
+                length = 0
+            if length <= 0 or length > 16 * 1024:
+                return self._json({"error": "missing or oversized body"}, 400)
+            raw = self.rfile.read(length)
+            try:
+                payload = json.loads(raw.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as e:
+                return self._json({"error": "invalid JSON", "detail": str(e)}, 400)
+            if not isinstance(payload, dict):
+                return self._json({"error": "body must be a JSON object"}, 400)
+
+            try:
+                result = _append_fix_order_event(payload)
+            except ValueError as e:
+                return self._json({"error": str(e)}, 400)
+            return self._json(result, 200)
 
         except Exception as e:
             return self._json({"error": "server error", "detail": str(e)}, 500)
