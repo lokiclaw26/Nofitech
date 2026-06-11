@@ -33,7 +33,7 @@
 </head>
 <body>
   <canvas id="game" width="640" height="480"></canvas>
-  <p class="caption">Dungeon Spark — Stage 3: player movement. WASD/Arrows to move. Walls block. Slime is static. No attack yet.</p>
+  <p class="caption">Dungeon Spark — Stage 4: slime AI. WASD/Arrows to move. Slime chases every 500ms. No attack yet.</p>
   <script>
     // Dungeon Spark — Stage 3: player movement.
     // Adds a keydown listener (WASD/Arrows) that calls movePlayer(dx, dy).
@@ -47,7 +47,7 @@
 
       // Game state (Stage 3): just positions + facing. No state machine yet.
       var player = { col: 2, row: 2, facing: 'right', hp: 5 };
-      var slime  = { col: 17, row: 12, hp: 3 }; // static for Stage 3
+      var slime  = { col: 17, row: 12, hp: 3 }; // mutable in Stage 4: slime AI moves it
 
       // Tile constants from design/technical-values.md
       var TILE   = 32;
@@ -83,7 +83,7 @@
           ctx.fillRect((COLS - 1) * TILE, r * TILE, TILE, TILE);  // col 19
         }
 
-        // 4. Slime (static) at (slime.col, slime.row)
+        // 4. Slime at (slime.col, slime.row) — moved by slimeTick() every 500ms
         ctx.fillStyle = 'rgb(180, 40, 180)';
         ctx.fillRect(slime.col * TILE, slime.row * TILE, TILE, TILE);
 
@@ -145,8 +145,42 @@
         // any other key: do not preventDefault, do not move
       });
 
+      // Stage 4: slime AI — greedy Manhattan chase.
+      // Returns true if (c, r) is interior floor AND not the player's tile.
+      // (Player tile is "free" in the sense of "slime cannot stand on it"
+      // for V1 — no contact damage yet.)
+      function inBoundsAndFree(c, r) {
+        if (c < COL_MIN || c > COL_MAX) return false; // wall: left/right edges
+        if (r < ROW_MIN || r > ROW_MAX) return false; // wall: top/bottom edges
+        if (c === player.col && r === player.row) return false; // player tile blocks
+        return true;
+      }
+
+      // Slime tick: pick a cardinal direction that reduces Manhattan distance
+      // to the player, 1 tile, walls + player tile block. NO damage.
+      function slimeTick() {
+        var dx = player.col - slime.col;
+        var dy = player.row - slime.row;
+        var candidates = [];
+        if (dx > 0 && inBoundsAndFree(slime.col + 1, slime.row)) candidates.push({dc: 1,  dr: 0,  dir: 'right'});
+        if (dx < 0 && inBoundsAndFree(slime.col - 1, slime.row)) candidates.push({dc: -1, dr: 0,  dir: 'left' });
+        if (dy > 0 && inBoundsAndFree(slime.col, slime.row + 1)) candidates.push({dc: 0,  dr: 1,  dir: 'down' });
+        if (dy < 0 && inBoundsAndFree(slime.col, slime.row - 1)) candidates.push({dc: 0,  dr: -1, dir: 'up'   });
+        if (candidates.length === 0) return; // blocked — slime waits this tick
+        // Tie-break: up(0) > right(1) > down(2) > left(3) per technical-values.md
+        var order = { up: 0, right: 1, down: 2, left: 3 };
+        candidates.sort(function (a, b) { return order[a.dir] - order[b.dir]; });
+        var pick = candidates[0];
+        slime.col += pick.dc;
+        slime.row += pick.dr;
+        render();
+      }
+
       // Initial draw
       render();
+
+      // Stage 4: start the slime AI — 500ms tick, 1 tile per tick, no damage.
+      setInterval(slimeTick, 500);
     })();
   </script>
 </body>
