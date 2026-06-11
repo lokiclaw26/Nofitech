@@ -1,23 +1,23 @@
 {
   "schema": "nofitech-agent-state/v1",
-  "updated": "2026-06-11T11:30:30+00:00",
+  "updated": "2026-06-11T11:42:42.269392+00:00",
   "agents": {
     "thor": {
-      "status": "active",
-      "current_assignment": "MC-015-2-DATA-AUDIT: orchestrating Forge + Argus",
-      "last_activity": "2026-06-11T11:30:30+00:00",
+      "status": "idle",
+      "current_assignment": "Awaiting Stage 16 kickoff (or next NOFI directive)",
+      "last_activity": "2026-06-11T11:42:42.269392+00:00",
       "blocker": ""
     },
     "forge": {
-      "status": "active",
-      "current_assignment": "MC-015-2-DATA-AUDIT: building real task backfill",
-      "last_activity": "2026-06-11T11:30:30+00:00",
+      "status": "idle",
+      "current_assignment": "Standing by for Stage 16 task assignment",
+      "last_activity": "2026-06-11T11:42:42.269392+00:00",
       "blocker": ""
     },
     "argus": {
-      "status": "active",
-      "current_assignment": "MC-015-2-DATA-AUDIT: pending verification",
-      "last_activity": "2026-06-11T11:30:30+00:00",
+      "status": "idle",
+      "current_assignment": "Standing by for Stage 16 verification",
+      "last_activity": "2026-06-11T11:42:42.269392+00:00",
       "blocker": ""
     }
   }

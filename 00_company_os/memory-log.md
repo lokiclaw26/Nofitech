@@ -463,3 +463,43 @@
   The dashboard is the live product; tests and verification
   happen against it, not at the expense of it.
 
+### 017. Hero mode is a data problem — locked rule (2026-06-11)
+- **Trigger:** NOFI saw the dashboard and the Projects panel
+  still showed "Stage 8 next" / "100% / live / awaiting next
+  NOFI directive" while the Tasks panel only showed the
+  Stage 14 test task. He was right: Stages 14, 15, and 15.1
+  had been shipped, committed, and tagged, but **no task
+  files had been written for them**. The dashboard was
+  correctly showing disk state — the disk had no records.
+- **The mistake:** I (Thor) wrote code, ran tests, made
+  commits, and wrote Argus reports — but never created the
+  task files. That is hero mode. I bypassed the protocol.
+- **The rule (LOCKED, memory entry 010):**
+  1. Before any code change for a new work item: **write the
+     task file first** at `01_projects/<project>/tasks/<id>.md`
+     with all 14 frontmatter fields per `task-schema.md`,
+     `data_source: real`, `status: assigned` (or in_progress).
+  2. Append `task_created` + `task_assigned` events to
+     `00_company_os/events.jsonl` (use `mc_event.py` or write
+     directly).
+  3. Update `00_company_os/04_agents/state.json` with the
+     agent's `current_assignment` and `last_activity` ISO ts.
+  4. **THEN** write the code.
+  5. During work: append `work_started` → `forge_reported` →
+     `argus_started` → `argus_passed` (or `argus_failed`).
+  6. On close: append `task_completed`, set task `status:
+     complete`, set `argus_result: pass` (or `fail`).
+- **Why:** Mission Control mirrors disk state. If a stage
+  is not visible in the dashboard, the task/event record
+  was not written — the dashboard is not broken, I am.
+  Argus caught this; NOFI caught it; the protocol exists;
+  there is no excuse to skip it.
+- **Stage 15.2 closure (2026-06-11 11:42 UTC):** All 5
+  backfilled task files now on disk. status.md updated.
+  events.jsonl 9 → 35. state.json shows all 3 agents idle
+  awaiting Stage 16. Task file MC-015-2-DATA-AUDIT closed
+  with `argus_result: pass`. Argus's 32,816-byte audit
+  report at `04_agents/logs/2026-06-11/argus-stage152-*.md`
+  confirms 49 LIVE / 39 COMPUTED / 14 acceptable CONSTANT
+  / 0 silently-stale fields.
+
