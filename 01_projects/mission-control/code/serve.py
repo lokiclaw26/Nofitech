@@ -666,12 +666,22 @@ def data_orders() -> dict:
     """Read events.jsonl and return all fix_order events with
     status in (pending, in_progress). Newest first.
 
+    Stage 20: also exclude any order_id that has ANY event
+    whose status is in (cancelled, resolved) — so cancellation
+    append-events (added by Forge/Thor) supersede the original
+    pending entry without modifying the original on disk.
+    Implemented as a two-pass scan: pass 1 collects superseded
+    order_ids; pass 2 emits the visible (pending/in_progress)
+    orders, skipping any whose order_id was superseded.
+
     Source: 00_company_os/events.jsonl (single source of truth).
     Open endpoint, no auth, no secrets logged. Tolerant of corrupt
     lines (skipped, never raises on bad JSON).
     """
     p = COMPANY_ROOT / "00_company_os" / "events.jsonl"
     orders = []
+    superseded_ids = set()  # order_ids that have a cancelled/resolved event
+    parsed_events = []      # all parsed fix_order events, for the second pass
     if p.exists():
         try:
             with p.open("r", encoding="utf-8") as f:
@@ -687,13 +697,26 @@ def data_orders() -> dict:
                         continue
                     if ev.get("event_type") != "fix_order":
                         continue
-                    if (ev.get("status") or "").strip().lower() not in ("pending", "in_progress"):
-                        continue
-                    ev["rel"] = rel_time(ev.get("ts") or "")
-                    ev["source"] = ev.get("source_file") or ""
-                    orders.append(ev)
+                    parsed_events.append(ev)
+                    ev_status = (ev.get("status") or "").strip().lower()
+                    ev_oid = ev.get("order_id")
+                    # Pass 1: any fix_order with status in
+                    # (cancelled, resolved) marks its order_id as superseded.
+                    if ev_oid and ev_status in ("cancelled", "resolved"):
+                        superseded_ids.add(ev_oid)
         except OSError:
             pass
+    # Pass 2: emit pending/in_progress orders, skipping superseded ones.
+    for ev in parsed_events:
+        ev_status = (ev.get("status") or "").strip().lower()
+        ev_oid = ev.get("order_id")
+        if ev_status not in ("pending", "in_progress"):
+            continue
+        if ev_oid and ev_oid in superseded_ids:
+            continue
+        ev["rel"] = rel_time(ev.get("ts") or "")
+        ev["source"] = ev.get("source_file") or ""
+        orders.append(ev)
     # Newest first; fall back to ts lexicographic (ISO sorts correctly).
     orders.sort(key=lambda r: r.get("ts") or "", reverse=True)
     return {
