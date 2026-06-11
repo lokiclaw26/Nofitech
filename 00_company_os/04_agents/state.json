@@ -1,23 +1,23 @@
 {
   "schema": "nofitech-agent-state/v1",
-  "updated": "2026-06-11T21:43:39.835416+00:00",
+  "updated": "2026-06-11T21:54:22.097361+00:00",
   "agents": {
     "thor": {
       "status": "idle",
-      "current_assignment": "Awaiting NOFI approval to begin Roguelike V1 Stage 9 (or next directive)",
-      "last_activity": "2026-06-11T21:43:39.835416+00:00",
+      "current_assignment": "V0.1 prototype complete. Awaiting NOFI decision: freeze v0.1 or plan v0.2",
+      "last_activity": "2026-06-11T21:54:22.097361+00:00",
       "blocker": ""
     },
     "forge": {
       "status": "idle",
-      "current_assignment": "Standing by (RGV1 Stage 8 complete - prototype feature-complete)",
-      "last_activity": "2026-06-11T21:43:39.835416+00:00",
+      "current_assignment": "Standing by (V0.1 prototype complete, no blocking bugs found)",
+      "last_activity": "2026-06-11T21:54:22.097361+00:00",
       "blocker": ""
     },
     "argus": {
       "status": "idle",
-      "current_assignment": "Standing by (RGV1 Stage 8 verified)",
-      "last_activity": "2026-06-11T21:43:39.835416+00:00",
+      "current_assignment": "Standing by (V0.1 prototype verified - 49/49 PASS)",
+      "last_activity": "2026-06-11T21:54:22.097361+00:00",
       "blocker": "",
       "last_assignment": "Standing by (RGV1 Stage 7 verified)"
     }
