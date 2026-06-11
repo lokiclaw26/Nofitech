@@ -27,7 +27,8 @@ Endpoints:
   GET  /api/data/provider             → 2 rows: free, paid  (panel retired; endpoint kept)
   GET  /api/data/logs                 → events + health + env + jsonl_events
   GET  /api/data/events               → last 50 events from events.jsonl
-  POST /api/data/order                → append a system_event to events.jsonl (Stage 17)
+  POST /api/data/order                → append a fix_order event to events.jsonl (Stage 17→19)
+  GET  /api/data/orders               → list pending/in_progress fix_order events (Stage 19)
 """
 import http.server
 import socketserver
@@ -39,6 +40,7 @@ import urllib.parse
 import glob
 import socket
 import subprocess
+import uuid
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -565,21 +567,40 @@ def data_events(limit: int = 50):
     }
 
 
-# ---------- Stage 17: append a single system_event to events.jsonl ----------
+# ---------- Stage 17→19: append a structured fix_order event to events.jsonl ----------
+
+def _build_recommended_fix(warning_text: str, warning_source: str) -> str:
+    """Heuristic that maps a warning context to a recommended fix string.
+
+    Stage 19: simple keyword-based triage. This is a SUGGESTION only — Thor
+    decides what to do in chat, gated by 'Thor, do it' or
+    'Thor, execute pending order <order_id>'. No auto-execution ever.
+    """
+    wt = (warning_text or "").lower()
+    src = (warning_source or "").lower()
+    if "warning" in wt and "test-" in src:
+        return f"delete the test fixture file at {warning_source or 'unknown'}"
+    if ("no key" in wt) or ("missing" in wt) or ("not configured" in wt):
+        return f"configure the missing dependency referenced in {warning_source or 'unknown'}"
+    return f"investigate and resolve the issue: {warning_text}"
+
 
 def _append_fix_order_event(payload: dict) -> dict:
-    """Append one nofitech-event/v1 line to events.jsonl.
+    """Append one nofitech-event/v1 fix_order line to events.jsonl.
 
-    Schema fields (per 00_company_os/event-schema.md) are all populated.
-    event_type is locked to "system_event" (the catch-all in the 13-value
-    allow-list — there is no "nofi_approval_required" event_type, so we
-    use the closest valid one and surface the fix-order semantics in the
-    `message` field).
+    Stage 19: event_type is now "fix_order" (an allowed value in
+    00_company_os/event-schema.md). The event carries structured order
+    fields (order_id, recommended_fix, requires_chat_confirmation,
+    requested_by, etc.) so /api/data/orders can list them and the
+    Pending Orders panel can render them.
 
-    Returns a dict with ok / event_id / ts. The caller is responsible for
-    the HTTP response.
+    The button only WRITES an order; it does NOT execute anything. Per
+    NOFI directive 2026-06-11, Thor acts only on chat confirmation.
+
+    Returns a dict with ok / event_id / ts / order_id / status /
+    requires_chat_confirmation / recommended_fix. The old (Stage 17)
+    `ok` and `event_id` keys are preserved for backward compatibility.
     """
-    import uuid  # stdlib only; deferred import keeps the module top clean
     warning_text = (payload.get("warning_text") or "").strip()
     if not warning_text:
         raise ValueError("warning_text is required")
@@ -589,19 +610,38 @@ def _append_fix_order_event(payload: dict) -> dict:
     if warning_lvl not in ("warn", "error", "info"):
         warning_lvl = "warn"
     ts = datetime.now(timezone.utc).isoformat()
+    order_id = f"order-{uuid.uuid4().hex[:8]}"
     short = uuid.uuid4().hex[:8]
     event_id = f"fix-order-{int(time.time())}-{short}"
+
+    recommended_fix = _build_recommended_fix(warning_text, warning_src)
+    title_text = warning_text[:80]
+    source_file = warning_src or "00_company_os/events.jsonl"
+
     line = {
-        "ts":          ts,
-        "actor":       "nofi",
-        "event_type":  "system_event",
-        "project":     "mission-control",
-        "task_id":     "",
-        "title":       f"FIX ORDER: {warning_text[:80]}",
-        "message":     f"FIX ORDER: {warning_text} — NOFI requests Thor address this. (warning_id={warning_id}, level={warning_lvl})",
+        "ts":            ts,
+        "actor":         "nofi",
+        "event_type":    "fix_order",
+        "project":       "mission-control",
+        "task_id":       "",
+        "title":         f"FIX ORDER: {title_text}",
+        "message": (
+            f"{recommended_fix}. "
+            f"(warning_id={warning_id}, level={warning_lvl}). "
+            f"Awaiting chat confirmation: 'Thor, do it' or "
+            f"'Thor, execute pending order {order_id}'. "
+            f"NO auto-execution per NOFI directive 2026-06-11."
+        ),
         "status":      "pending",
-        "source_file": warning_src or "00_company_os/events.jsonl",
+        "source_file": source_file,
         "schema":      "nofitech-event/v1",
+        "order_id":    order_id,
+        "recommended_fix": recommended_fix,
+        "requires_chat_confirmation": True,
+        "requested_by": "nofi",
+        "chat_confirmation_phrase": "Thor, do it",
+        "chat_confirmation_phrase_with_id": f"Thor, execute pending order {order_id}",
+        "execution_locked_reason": "NOFI directive 2026-06-11: no auto-fix from dashboard buttons",
     }
     p = COMPANY_ROOT / "00_company_os" / "events.jsonl"
     # Append in a single open() so concurrent writers can't interleave a
@@ -609,7 +649,76 @@ def _append_fix_order_event(payload: dict) -> dict:
     # warning message, not a key.
     with p.open("a", encoding="utf-8") as f:
         f.write(json.dumps(line, ensure_ascii=False) + "\n")
-    return {"ok": True, "event_id": event_id, "ts": ts}
+    return {
+        "ok": True,
+        "event_id": event_id,
+        "ts": ts,
+        "order_id": order_id,
+        "status": "pending",
+        "requires_chat_confirmation": True,
+        "recommended_fix": recommended_fix,
+    }
+
+
+# ---------- Stage 19: list pending/in_progress fix_order events ----------
+
+def data_orders() -> dict:
+    """Read events.jsonl and return all fix_order events with
+    status in (pending, in_progress). Newest first.
+
+    Source: 00_company_os/events.jsonl (single source of truth).
+    Open endpoint, no auth, no secrets logged. Tolerant of corrupt
+    lines (skipped, never raises on bad JSON).
+    """
+    p = COMPANY_ROOT / "00_company_os" / "events.jsonl"
+    orders = []
+    if p.exists():
+        try:
+            with p.open("r", encoding="utf-8") as f:
+                for line in f:
+                    s = line.strip()
+                    if not s:
+                        continue
+                    try:
+                        ev = json.loads(s)
+                    except json.JSONDecodeError:
+                        continue
+                    if not isinstance(ev, dict):
+                        continue
+                    if ev.get("event_type") != "fix_order":
+                        continue
+                    if (ev.get("status") or "").strip().lower() not in ("pending", "in_progress"):
+                        continue
+                    ev["rel"] = rel_time(ev.get("ts") or "")
+                    ev["source"] = ev.get("source_file") or ""
+                    orders.append(ev)
+        except OSError:
+            pass
+    # Newest first; fall back to ts lexicographic (ISO sorts correctly).
+    orders.sort(key=lambda r: r.get("ts") or "", reverse=True)
+    return {
+        "orders": orders,
+        "count": len(orders),
+        "reason": None if orders else "no pending orders",
+    }
+
+
+# ---------- Stage 19: mark_order_status() — NO-OP stub ----------
+# Intentionally NOT exposed via any HTTP endpoint in Stage 19.
+# This stub exists so future code (Stage 20+) can mark orders as
+# in_progress / resolved / cancelled without rewiring the call site.
+# The button does NOT call it. Per NOFI directive 2026-06-11, the
+# only way an order changes status is via chat confirmation.
+def mark_order_status(order_id: str, new_status: str, actor: str = "thor") -> dict:
+    """Stage 19 stub. Returns a sentinel; does NOT mutate events.jsonl."""
+    return {
+        "ok": False,
+        "noop": True,
+        "reason": "mark_order_status is a Stage 19 no-op stub; status changes require chat confirmation",
+        "order_id": order_id,
+        "new_status": new_status,
+        "actor": actor,
+    }
 
 
 def data_projects():
@@ -1026,6 +1135,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     limit = 50
                 limit = max(1, min(limit, 200))
                 return self._json(data_events(limit=limit))
+            if path == "/api/data/orders":
+                # Stage 19: list pending/in_progress fix_order events
+                return self._json(data_orders())
 
             return self._json({"error": "not found", "path": path}, 404)
 
@@ -1033,10 +1145,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._json({"error": "server error", "detail": str(e)}, 500)
 
     def do_POST(self):
-        """Stage 17: POST /api/data/order — append a single system_event
-        to events.jsonl (nofitech-event/v1 schema). Open endpoint, no
-        auth, no secrets logged. 400 on bad JSON / missing warning_text,
-        200 on success with {ok, event_id, ts}.
+        """Stage 17→19: POST /api/data/order — append a structured
+        fix_order event to events.jsonl (nofitech-event/v1 schema). Open
+        endpoint, no auth, no secrets logged. 400 on bad JSON / missing
+        warning_text, 200 on success with {ok, event_id, ts, order_id,
+        status, requires_chat_confirmation, recommended_fix}. The Stage 17
+        `ok` and `event_id` fields are preserved for backward compat.
         """
         try:
             p = urllib.parse.urlparse(self.path)

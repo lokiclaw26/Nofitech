@@ -239,6 +239,45 @@
     cursor: default;
   }
 
+  /* ---------- Pending Orders panel (Stage 19) ---------- */
+  .orders-banner {
+    margin: 0 0 10px 0;
+    padding: 8px 12px;
+    border: 1px solid var(--yellow);
+    border-left: 3px solid var(--yellow);
+    border-radius: 4px;
+    background: rgba(255, 193, 7, 0.06);
+    color: var(--yellow);
+    font-size: 0.85em;
+    line-height: 1.4;
+  }
+  .order-id {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85em;
+    color: var(--text2, var(--text3));
+    background: var(--bg1, transparent);
+    padding: 1px 6px;
+    border-radius: 3px;
+    border: 1px solid var(--line);
+  }
+  .warnings-row .status-pill {
+    flex: 0 0 auto;
+    font-size: 0.75em;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+    text-transform: lowercase;
+    letter-spacing: 0.02em;
+  }
+  .warnings-row .status-pill.pending    { background: rgba(255,193,7,0.15);  color: var(--yellow); border: 1px solid var(--yellow); }
+  .warnings-row .status-pill.in_progress { background: rgba(0,150,255,0.15);  color: var(--blue);   border: 1px solid var(--blue);   }
+  .warnings-row .requested-by {
+    flex: 0 0 auto;
+    color: var(--text3);
+    font-size: 0.8em;
+    font-style: italic;
+  }
+
   /* ---------- Badges (kept for tables) ---------- */
   .muted { color: var(--text3); }
   .badge {
@@ -435,6 +474,18 @@
 <section>
   <h2><span class="num">7.</span> Warnings <span class="hint" id="warnings-hint">…</span></h2>
   <div class="body"><div id="warnings" class="action-panel"></div></div>
+</section>
+
+<!-- ========== 8. Pending Orders (NEW at Stage 19) ========== -->
+<section>
+  <h2><span class="num">8.</span> Pending Orders <span class="hint" id="orders-hint">…</span></h2>
+  <div class="body">
+    <div id="orders-banner" class="orders-banner">
+      ⚠ Orders require chat confirmation: "Thor, do it" or
+      "Thor, execute pending order [id]". Buttons do NOT auto-execute.
+    </div>
+    <div id="orders" class="action-panel"></div>
+  </div>
 </section>
 
 <footer>
@@ -1018,6 +1069,62 @@ function _warningsRow(level, w, title) {
   );
 }
 
+// ============================================================
+// 8. Pending Orders — Stage 19
+//     Reads /api/data/orders (sourced from events.jsonl, filtered
+//     to event_type=fix_order with status in pending|in_progress).
+//     Reuses .warnings-row patterns. Each row shows: order_id (mono),
+//     relative timestamp, source warning text, recommended fix,
+//     status pill (amber pending / blue in_progress), and requested_by.
+//     Buttons do NOT exist in this panel — orders are only acted on
+//     via chat confirmation ('Thor, do it' or 'Thor, execute
+//     pending order [id]'). Per NOFI directive 2026-06-11.
+// ============================================================
+function renderOrders(d) {
+  const hint = document.getElementById('orders-hint');
+  const root = document.getElementById('orders');
+  if (!root) return;
+  const orders = Array.isArray(d.orders) ? d.orders : [];
+  if (hint) {
+    const n = orders.length;
+    hint.textContent = n === 0
+      ? '0 pending'
+      : `${n} pending · awaiting chat confirmation`;
+  }
+  if (orders.length === 0) {
+    root.innerHTML = `
+      <div class="warnings-row ok">
+        <span class="meta">
+          <div class="title-line">✓ No pending orders — waiting for NOFI input.</div>
+          <div class="sub-line">Use the Warnings panel above to send a new fix order, or paste a structured order in chat.</div>
+        </span>
+      </div>`;
+    return;
+  }
+  root.innerHTML = orders.map(o => {
+    const status = (o.status || 'pending').toLowerCase();
+    const pillCls = status === 'in_progress' ? 'in_progress' : 'pending';
+    const rel = o.rel || relTime(o.ts);
+    const source = o.source || o.source_file || '';
+    const recFix = o.recommended_fix || '—';
+    const requestedBy = o.requested_by || 'nofi';
+    const orderId = o.order_id || '—';
+    return `
+      <div class="warnings-row warn" data-order-id="${esc(orderId)}">
+        <span class="meta">
+          <div class="title-line">
+            <span class="order-id">${esc(orderId)}</span>
+            ${esc(o.title || 'FIX ORDER')}
+            <span class="status-pill ${pillCls}">${esc(status)}</span>
+          </div>
+          <div class="sub-line">${esc(rel)} · <span class="ts">${esc(source || '00_company_os/events.jsonl')}</span></div>
+          <div class="sub-line" style="margin-top:4px"><b>Recommended fix:</b> ${esc(recFix)}</div>
+        </span>
+        <span class="requested-by" title="Requested by">by ${esc(requestedBy)}</span>
+      </div>`;
+  }).join('');
+}
+
 // Stage 17: send fix order to Thor. POSTs to /api/data/order. On 200,
 // the button briefly shows "✓ Order sent" then is disabled.
 async function sendFixOrder(btn) {
@@ -1128,6 +1235,7 @@ async function loadAll() {
     ["projects", "/api/data/projects"],
     ["provider", "/api/data/provider"],
     ["logs",     "/api/data/logs"],
+    ["orders",   "/api/data/orders"],
   ];
   const results = {};
   await Promise.all(endpoints.map(async ([k, url]) => {
@@ -1149,6 +1257,8 @@ async function loadAll() {
   renderLogs(results.logs || {});
   // Stage 17: new Warnings panel — needs logs (events) and overview (breakdown)
   renderWarnings(results.logs || {}, results.overview || {});
+  // Stage 19: Pending Orders panel — reads /api/data/orders
+  renderOrders(results.orders || {});
 
   refreshTasksCounts().then(() => {
     if (results.tasks) renderTasks(results.tasks);

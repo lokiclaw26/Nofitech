@@ -1,23 +1,23 @@
 {
   "schema": "nofitech-agent-state/v1",
-  "updated": "2026-06-11T17:17:23.030123+00:00",
+  "updated": "2026-06-11T18:09:23.095285+00:00",
   "agents": {
     "thor": {
       "status": "idle",
-      "current_assignment": "Awaiting next NOFI directive",
-      "last_activity": "2026-06-11T17:17:23.030123+00:00",
+      "current_assignment": "Awaiting 'Thor, do it' from NOFI to execute pending orders (or next directive)",
+      "last_activity": "2026-06-11T18:09:23.095285+00:00",
       "blocker": ""
     },
     "forge": {
       "status": "idle",
       "current_assignment": "Standing by",
-      "last_activity": "2026-06-11T17:17:23.030123+00:00",
+      "last_activity": "2026-06-11T18:09:23.095285+00:00",
       "blocker": ""
     },
     "argus": {
       "status": "idle",
       "current_assignment": "Standing by",
-      "last_activity": "2026-06-11T17:17:23.030123+00:00",
+      "last_activity": "2026-06-11T18:09:23.095285+00:00",
       "blocker": ""
     }
   }
