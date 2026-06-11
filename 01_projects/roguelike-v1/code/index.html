@@ -55,6 +55,14 @@
       var attackFlash = { col: -1, row: -1, until: 0 };
       // Stage 6: red hit-flash on the player tile when slime deals contact damage
       var playerFlash = { col: -1, row: -1, until: 0 };
+      // Stage 7: game state machine. Allowed values: 'playing' | 'win' | 'lose'.
+      // 'win'  = slime.hp reached 0 (player won)
+      // 'lose' = player.hp reached 0 (player died)
+      // All four gameplay functions (movePlayer, playerAttack, slimeTick,
+      // applyContactDamage) early-return when state !== 'playing', so a
+      // 'win' or 'lose' state freezes the scene and the final overlay is
+      // the last thing the player sees. No restart yet — that's Stage 8.
+      var state = 'playing';
 
       // Tile constants from design/technical-values.md
       var TILE   = 32;
@@ -127,17 +135,50 @@
         // 8. HUD — Slime HP (top-right)
         ctx.fillText('Slime HP: ' + slime.hp, W - 130, 8);
 
+        // 8b. Stage 7: state indicator (top-center). Color-coded:
+        //      white = playing, lime = win, red = lose. Tiny but visible.
+        ctx.fillStyle = state === 'win' ? 'lime' : (state === 'lose' ? 'red' : 'white');
+        ctx.fillText('State: ' + state, 280, 8);
+        // restore default fillStyle for the rest of the HUD
+        ctx.fillStyle = '#fff';
+
         // 9. State text (center) — title in Stage 3
         ctx.fillText('DUNGEON SPARK', (W / 2) - 60, (H / 2) - 8);
 
         // 10. Controls placeholder (bottom)
         ctx.fillText('WASD/Arrows: move | Space: attack | R: restart', 80, H - 24);
+
+        // 11. Stage 7: end-game overlay. Drawn LAST so it sits on top of
+        //     the scene. A semi-transparent black rect dims the dungeon,
+        //     then a bold headline + a hint pointing to Stage 8. No
+        //     input is consumed in this branch — R still does nothing.
+        if (state === 'win') {
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
+          ctx.fillRect(0, 0, W, H);
+          ctx.fillStyle = 'lime';
+          ctx.font = 'bold 36px monospace';
+          ctx.fillText('YOU WIN', 220, 240);
+          ctx.font = '16px monospace';
+          ctx.fillStyle = 'white';
+          ctx.fillText('Slime defeated. (Stage 8 will add restart.)', 110, 270);
+        } else if (state === 'lose') {
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
+          ctx.fillRect(0, 0, W, H);
+          ctx.fillStyle = 'red';
+          ctx.font = 'bold 36px monospace';
+          ctx.fillText('YOU DIED', 220, 240);
+          ctx.font = '16px monospace';
+          ctx.fillStyle = 'white';
+          ctx.fillText('The dungeon claims another. (Stage 8 will add restart.)', 70, 270);
+        }
       }
 
       // Bounds-check move. Walls = the 4 edge rings (cols 0/19, rows 0/14).
       // In V1 there are no inner walls, so excluding the edges IS the wall check.
       // On a valid move we update position + facing and re-render.
       function movePlayer(dx, dy) {
+        // Stage 7: freeze input on win/lose so the overlay is the final frame
+        if (state !== 'playing') return;
         var nextCol = player.col + dx;
         var nextRow = player.row + dy;
         if (nextCol < COL_MIN || nextCol > COL_MAX) return; // wall: left/right
@@ -165,6 +206,9 @@
       // slime if it's there, 400ms cooldown, yellow flash on the target
       // tile for the cooldown duration. No contact damage, no win state.
       function playerAttack() {
+        // Stage 7: freeze input on win/lose. Placed BEFORE the cooldown
+        // check so a held Space after 'win'/'lose' never consumes a swing.
+        if (state !== 'playing') return;
         var now = Date.now();
         if (now - lastAttackTime < 400) return; // cooldown guard
         lastAttackTime = now;
@@ -178,7 +222,12 @@
         }
         attackFlash = { col: tc, row: tr, until: now + 400 };
         if (tc === slime.col && tr === slime.row) {
-          slime.hp -= 1; // can go to 0; no win state this stage
+          // Stage 7: clamp slime.hp at 0 (was allowed to go negative in
+          // Stage 5) and flip state to 'win' on the killing blow. The
+          // state check prevents the same blow from re-triggering 'win'
+          // on a follow-up swing (you can't "un-win" a dead slime).
+          slime.hp = Math.max(0, slime.hp - 1);
+          if (slime.hp === 0 && state === 'playing') state = 'win';
         }
         render();
       }
@@ -223,6 +272,10 @@
       // blocking, and applyContactDamage() runs at the END of the tick so
       // damage is applied at most once per 500ms (the setInterval cadence).
       function slimeTick() {
+        // Stage 7: freeze AI on win/lose so the scene stops moving once
+        // either side hits 0. The setInterval keeps firing (that's fine),
+        // it just no-ops from here.
+        if (state !== 'playing') return;
         var dx = player.col - slime.col;
         var dy = player.row - slime.row;
         var candidates = [];
@@ -246,12 +299,21 @@
       // (hp <= 0) is inert and deals no damage. player.hp is allowed to go
       // negative — no death state, no clamp, no game-over screen.
       function applyContactDamage() {
+        // Stage 7: freeze contact damage on win/lose. Placed AFTER the
+        // existing dead-slime guard so a dead slime still no-ops first
+        // (cheaper, and the two checks compose cleanly).
+        if (state !== 'playing') return;
         if (slime.hp <= 0) return; // dead slime: no damage
         var dx = player.col - slime.col;
         var dy = player.row - slime.row;
         var dist = Math.abs(dx) + Math.abs(dy); // Manhattan distance
         if (dist <= 1) {
-          player.hp -= 1;
+          // Stage 7: clamp player.hp at 0 (was allowed to go negative in
+          // Stage 6) and flip state to 'lose' on the killing blow. The
+          // state check prevents the same blow from triggering 'lose' a
+          // second time if a later hit somehow re-enters this branch.
+          player.hp = Math.max(0, player.hp - 1);
+          if (player.hp === 0 && state === 'playing') state = 'lose';
           playerFlash = { col: player.col, row: player.row, until: Date.now() + 200 };
         }
       }
