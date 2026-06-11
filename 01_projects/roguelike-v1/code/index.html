@@ -53,6 +53,8 @@
       var lastAttackTime = 0;
       // Stage 5: yellow swing-flash visual on the target tile
       var attackFlash = { col: -1, row: -1, until: 0 };
+      // Stage 6: red hit-flash on the player tile when slime deals contact damage
+      var playerFlash = { col: -1, row: -1, until: 0 };
 
       // Tile constants from design/technical-values.md
       var TILE   = 32;
@@ -104,6 +106,15 @@
         // 5. Player at (player.col, player.row)
         ctx.fillStyle = 'blue';
         ctx.fillRect(player.col * TILE, player.row * TILE, TILE, TILE);
+
+        // 5b. Stage 6: red hit-flash on the player's tile after contact
+        //     damage. Drawn AFTER the player so the flash overlays the
+        //     player tile for the 200ms flash duration. A dead slime
+        //     never sets this; player.hp may go negative (no death state).
+        if (Date.now() < playerFlash.until) {
+          ctx.fillStyle = 'red';
+          ctx.fillRect(playerFlash.col * TILE, playerFlash.row * TILE, TILE, TILE);
+        }
 
         // 6. HUD — text setup
         ctx.fillStyle = '#fff';
@@ -198,18 +209,19 @@
       });
 
       // Stage 4: slime AI — greedy Manhattan chase.
-      // Returns true if (c, r) is interior floor AND not the player's tile.
-      // (Player tile is "free" in the sense of "slime cannot stand on it"
-      // for V1 — no contact damage yet.)
+      // Returns true if (c, r) is interior floor. Stage 6 removed the
+      // player-tile block: the slime is now allowed to step onto the
+      // player's tile, and applyContactDamage() handles the hit.
       function inBoundsAndFree(c, r) {
         if (c < COL_MIN || c > COL_MAX) return false; // wall: left/right edges
         if (r < ROW_MIN || r > ROW_MAX) return false; // wall: top/bottom edges
-        if (c === player.col && r === player.row) return false; // player tile blocks
         return true;
       }
 
       // Slime tick: pick a cardinal direction that reduces Manhattan distance
-      // to the player, 1 tile, walls + player tile block. NO damage.
+      // to the player, 1 tile, walls block. Stage 6: player tile is no longer
+      // blocking, and applyContactDamage() runs at the END of the tick so
+      // damage is applied at most once per 500ms (the setInterval cadence).
       function slimeTick() {
         var dx = player.col - slime.col;
         var dy = player.row - slime.row;
@@ -225,7 +237,23 @@
         var pick = candidates[0];
         slime.col += pick.dc;
         slime.row += pick.dr;
+        applyContactDamage();
         render();
+      }
+
+      // Stage 6: contact damage. 1 HP per 500ms tick if the slime is on the
+      // player's tile OR adjacent (Manhattan distance <= 1). A dead slime
+      // (hp <= 0) is inert and deals no damage. player.hp is allowed to go
+      // negative — no death state, no clamp, no game-over screen.
+      function applyContactDamage() {
+        if (slime.hp <= 0) return; // dead slime: no damage
+        var dx = player.col - slime.col;
+        var dy = player.row - slime.row;
+        var dist = Math.abs(dx) + Math.abs(dy); // Manhattan distance
+        if (dist <= 1) {
+          player.hp -= 1;
+          playerFlash = { col: player.col, row: player.row, until: Date.now() + 200 };
+        }
       }
 
       // Initial draw
