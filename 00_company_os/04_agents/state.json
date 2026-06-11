@@ -1,23 +1,23 @@
 {
   "schema": "nofitech-agent-state/v1",
-  "updated": "2026-06-11T11:42:42.269392+00:00",
+  "updated": "2026-06-11T11:55:38.269384+00:00",
   "agents": {
     "thor": {
       "status": "idle",
-      "current_assignment": "Awaiting Stage 16 kickoff (or next NOFI directive)",
-      "last_activity": "2026-06-11T11:42:42.269392+00:00",
+      "current_assignment": "Awaiting next NOFI directive",
+      "last_activity": "2026-06-11T11:55:38.269384+00:00",
       "blocker": ""
     },
     "forge": {
       "status": "idle",
-      "current_assignment": "Standing by for Stage 16 task assignment",
-      "last_activity": "2026-06-11T11:42:42.269392+00:00",
+      "current_assignment": "Standing by",
+      "last_activity": "2026-06-11T11:55:38.269384+00:00",
       "blocker": ""
     },
     "argus": {
       "status": "idle",
-      "current_assignment": "Standing by for Stage 16 verification",
-      "last_activity": "2026-06-11T11:42:42.269392+00:00",
+      "current_assignment": "Standing by",
+      "last_activity": "2026-06-11T11:55:38.269384+00:00",
       "blocker": ""
     }
   }
