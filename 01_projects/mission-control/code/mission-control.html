@@ -911,29 +911,47 @@ function renderLogs(d) {
   $("#logs").innerHTML = summary + recentHtml + detailsHtml;
 
   const h = document.getElementById('logs-hint');
-  if (h) h.textContent = `${d.count || events.length} event(s), ${d.errors || 0} err, ${d.warnings || 0} warn`;
+  // Stage 18: read the warnings/errors counts from the unbounded lists
+  // (single source of truth), not from the events array which is capped.
+  const wl = Array.isArray(d.warnings_list) ? d.warnings_list.length : 0;
+  const el = Array.isArray(d.errors_list)   ? d.errors_list.length   : 0;
+  if (h) h.textContent = `${d.count || events.length} event(s), ${el} err, ${wl} warn`;
 }
 
 // ============================================================
-// 6b. Warnings (NEW at Stage 17) — read from logs.events (warn/error)
-//     + overview.warnings.breakdown. Per-row "Send fix order to Thor"
-//     button POSTs /api/data/order with a small JSON body; server
-//     appends a system_event to events.jsonl.
+// 6b. Warnings — read from logs.warnings_list + logs.errors_list
+//     (unbounded, all warn/error entries) + overview.warnings.breakdown.
+//     Per-row "Send fix order to Thor" button POSTs /api/data/order
+//     with a small JSON body; server appends a system_event to events.jsonl.
+//     Stage 18: single source of truth. The count summary, the rows, and
+//     the empty state all read from the same server-side lists.
 // ============================================================
 function renderWarnings(logs, overview) {
   const hint = document.getElementById('warnings-hint');
-  // Pull warning-level events from the logs payload. Strict rule per
-  // Stage 12: only events with explicit level=warn|error surface here.
-  const rawEvents = (logs && Array.isArray(logs.events)) ? logs.events : [];
-  const warns = rawEvents.filter(e => e.level === "warn" || e.level === "error");
+  // Stage 18: pull the unbounded lists directly. These are the single
+  // source of truth for the warnings count and the warnings panel.
+  const warns = (logs && Array.isArray(logs.warnings_list)) ? logs.warnings_list : [];
+  const errs  = (logs && Array.isArray(logs.errors_list))   ? logs.errors_list   : [];
+  // For backwards-compat / safety: also fold in any warn/error entries
+  // that happen to be in the events array (shouldn't happen post-Stage 18,
+  // but keeps the panel robust if events capping ever changes).
+  const ev = (logs && Array.isArray(logs.events)) ? logs.events : [];
+  const evWarnsErrs = ev.filter(e => e.level === "warn" || e.level === "error");
+  const seenSrcTs = new Set(warns.concat(errs).map(e => (e.source||"") + "::" + (e.ts||"")));
+  const extras = evWarnsErrs.filter(e => !seenSrcTs.has((e.source||"") + "::" + (e.ts||"")));
+
   const breakdown = (overview && overview.warnings && overview.warnings.breakdown) || {};
   const blockedTasks = breakdown.blocked_tasks || 0;
   const logWarns = breakdown.log_warns || 0;
+  const logErrs  = breakdown.log_errors || 0;
 
-  if (warns.length === 0 && blockedTasks === 0) {
+  const totalWarns = warns.length + extras.filter(e => e.level === "warn").length;
+  const totalErrs  = errs.length  + extras.filter(e => e.level === "error").length;
+
+  if (totalWarns === 0 && totalErrs === 0 && blockedTasks === 0) {
     $("#warnings").innerHTML =
       `<div class="action-row ok"><span class="icon">✓</span> No active warnings — all systems nominal.</div>`;
-    if (hint) hint.textContent = `0 warn · ${logWarns} log / ${blockedTasks} task`;
+    if (hint) hint.textContent = `0 warn · 0 err · 0 task`;
     return;
   }
 
@@ -941,33 +959,21 @@ function renderWarnings(logs, overview) {
   // read back the warning's text/id from data-* attributes.
   const rows = [];
   for (const w of warns) {
-    const level = w.level === "error" ? "error" : "warn";
     const title = w.title || w.message || "—";
-    const source = w.source || "";
-    const ts = w.ts || "";
-    const rel = w.rel || (ts ? relTime(ts) : "—");
-    // Stable warning_id: source + ts is unique per file. Fallback to a
-    // short random hex so multiple same-source warnings still differ.
-    const wid = (source || "src") + "::" + (ts || Date.now());
-    const titleLine = esc(title);
-    const subBits = [];
-    if (rel) subBits.push(esc(rel));
-    if (source) subBits.push(`<span class="ts">${esc(source)}</span>`);
-    if (ts) subBits.push(`<span class="ts-iso">${esc(ts)}</span>`);
-    rows.push(
-      `<div class="warnings-row ${level}" data-warning-id="${esc(wid)}" data-warning-text="${esc(title)}" data-warning-source="${esc(source)}" data-warning-ts="${esc(ts)}" data-warning-level="${esc(level)}">
-        <span class="meta">
-          <div class="title-line">${badge(level, level === "error" ? "red" : "amber")} ${titleLine}</div>
-          <div class="sub-line">${subBits.join(" · ")}</div>
-        </span>
-        <button class="fix-btn" onclick="sendFixOrder(this)">Send fix order to Thor</button>
-      </div>`
-    );
+    rows.push(_warningsRow("warn", w, title));
+  }
+  for (const e of errs) {
+    const title = e.title || e.message || "—";
+    rows.push(_warningsRow("error", e, title));
+  }
+  for (const ex of extras) {
+    const title = ex.title || ex.message || "—";
+    rows.push(_warningsRow(ex.level, ex, title));
   }
 
   // If overview reports blocked tasks but no log warnings surfaced, add a
   // synthetic row that lets NOFI trigger the same fix-order flow.
-  if (warns.length === 0 && blockedTasks > 0) {
+  if (rows.length === 0 && blockedTasks > 0) {
     const wid = "blocked::" + (overview && overview.last_check && overview.last_check.value || "now");
     const titleText = `${blockedTasks} task(s) blocked — see Tasks panel`;
     const ts = (overview && overview.last_check && overview.last_check.value) || "";
@@ -983,7 +989,33 @@ function renderWarnings(logs, overview) {
   }
 
   $("#warnings").innerHTML = rows.join("");
-  if (hint) hint.textContent = `${warns.length} log · ${blockedTasks} blocked`;
+  if (hint) hint.textContent = `${totalWarns} warn · ${totalErrs} err · ${blockedTasks} task`;
+}
+
+// Stage 18: shared row-builder for the Warnings panel. Centralized so the
+// per-row HTML shape (icon, text, source, timestamp, "Send fix order" button)
+// stays in lockstep with the data source.
+function _warningsRow(level, w, title) {
+  const lvl = (level === "error") ? "error" : "warn";
+  const icon = (lvl === "error") ? "⛔" : "⚠";
+  const source = w.source || "";
+  const ts = w.ts || "";
+  const rel = w.rel || (ts ? relTime(ts) : "—");
+  // Stable warning_id: source + ts is unique per file.
+  const wid = (source || "src") + "::" + (ts || Date.now());
+  const subBits = [];
+  if (rel) subBits.push(esc(rel));
+  if (source) subBits.push(`<span class="ts">${esc(source)}</span>`);
+  if (ts) subBits.push(`<span class="ts-iso">${esc(ts)}</span>`);
+  return (
+    `<div class="warnings-row ${lvl}" data-warning-id="${esc(wid)}" data-warning-text="${esc(title)}" data-warning-source="${esc(source)}" data-warning-ts="${esc(ts)}" data-warning-level="${esc(lvl)}">
+      <span class="meta">
+        <div class="title-line">${icon} ${esc(title)} ${badge(lvl, lvl === "error" ? "red" : "amber")}</div>
+        <div class="sub-line">${subBits.join(" · ")}</div>
+      </span>
+      <button class="fix-btn" onclick="sendFixOrder(this)">Send fix order to Thor</button>
+    </div>`
+  );
 }
 
 // Stage 17: send fix order to Thor. POSTs to /api/data/order. On 200,

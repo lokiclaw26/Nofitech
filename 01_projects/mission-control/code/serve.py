@@ -815,14 +815,19 @@ def data_logs():
     """Last 20 log events + health + env summary.
     Stage 9: real level detection, last_verification, env status (no values),
     app/api health booleans + reasons.
+    Stage 18: single source of truth for warnings/errors. The warnings count
+    and the warnings panel both read from `warnings_list` / `errors_list`
+    (unbounded, every warn/error entry). The `events` array now contains
+    ALL warn + ALL error + the 20 most recent info entries (sorted by ts desc)
+    so the recent-activity view still surfaces them too.
     """
-    events = []
+    warnings_list = []   # ALL warn-level entries, no cap
+    errors_list = []     # ALL error-level entries, no cap
+    info_list = []       # ALL info-level entries, capped to 20 most recent below
     roots = [COMPANY_ROOT / "00_company_os" / "04_agents" / "logs"]
     for proj in (COMPANY_ROOT / "01_projects").glob("*/logs"):
         roots.append(proj)
 
-    errors = 0
-    warnings = 0
     last_verification = None  # newest argus-*.md mtime
     last_verification_source = None
     for r in roots:
@@ -840,27 +845,42 @@ def data_logs():
             level = (meta.get("level") or "").strip().lower()
             if level not in ("error", "warn", "info"):
                 level = "info"  # default to info, not error
-            if level == "error":
-                errors += 1
-            elif level == "warn":
-                warnings += 1
 
-            events.append({
+            entry = {
                 "ts": datetime.fromtimestamp(f.stat().st_mtime, tz=timezone.utc).isoformat(),
                 "rel": rel_time(f.stat().st_mtime),
                 "source": str(f.relative_to(COMPANY_ROOT)),
                 "officer": (meta.get("officer") or meta.get("agent") or (f.stem.split("-")[0] if "-" in f.stem else None)),
                 "level": level,
                 "title": meta.get("title") or f.stem,
-            })
+            }
+
+            if level == "error":
+                errors_list.append(entry)
+            elif level == "warn":
+                warnings_list.append(entry)
+            else:
+                info_list.append(entry)
 
             # Track last verification (argus-*.md)
             if f.stem.startswith("argus-") and (last_verification is None or f.stat().st_mtime > last_verification):
                 last_verification = f.stat().st_mtime
                 last_verification_source = str(f.relative_to(COMPANY_ROOT))
 
+    # Sort all three lists by ts desc
+    warnings_list.sort(key=lambda e: e["ts"], reverse=True)
+    errors_list.sort(key=lambda e: e["ts"], reverse=True)
+    info_list.sort(key=lambda e: e["ts"], reverse=True)
+
+    # Counts derived from the unbounded lists
+    errors = len(errors_list)
+    warnings = len(warnings_list)
+
+    # Final events array: ALL warnings + ALL errors + 20 most recent infos,
+    # sorted by ts desc. This guarantees the warn/error entries never get
+    # pushed out of view by a flood of newer info entries.
+    events = warnings_list + errors_list + info_list[:20]
     events.sort(key=lambda e: e["ts"], reverse=True)
-    events = events[:20]
 
     # Stage 14: merge events.jsonl into the Logs/Health panel. The last 20
     # entries from 00_company_os/events.jsonl surface alongside the log-file
@@ -890,6 +910,10 @@ def data_logs():
         "errors": errors,
         "warnings": warnings,
         "info_count": sum(1 for e in events if e["level"] == "info"),
+        # Stage 18: unbounded, every warn/error entry — single source of truth
+        # for the Warnings panel and the warnings count.
+        "warnings_list": warnings_list,
+        "errors_list": errors_list,
         "app_health": app_health,
         "app_health_reason": app_health_reason,
         "api_health": api_health,
