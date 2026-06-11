@@ -3,9 +3,9 @@ id: roguelike-v1
 title: Roguelike V1 — Dungeon Spark
 phase: build
 status: active
-progress_pct: 62%
+progress_pct: 75%
 approval_needed: true
-next_action: "Stage 6 — Slime Contact Damage (1 HP per slime tick when slime is on player's tile), AWAITING NOFI APPROVAL (Stage 5 complete and Argus-verified)"
+next_action: "Stage 7 — Win/Lose States (state machine, YOU WIN at slime.hp=0, YOU DIED at player.hp=0, both stop gameplay), AWAITING NOFI APPROVAL (Stage 6 complete and Argus-verified)"
 blocker: ""
 data_source: real
 created: 2026-06-11
