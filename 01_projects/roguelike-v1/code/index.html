@@ -160,7 +160,7 @@
           ctx.fillText('YOU WIN', 220, 240);
           ctx.font = '16px monospace';
           ctx.fillStyle = 'white';
-          ctx.fillText('Slime defeated. (Stage 8 will add restart.)', 110, 270);
+          ctx.fillText('Slime defeated. Press R to restart.', 110, 270);
         } else if (state === 'lose') {
           ctx.fillStyle = 'rgba(0,0,0,0.6)';
           ctx.fillRect(0, 0, W, H);
@@ -169,7 +169,7 @@
           ctx.fillText('YOU DIED', 220, 240);
           ctx.font = '16px monospace';
           ctx.fillStyle = 'white';
-          ctx.fillText('The dungeon claims another. (Stage 8 will add restart.)', 70, 270);
+          ctx.fillText('The dungeon claims another. Press R to restart.', 70, 270);
         }
       }
 
@@ -253,6 +253,16 @@
           // held key still produces at most one attack per 400ms.
           e.preventDefault();
           playerAttack();
+        } else if (e.key === 'r' || e.key === 'R') {
+          // Stage 8: R restarts the game. Only fires in 'win' or 'lose'
+          // state. If the game is still 'playing' this branch is a no-op
+          // (no preventDefault, no resetGame) so a stray R during play
+          // does nothing. preventDefault stops any default R-key behavior
+          // (browser find-in-page) on the win/lose overlays.
+          if (state === 'win' || state === 'lose') {
+            e.preventDefault();
+            resetGame();
+          }
         }
         // any other key: do not preventDefault, do not move
       });
@@ -316,6 +326,24 @@
           if (player.hp === 0 && state === 'playing') state = 'lose';
           playerFlash = { col: player.col, row: player.row, until: Date.now() + 200 };
         }
+      }
+
+      // Stage 8: reset the game to its starting state. Called when the
+      // player presses R from a 'win' or 'lose' overlay. Restores HP,
+      // positions, facing, cooldowns, and flashes, then re-renders.
+      function resetGame() {
+        state = 'playing';
+        player.hp = 5;
+        player.col = 2;
+        player.row = 2;
+        player.facing = 'right';
+        slime.hp = 3;
+        slime.col = 17;
+        slime.row = 12;
+        lastAttackTime = 0;
+        attackFlash = { col: -1, row: -1, until: 0 };
+        playerFlash = { col: -1, row: -1, until: 0 };
+        render();
       }
 
       // Initial draw
