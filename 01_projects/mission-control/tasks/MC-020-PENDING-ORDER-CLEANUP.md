@@ -4,16 +4,16 @@ title: Stage 20 — Pending order cleanup + smoke-test fixture removal
 project: mission-control
 created_by: nofi
 assigned_to: forge
-status: assigned
+status: complete
 priority: normal
 created_at: "2026-06-11T14:05:00+00:00"
-updated_at: "2026-06-11T14:05:00+00:00"
-current_stage: build
+updated_at: "2026-06-11T18:30:00+00:00"
+current_stage: ship
 blocker: ""
 data_source: real
 description: "NOFI approved: clean up the 8 pending test orders from Stage 19 verification. Cancel/archive orders that are clearly test artifacts (smoke POSTs, backcompat POSTs, weird-thing POSTs). The 1 smoke-test warning fixture (test-warn-argus.md) is confirmed to be only a test fixture from Stage 4 — Forge may remove it and the warning will go away. Real orders (if any) MUST be preserved. Real project data, real task files, real warnings MUST NOT be touched."
 acceptance: "(1) The 8 pending test orders are no longer in /api/data/orders (status moved from pending to cancelled or archived). (2) test-warn-argus.md is removed from disk and a deletion event is logged. (3) Warning count drops from 1 to 0. (4) No real project data, real task files, or real warnings were modified. (5) Fix-order button still works (creates new pending orders). (6) Dashboard still loads. (7) No secrets exposed. (8) No console errors. (9) start-mc.sh still works. (10) Git commit exists after pass."
-argus_result: pending
+argus_result: pass
 ---
 
 ## Brief

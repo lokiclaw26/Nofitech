@@ -1,23 +1,23 @@
 {
   "schema": "nofitech-agent-state/v1",
-  "updated": "2026-06-11T18:12:06.454010+00:00",
+  "updated": "2026-06-11T18:27:11.821732+00:00",
   "agents": {
     "thor": {
-      "status": "active",
-      "current_assignment": "MC-020-PENDING-ORDER-CLEANUP: coordinating cleanup of Stage 19 test orders",
-      "last_activity": "2026-06-11T18:12:06.454010+00:00",
+      "status": "idle",
+      "current_assignment": "Awaiting next NOFI directive (dashboard is clean: 0 pending orders, 0 warnings, app_health=ok)",
+      "last_activity": "2026-06-11T18:27:11.821732+00:00",
       "blocker": ""
     },
     "forge": {
-      "status": "active",
-      "current_assignment": "MC-020-PENDING-ORDER-CLEANUP: cancel 8 test orders + remove test fixture",
-      "last_activity": "2026-06-11T18:12:06.454010+00:00",
+      "status": "idle",
+      "current_assignment": "Standing by",
+      "last_activity": "2026-06-11T18:27:11.821732+00:00",
       "blocker": ""
     },
     "argus": {
-      "status": "active",
-      "current_assignment": "MC-020-PENDING-ORDER-CLEANUP: pending verification",
-      "last_activity": "2026-06-11T18:12:06.454010+00:00",
+      "status": "idle",
+      "current_assignment": "Standing by",
+      "last_activity": "2026-06-11T18:27:11.821732+00:00",
       "blocker": ""
     }
   }
