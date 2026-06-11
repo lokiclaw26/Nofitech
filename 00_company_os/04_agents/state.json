@@ -1,23 +1,23 @@
 {
   "schema": "nofitech-agent-state/v1",
-  "updated": "2026-06-11T01:55:00+00:00",
+  "updated": "2026-06-11T11:30:30+00:00",
   "agents": {
     "thor": {
       "status": "active",
-      "current_assignment": "Stage 14 wiring in progress",
-      "last_activity": "2026-06-11T01:55:00+00:00",
+      "current_assignment": "MC-015-2-DATA-AUDIT: orchestrating Forge + Argus",
+      "last_activity": "2026-06-11T11:30:30+00:00",
       "blocker": ""
     },
     "forge": {
       "status": "active",
-      "current_assignment": "MC-LIVE-TEST-001: wire tasks+events",
-      "last_activity": "2026-06-11T01:55:00+00:00",
+      "current_assignment": "MC-015-2-DATA-AUDIT: building real task backfill",
+      "last_activity": "2026-06-11T11:30:30+00:00",
       "blocker": ""
     },
     "argus": {
       "status": "active",
-      "current_assignment": "verifying Stage 14 wiring",
-      "last_activity": "2026-06-11T01:55:00+00:00",
+      "current_assignment": "MC-015-2-DATA-AUDIT: pending verification",
+      "last_activity": "2026-06-11T11:30:30+00:00",
       "blocker": ""
     }
   }
