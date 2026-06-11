@@ -3,9 +3,9 @@ id: roguelike-v1
 title: Roguelike V1 — Dungeon Spark
 phase: build
 status: active
-progress_pct: 25%
+progress_pct: 38%
 approval_needed: true
-next_action: "Stage 3 — Player Movement (WASD/Arrows: grid-based, 1 tile per press, wall collision), AWAITING NOFI APPROVAL (Stage 2 complete and Argus-verified)"
+next_action: "Stage 4 — Slime AI (greedy: 500ms tick, move toward player, damage on contact), AWAITING NOFI APPROVAL (Stage 3 complete and Argus-verified)"
 blocker: ""
 data_source: real
 created: 2026-06-11
