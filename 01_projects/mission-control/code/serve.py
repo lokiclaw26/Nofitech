@@ -118,8 +118,30 @@ def _detect_lan_ip():
             except Exception: pass
 
 
-# Detect once at import time so the value is stable across requests
+# Detect once at import time so the value is stable across requests.
+# Stage 16: also seed the per-request fallback cache with the import-time value,
+# so a later transient detection failure still returns SOMETHING sensible.
 HOST_IP, _LAN_IP_OK = _detect_lan_ip()
+_last_known_lan_ip = HOST_IP  # cache for get_lan_ip() fallback
+
+
+def get_lan_ip():
+    """Stage 16: per-request LAN IP detection with last-known-good fallback.
+
+    Tries to re-detect the outbound LAN IP (handles DHCP/VPN/network switch
+    mid-session). On any failure, returns the cached `_last_known_lan_ip`
+    so the dashboard never goes blank. As a side effect, updates the cache
+    on success so subsequent failures degrade to the freshest good value.
+    """
+    global _last_known_lan_ip
+    try:
+        ip, ok = _detect_lan_ip()
+    except Exception:
+        return _last_known_lan_ip
+    if ok and ip:
+        _last_known_lan_ip = ip
+        return ip
+    return _last_known_lan_ip
 
 
 def safe_read(path, max_bytes=256 * 1024):
@@ -885,11 +907,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
             if path == "/api/version":
                 v = get_version()
+                # Stage 16: live per-request detection, with last-known-good
+                # surfaced separately for debugging. `lan_ip` remains a string
+                # so the existing dashboard contract is preserved.
+                _live_ip = get_lan_ip()
                 return self._json({
                     **v,
                     "uptime_sec": int(time.time() - START_TIME),
                     "started_at": datetime.fromtimestamp(START_TIME, tz=timezone.utc).isoformat(),
-                    "lan_ip": HOST_IP,
+                    "lan_ip": _live_ip,
+                    "lan_ip_fallback": _last_known_lan_ip,
                     "lan_ip_auto": _LAN_IP_OK,
                     "port": PORT,
                 })
