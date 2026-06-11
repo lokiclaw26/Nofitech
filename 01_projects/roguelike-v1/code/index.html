@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Dungeon Spark</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #222;
+      color: #fff;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 12px;
+    }
+    canvas {
+      display: block;
+      background: #000;
+      image-rendering: pixelated;
+    }
+    .caption {
+      font-size: 12px;
+      color: #888;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game" width="640" height="480"></canvas>
+  <p class="caption">Dungeon Spark — Stage 2: visual skeleton. No input, no movement, no attack, no AI. Static scene.</p>
+  <script>
+    // Dungeon Spark — Stage 2: visual skeleton.
+    // Renders a single static scene. NO input handlers, NO animation loop,
+    // NO state machine. The script runs once on page load and that's it.
+    (function renderScene() {
+      var canvas = document.getElementById('game');
+      if (!canvas || !canvas.getContext) return;
+      var ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // 1. Clear (background = walls)
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, 640, 480);
+
+      // 2. Floor: cols 1..18, rows 1..13, tile 32x32
+      ctx.fillStyle = '#333';
+      for (var row = 1; row <= 13; row++) {
+        for (var col = 1; col <= 18; col++) {
+          ctx.fillRect(col * 32, row * 32, 32, 32);
+        }
+      }
+
+      // 3. Walls: edges (col 0, col 19, row 0, row 14) — same color as bg,
+      //    so the black canvas background reads as the wall. Drawn explicitly
+      //    so the wall ring is owned by the same renderer that drew the floor.
+      ctx.fillStyle = '#000';
+      for (var c = 0; c < 20; c++) {
+        ctx.fillRect(c * 32, 0 * 32, 32, 32);   // row 0
+        ctx.fillRect(c * 32, 14 * 32, 32, 32);  // row 14
+      }
+      for (var r = 1; r <= 13; r++) {
+        ctx.fillRect(0 * 32, r * 32, 32, 32);   // col 0
+        ctx.fillRect(19 * 32, r * 32, 32, 32);  // col 19
+      }
+
+      // 4. Player: blue square at tile (2, 2)
+      ctx.fillStyle = 'blue';
+      ctx.fillRect(2 * 32, 2 * 32, 32, 32);
+
+      // 5. Slime: red/purple square at tile (17, 12)
+      ctx.fillStyle = 'rgb(180, 40, 180)';
+      ctx.fillRect(17 * 32, 12 * 32, 32, 32);
+
+      // 6. HUD — Player HP (top-left)
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 16px monospace';
+      ctx.textBaseline = 'top';
+      ctx.fillText('Player HP: 5', 8, 8);
+
+      // 7. HUD — Slime HP (top-right)
+      ctx.fillText('Slime HP: 3', 640 - 130, 8);
+
+      // 8. State text (center)
+      ctx.fillText('DUNGEON SPARK', (640 / 2) - 60, (480 / 2) - 8);
+
+      // 9. Controls placeholder (bottom)
+      ctx.fillText('WASD/Arrows: move | Space: attack | R: restart', 80, 480 - 24);
+    })();
+  </script>
+</body>
+</html>
