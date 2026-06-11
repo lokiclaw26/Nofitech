@@ -33,64 +33,120 @@
 </head>
 <body>
   <canvas id="game" width="640" height="480"></canvas>
-  <p class="caption">Dungeon Spark — Stage 2: visual skeleton. No input, no movement, no attack, no AI. Static scene.</p>
+  <p class="caption">Dungeon Spark — Stage 3: player movement. WASD/Arrows to move. Walls block. Slime is static. No attack yet.</p>
   <script>
-    // Dungeon Spark — Stage 2: visual skeleton.
-    // Renders a single static scene. NO input handlers, NO animation loop,
-    // NO state machine. The script runs once on page load and that's it.
-    (function renderScene() {
+    // Dungeon Spark — Stage 3: player movement.
+    // Adds a keydown listener (WASD/Arrows) that calls movePlayer(dx, dy).
+    // movePlayer bounds-checks against the 4 wall edges and redraws.
+    // NO attack, NO AI, NO win/lose, NO restart, NO animation loop.
+    (function init() {
       var canvas = document.getElementById('game');
       if (!canvas || !canvas.getContext) return;
       var ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // 1. Clear (background = walls)
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, 640, 480);
+      // Game state (Stage 3): just positions + facing. No state machine yet.
+      var player = { col: 2, row: 2, facing: 'right', hp: 5 };
+      var slime  = { col: 17, row: 12, hp: 3 }; // static for Stage 3
 
-      // 2. Floor: cols 1..18, rows 1..13, tile 32x32
-      ctx.fillStyle = '#333';
-      for (var row = 1; row <= 13; row++) {
-        for (var col = 1; col <= 18; col++) {
-          ctx.fillRect(col * 32, row * 32, 32, 32);
+      // Tile constants from design/technical-values.md
+      var TILE   = 32;
+      var COLS   = 20; // 0..19
+      var ROWS   = 15; // 0..14
+      var W      = COLS * TILE; // 640
+      var H      = ROWS * TILE; // 480
+      var COL_MIN = 1, COL_MAX = 18; // floor cols
+      var ROW_MIN = 1, ROW_MAX = 13; // floor rows
+
+      function render() {
+        // 1. Clear (background = walls, the black ring)
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, W, H);
+
+        // 2. Floor: cols 1..18, rows 1..13
+        ctx.fillStyle = '#333';
+        for (var row = ROW_MIN; row <= ROW_MAX; row++) {
+          for (var col = COL_MIN; col <= COL_MAX; col++) {
+            ctx.fillRect(col * TILE, row * TILE, TILE, TILE);
+          }
         }
+
+        // 3. Walls (col 0, col 19, row 0, row 14) — same color as bg, drawn
+        //    explicitly so the wall ring is owned by the same renderer.
+        ctx.fillStyle = '#000';
+        for (var c = 0; c < COLS; c++) {
+          ctx.fillRect(c * TILE, 0 * TILE, TILE, TILE);          // row 0
+          ctx.fillRect(c * TILE, (ROWS - 1) * TILE, TILE, TILE); // row 14
+        }
+        for (var r = 1; r <= ROWS - 2; r++) {
+          ctx.fillRect(0 * TILE, r * TILE, TILE, TILE);           // col 0
+          ctx.fillRect((COLS - 1) * TILE, r * TILE, TILE, TILE);  // col 19
+        }
+
+        // 4. Slime (static) at (slime.col, slime.row)
+        ctx.fillStyle = 'rgb(180, 40, 180)';
+        ctx.fillRect(slime.col * TILE, slime.row * TILE, TILE, TILE);
+
+        // 5. Player at (player.col, player.row)
+        ctx.fillStyle = 'blue';
+        ctx.fillRect(player.col * TILE, player.row * TILE, TILE, TILE);
+
+        // 6. HUD — text setup
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 16px monospace';
+        ctx.textBaseline = 'top';
+
+        // 7. HUD — Player HP (top-left)
+        ctx.fillText('Player HP: ' + player.hp, 8, 8);
+
+        // 8. HUD — Slime HP (top-right)
+        ctx.fillText('Slime HP: ' + slime.hp, W - 130, 8);
+
+        // 9. State text (center) — title in Stage 3
+        ctx.fillText('DUNGEON SPARK', (W / 2) - 60, (H / 2) - 8);
+
+        // 10. Controls placeholder (bottom)
+        ctx.fillText('WASD/Arrows: move | Space: attack | R: restart', 80, H - 24);
       }
 
-      // 3. Walls: edges (col 0, col 19, row 0, row 14) — same color as bg,
-      //    so the black canvas background reads as the wall. Drawn explicitly
-      //    so the wall ring is owned by the same renderer that drew the floor.
-      ctx.fillStyle = '#000';
-      for (var c = 0; c < 20; c++) {
-        ctx.fillRect(c * 32, 0 * 32, 32, 32);   // row 0
-        ctx.fillRect(c * 32, 14 * 32, 32, 32);  // row 14
+      // Bounds-check move. Walls = the 4 edge rings (cols 0/19, rows 0/14).
+      // In V1 there are no inner walls, so excluding the edges IS the wall check.
+      // On a valid move we update position + facing and re-render.
+      function movePlayer(dx, dy) {
+        var nextCol = player.col + dx;
+        var nextRow = player.row + dy;
+        if (nextCol < COL_MIN || nextCol > COL_MAX) return; // wall: left/right
+        if (nextRow < ROW_MIN || nextRow > ROW_MAX) return; // wall: up/down
+        player.col = nextCol;
+        player.row = nextRow;
+        if (dx > 0)      player.facing = 'right';
+        else if (dx < 0) player.facing = 'left';
+        else if (dy > 0) player.facing = 'down';
+        else if (dy < 0) player.facing = 'up';
+        render();
       }
-      for (var r = 1; r <= 13; r++) {
-        ctx.fillRect(0 * 32, r * 32, 32, 32);   // col 0
-        ctx.fillRect(19 * 32, r * 32, 32, 32);  // col 19
-      }
 
-      // 4. Player: blue square at tile (2, 2)
-      ctx.fillStyle = 'blue';
-      ctx.fillRect(2 * 32, 2 * 32, 32, 32);
+      // Keyboard input: WASD and Arrows only. No Space, no R.
+      window.addEventListener('keydown', function (e) {
+        var k = e.key;
+        if (k === 'w' || k === 'W' || k === 'ArrowUp') {
+          e.preventDefault();
+          movePlayer(0, -1);
+        } else if (k === 's' || k === 'S' || k === 'ArrowDown') {
+          e.preventDefault();
+          movePlayer(0, 1);
+        } else if (k === 'a' || k === 'A' || k === 'ArrowLeft') {
+          e.preventDefault();
+          movePlayer(-1, 0);
+        } else if (k === 'd' || k === 'D' || k === 'ArrowRight') {
+          e.preventDefault();
+          movePlayer(1, 0);
+        }
+        // any other key: do not preventDefault, do not move
+      });
 
-      // 5. Slime: red/purple square at tile (17, 12)
-      ctx.fillStyle = 'rgb(180, 40, 180)';
-      ctx.fillRect(17 * 32, 12 * 32, 32, 32);
-
-      // 6. HUD — Player HP (top-left)
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 16px monospace';
-      ctx.textBaseline = 'top';
-      ctx.fillText('Player HP: 5', 8, 8);
-
-      // 7. HUD — Slime HP (top-right)
-      ctx.fillText('Slime HP: 3', 640 - 130, 8);
-
-      // 8. State text (center)
-      ctx.fillText('DUNGEON SPARK', (640 / 2) - 60, (480 / 2) - 8);
-
-      // 9. Controls placeholder (bottom)
-      ctx.fillText('WASD/Arrows: move | Space: attack | R: restart', 80, 480 - 24);
+      // Initial draw
+      render();
     })();
   </script>
 </body>
