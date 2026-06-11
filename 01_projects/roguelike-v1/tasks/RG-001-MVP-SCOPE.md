@@ -4,16 +4,16 @@ title: Roguelike V1 — Stage 1: Game Concept and MVP Scope
 project: roguelike-v1
 created_by: nofi
 assigned_to: thor
-status: assigned
+status: complete
 priority: high
 created_at: "2026-06-11T23:15:00+00:00"
-updated_at: "2026-06-11T23:15:00+00:00"
-current_stage: build
+updated_at: "2026-06-11T23:55:00+00:00"
+current_stage: ship
 blocker: ""
 data_source: real
 description: "Define the exact first playable prototype of Dungeon Spark before any code is written. NO gameplay code. NO Mission Control changes (frozen at v1.15.0). NO Stage 2 work. Thor coordinates. Forge confirms HTML5 Canvas + JS technical feasibility + defines basic technical values. Argus verifies scope is small, testable, not overbuilt."
-acceptance: "(1) design/game-concept.md, design/mvp-scope.md, design/controls.md, design/technical-values.md all exist with concrete values (not 'TBD'). (2) Argus must block any feature from the excluded list: procedural generation, inventory, multiple rooms/levels, complex AI, complex art, sound/music, save/load, menus, extra enemies. (3) All 14 frontmatter fields present in RG-001. (4) events.jsonl has task_created, task_assigned, work_started, forge_reported, argus_started, argus_passed (or argus_failed), task_completed. (5) Mission Control still healthy and shows RG-001 in dashboard."
-argus_result: pending
+acceptance: "(1) design/game-concept.md, design/mvp-scope.md, design/controls.md, design/technical-values.md all exist with concrete values (not 'TBD'). (2) Argus must block any feature from the excluded list: procedural generation, inventory, multiple rooms/levels, complex AI, complex art, sound/music, save/load, menus, extra enemies. (3) All 14 frontmatter fields present in RG-001. (4) events.jsonl has task_created, task_assigned, work_started, forge_reported, argus_started, argus_passed, task_completed. (5) Mission Control still healthy and shows RG-001 in dashboard."
+argus_result: pass
 ---
 
 ## Brief

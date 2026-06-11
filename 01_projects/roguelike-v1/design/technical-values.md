@@ -23,7 +23,7 @@ All values are concrete. No ranges. No TBD. These are the numbers Forge will use
 | Inner walls | NONE (one open room) |
 | Player spawn tile | **(2, 2)** — top-left area |
 | Slime spawn tile | **(17, 12)** — bottom-right area |
-| Total tiles | 20 × 15 = 300 tiles (40 wall + 260 floor) |
+| Total tiles | 20 × 15 = 300 tiles (66 wall edge tiles + 234 floor tiles) |
 
 ## Player
 
