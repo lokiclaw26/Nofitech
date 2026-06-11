@@ -3,9 +3,9 @@ id: roguelike-v1
 title: Roguelike V1 — Dungeon Spark
 phase: build
 status: active
-progress_pct: 75%
+progress_pct: 88%
 approval_needed: true
-next_action: "Stage 7 — Win/Lose States (state machine, YOU WIN at slime.hp=0, YOU DIED at player.hp=0, both stop gameplay), AWAITING NOFI APPROVAL (Stage 6 complete and Argus-verified)"
+next_action: "Stage 8 — Restart (R key resets game to playing state from win/lose), AWAITING NOFI APPROVAL (Stage 7 complete and Argus-verified)"
 blocker: ""
 data_source: real
 created: 2026-06-11

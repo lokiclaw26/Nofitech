@@ -1,24 +1,25 @@
 {
   "schema": "nofitech-agent-state/v1",
-  "updated": "2026-06-11T21:09:15.341321+00:00",
+  "updated": "2026-06-11T21:29:54.185724+00:00",
   "agents": {
     "thor": {
       "status": "idle",
-      "current_assignment": "Awaiting NOFI approval to begin Roguelike V1 Stage 7 (or next directive)",
-      "last_activity": "2026-06-11T21:09:15.341321+00:00",
+      "current_assignment": "Awaiting NOFI approval to begin Roguelike V1 Stage 8 (or next directive)",
+      "last_activity": "2026-06-11T21:29:54.185724+00:00",
       "blocker": ""
     },
     "forge": {
       "status": "idle",
-      "current_assignment": "Standing by (RGV1 Stage 6 complete)",
-      "last_activity": "2026-06-11T21:09:15.341321+00:00",
+      "current_assignment": "Standing by (RGV1 Stage 7 complete)",
+      "last_activity": "2026-06-11T21:29:54.185724+00:00",
       "blocker": ""
     },
     "argus": {
       "status": "idle",
-      "current_assignment": "Standing by (RGV1 Stage 6 verified)",
-      "last_activity": "2026-06-11T21:09:15.341321+00:00",
-      "blocker": ""
+      "current_assignment": "RG-007-WIN-LOSE-STATES: pending verification (states work, HP clamped, no restart)",
+      "last_activity": "2026-06-11T21:29:54.185724+00:00",
+      "blocker": "",
+      "last_assignment": "Standing by (RGV1 Stage 7 verified)"
     }
   }
 }
