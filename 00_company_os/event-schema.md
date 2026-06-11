@@ -19,7 +19,7 @@ The Mission Control server reads the last 50 events for the
 |----|---------------|---------|-------------------------------------------------------------|
 | 1  | `ts`          | string  | ISO-8601 UTC timestamp, e.g. `2026-06-11T01:55:00+00:00`.   |
 | 2  | `actor`       | string  | Who emitted the event: `nofi`, `thor`, `forge`, `argus`.    |
-| 3  | `event_type`  | string  | One of the 14 allowed values below.                         |
+| 3  | `event_type`  | string  | One of the 15 allowed values below.                         |
 | 4  | `project`     | string  | Project slug, e.g. `mission-control`. Empty string allowed. |
 | 5  | `task_id`     | string  | Task id this event refers to. Empty string allowed.         |
 | 6  | `title`       | string  | Short human-readable title. May be empty.                   |
@@ -46,13 +46,14 @@ The Mission Control server reads the last 50 events for the
 | `stage_advanced`  | thor       | The whole stage moved forward (Stage 14, etc.).     |
 | `system_event`    | anyone     | Catch-all for ops / env / pipeline.                 |
 | `fix_order`       | nofi       | **Stage 19:** Structured order receipt from a dashboard "Send fix order" button. Carries `order_id`, `recommended_fix`, `requires_chat_confirmation: true`. Thor ONLY acts on explicit chat phrase: `Thor, do it` or `Thor, execute pending order <order_id>`. Never auto-executes. |
+| `project_created` | thor/nofi  | **Stage 0 of any new project:** A new project folder has been created under `01_projects/<slug>/`. Carries `project_slug`, `charter_path`. Triggers Mission Control's project discovery scan to pick up the new project on next read. Emitted by `nofi` for the initial creation; thor may also emit a follow-up `stage_advanced` when the project transitions. |
 
 ## Validation rules
 
 1. Every line MUST be valid JSON.
 2. Every line MUST contain all 10 fields.
 3. `ts` MUST be a valid ISO-8601 UTC string.
-4. `event_type` MUST be one of the 14 allowed values.
+4. `event_type` MUST be one of the 15 allowed values.
 5. `actor` MUST be one of the canonical agents (`nofi`, `thor`,
    `forge`, `argus`) or a documented extension (e.g. a future sub-agent).
 6. `schema` MUST be `nofitech-event/v1` so future readers can detect

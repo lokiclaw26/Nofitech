@@ -1,51 +1,52 @@
 ---
 id: mission-control
 title: NofiTech Mission Control
-phase: build
-status: active
-progress_pct: "100% code / audit in progress"
+phase: frozen
+status: monitoring
+progress_pct: 100%
 approval_needed: false
-next_action: "Stage 17 — Warnings panel + fix-order buttons + remove Provider/Model. Awaiting NOFI approval to start."
+next_action: "FROZEN at v1.15.0-order-cleanup (2026-06-11). Mission Control is now read-only monitor for new NofiTech projects. Current monitored project: roguelike-v1 (Stage 0)."
 blocker: ""
 data_source: real
 created: 2026-06-10
 updated: 2026-06-11
-version: 1.11.0-live-lan-ip
+version: 1.15.0-order-cleanup
 charter: 01_projects/mission-control/charter.md
 tasks: 01_projects/mission-control/tasks/
-evidence: 00_company_os/04_agents/logs/2026-06-11/
+evidence: 00_company_os/04_agents/logs/2026-06-10/
 ---
 
 # Project: NofiTech Mission Control
 
-Local-only dashboard for the 3-agent NofiTech Ind. (Thor / Forge / Argus).
+**FROZEN.** NOFI directive 2026-06-11: do not start any improvement stages. Mission Control's job is now to monitor the next project.
 
 ## Current state
-- **v1.11.0-live-lan-ip — LIVE on LAN, version + commit rendered live**
-- URL: http://127.0.0.1:8767/ (local) and http://192.168.0.29:8767/ (LAN)
-- 6 panels: Overview, Agents, Tasks, Projects, Logs/Health
-  (Provider/Model panel removed at Stage 17; provider data still served by
-  `/api/data/provider` for any hidden API consumer.)
-- 1 start script: `start-mc.sh` (idempotent, NO systemd, manual restart after reboot)
-- Server bound to 0.0.0.0:8767, no auth, no token usage, real data only
-- Demo data hidden from main view (`?include=demo` to opt-in)
-- **Stage 17 — in build phase**: (1) project next_action now reflects
-  current reality, (2) Provider/Model panel removed from HTML, (3) new
-  Warnings panel with fix-order buttons (POST `/api/data/order` appends a
-  system_event to events.jsonl). After build lands, Argus runs a full
-  UI + endpoint audit and either passes or pushes back.
+- **Frozen at v1.15.0-order-cleanup** — last shipped version, all checks passing
+- 0 pending orders, 0 warnings, app_health=ok
+- 8 panels live, 11 task files (all complete)
+- 1 git tag: `mission-control-v1.15.0-order-cleanup`
+
+## Monitored project
+- **roguelike-v1 — Dungeon Spark** (Stage 0 in build)
+
+## Frozen scope (NO improvements until unfrozen)
+- ~~Cancel order button~~
+- ~~Auth~~
+- ~~Autostart~~
+- ~~Provider integration~~
+- ~~Token usage~~
+- ~~Env pill cleanup~~
+- ~~Log hygiene~~
+- ~~UI changes~~
+- ~~New dashboard features~~
 
 ## Completed stages
-- Stage 1 — Discovery: archive audited
-- Stage 2 — MVP definition: 6 sections + build order locked
-- Stage 3 — App shell shipped + verified (v1.0.0)
-- Stage 4 — Overview panel shipped (v1.1.0)
-- Stage 5 — Agents panel shipped (v1.2.0)
-- Stage 6 — Tasks panel shipped (v1.3.0)
-- Stage 7 — Projects panel shipped (v1.4.0)
-- Stage 8 — Provider/Model panel shipped (v1.5.0)
-- Stage 9 — Logs/Health panel shipped (v1.6.0)
-- Stage 10 — Full QA: 18/18 PASS, 0 blocking (v1.7.0)
+- Stages 1–20 all complete (see memory-log.md entries 001-017)
+- 12 git tags from v1.0.0 → v1.15.0
+
+## Open
+- Awaiting NOFI unfreeze directive to resume Mission Control improvements
+
 - Stage 11 — Stabilization: git init, .gitignore, _detect_lan_ip (v1.7.0 MVP tag)
 - Stage 12 — Live data: demo hidden, strict log levels, no fake values (v1.8.0-live-data)
 - LAN deployment — NOFI approved

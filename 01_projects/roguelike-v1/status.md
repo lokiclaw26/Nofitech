@@ -4,8 +4,8 @@ title: Roguelike V1 — Dungeon Spark
 phase: build
 status: active
 progress_pct: 0%
-approval_needed: false
-next_action: "Stage 0 — project setup + stack confirmation, awaiting Argus verification"
+approval_needed: true
+next_action: "Stage 1 — Game concept + MVP scope, AWAITING NOFI APPROVAL (Stage 0 complete and Argus-verified)"
 blocker: ""
 data_source: real
 created: 2026-06-11
