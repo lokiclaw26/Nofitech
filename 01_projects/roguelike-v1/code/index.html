@@ -73,6 +73,29 @@
       var COL_MIN = 1, COL_MAX = 18; // floor cols
       var ROW_MIN = 1, ROW_MAX = 13; // floor rows
 
+      // Stage 11: hand-authored obstacle tiles. 6 pillars, all interior floor
+      // (col 1..18, row 1..13), none on player start (2,2) or slime start
+      // (17,12). Static — resetGame() does not touch this. Linear scan in
+      // isObstacle() is fine at this size.
+      var OBSTACLES = [
+        { col: 6,  row: 4  },
+        { col: 12, row: 3  },
+        { col: 4,  row: 7  },
+        { col: 14, row: 7  },
+        { col: 8,  row: 10 },
+        { col: 15, row: 9  }
+      ];
+
+      // Stage 11: obstacle hit-test. Linear scan of OBSTACLES; returns true
+      // if any entry's col and row match (c, r). No Set, no map — 6 entries
+      // makes this trivially fast.
+      function isObstacle(c, r) {
+        for (var i = 0; i < OBSTACLES.length; i++) {
+          if (OBSTACLES[i].col === c && OBSTACLES[i].row === r) return true;
+        }
+        return false;
+      }
+
       function render() {
         // 1. Clear (background = walls, the black ring)
         ctx.fillStyle = '#000';
@@ -96,6 +119,17 @@
         for (var r = 1; r <= ROWS - 2; r++) {
           ctx.fillRect(0 * TILE, r * TILE, TILE, TILE);           // col 0
           ctx.fillRect((COLS - 1) * TILE, r * TILE, TILE, TILE);  // col 19
+        }
+
+        // 3b. Stage 11: obstacles — simple mid-gray stone blocks. Drawn
+        //     AFTER the wall ring and BEFORE the slime/player/flash layer
+        //     so entities always sit on top of obstacles. No border, no
+        //     highlight, no shadow, no animation. #555 contrasts the
+        //     #333 floor and the #000 walls.
+        ctx.fillStyle = '#555';
+        for (var oi = 0; oi < OBSTACLES.length; oi++) {
+          var o = OBSTACLES[oi];
+          ctx.fillRect(o.col * TILE, o.row * TILE, TILE, TILE);
         }
 
         // 4. Slime at (slime.col, slime.row) — moved by slimeTick() every 500ms
@@ -183,6 +217,7 @@
         var nextRow = player.row + dy;
         if (nextCol < COL_MIN || nextCol > COL_MAX) return; // wall: left/right
         if (nextRow < ROW_MIN || nextRow > ROW_MAX) return; // wall: up/down
+        if (isObstacle(nextCol, nextRow)) return;           // Stage 11: pillar blocks player
         player.col = nextCol;
         player.row = nextRow;
         if (dx > 0)      player.facing = 'right';
@@ -216,10 +251,10 @@
         var tc = player.col + d.dx;
         var tr = player.row + d.dy;
         // Wall: target tile is outside the interior floor -> no flash, no
-        // damage. Keeps a swing into a wall from looking like a hit.
-        if (tc < COL_MIN || tc > COL_MAX || tr < ROW_MIN || tr > ROW_MAX) {
-          return;
-        }
+        // damage. Stage 11: a swing into a pillar also produces no flash
+        // and no damage, identical to a swing into a wall.
+        if (tc < COL_MIN || tc > COL_MAX || tr < ROW_MIN || tr > ROW_MAX) return;
+        if (isObstacle(tc, tr)) return; // Stage 11: pillar blocks attack
         attackFlash = { col: tc, row: tr, until: now + 400 };
         if (tc === slime.col && tr === slime.row) {
           // Stage 7: clamp slime.hp at 0 (was allowed to go negative in
@@ -274,6 +309,7 @@
       function inBoundsAndFree(c, r) {
         if (c < COL_MIN || c > COL_MAX) return false; // wall: left/right edges
         if (r < ROW_MIN || r > ROW_MAX) return false; // wall: top/bottom edges
+        if (isObstacle(c, r)) return false;           // Stage 11: pillar blocks slime
         return true;
       }
 
