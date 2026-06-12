@@ -101,17 +101,19 @@
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, W, H);
 
-        // 2. Floor: cols 1..18, rows 1..13
-        ctx.fillStyle = '#333';
+        // 2. Floor: cols 1..18, rows 1..13 — Stage 12 2-tone checker.
+        //    Subtle dark grays, alternating on (col+row)%2.
         for (var row = ROW_MIN; row <= ROW_MAX; row++) {
           for (var col = COL_MIN; col <= COL_MAX; col++) {
+            ctx.fillStyle = ((col + row) % 2 === 0) ? '#2a2a2a' : '#3a3a3a';
             ctx.fillRect(col * TILE, row * TILE, TILE, TILE);
           }
         }
 
-        // 3. Walls (col 0, col 19, row 0, row 14) — same color as bg, drawn
-        //    explicitly so the wall ring is owned by the same renderer.
-        ctx.fillStyle = '#000';
+        // 3. Walls (col 0, col 19, row 0, row 14) — Stage 12 stone look.
+        //    Base is slightly off-black (#1a1a1a) so the wall ring reads
+        //    as stone, not as a solid black frame around the scene.
+        ctx.fillStyle = '#1a1a1a';
         for (var c = 0; c < COLS; c++) {
           ctx.fillRect(c * TILE, 0 * TILE, TILE, TILE);          // row 0
           ctx.fillRect(c * TILE, (ROWS - 1) * TILE, TILE, TILE); // row 14
@@ -121,20 +123,43 @@
           ctx.fillRect((COLS - 1) * TILE, r * TILE, TILE, TILE);  // col 19
         }
 
-        // 3b. Stage 11: obstacles — simple mid-gray stone blocks. Drawn
-        //     AFTER the wall ring and BEFORE the slime/player/flash layer
-        //     so entities always sit on top of obstacles. No border, no
-        //     highlight, no shadow, no animation. #555 contrasts the
-        //     #333 floor and the #000 walls.
-        ctx.fillStyle = '#555';
+        // 3a. Stage 12: 1px stone inner-highlight on the wall ring.
+        //     Four short strokes along the inner edge of the ring,
+        //     suggesting the inner bevel of a stone block. #333 sits
+        //     a notch above the wall base (#1a1a1a) and the floor
+        //     (#2a2a2a / #3a3a3a) so it reads as a thin lit edge.
+        ctx.fillStyle = '#333';
+        ctx.fillRect(TILE, TILE, W - 2 * TILE, 1);             // top inner edge
+        ctx.fillRect(TILE, H - TILE - 1, W - 2 * TILE, 1);     // bottom inner edge
+        ctx.fillRect(TILE, TILE, 1, H - 2 * TILE);             // left inner edge
+        ctx.fillRect(W - TILE - 1, TILE, 1, H - 2 * TILE);     // right inner edge
+
+        // 3b. Stage 11: obstacles — Stage 12 carved-stone pillars. Base
+        //     #555 fills the 32x32 tile, then a #444 24x24 inset (4px from
+        //     each side) suggests a carved block. Drawn AFTER the wall
+        //     ring + inner highlight and BEFORE the slime/player/flash
+        //     layer so entities always sit on top of obstacles.
         for (var oi = 0; oi < OBSTACLES.length; oi++) {
           var o = OBSTACLES[oi];
+          // base
+          ctx.fillStyle = '#555';
           ctx.fillRect(o.col * TILE, o.row * TILE, TILE, TILE);
+          // carved inset (24x24 centered inside the 32x32 tile)
+          ctx.fillStyle = '#444';
+          ctx.fillRect(o.col * TILE + 4, o.row * TILE + 4, TILE - 8, TILE - 8);
         }
 
-        // 4. Slime at (slime.col, slime.row) — moved by slimeTick() every 500ms
+        // 4. Slime at (slime.col, slime.row) — moved by slimeTick() every
+        //    500ms. Stage 12: round blob (arc) + a small shine highlight
+        //    in the top-left quadrant. fillStyle is set BEFORE beginPath
+        //    so the arc actually uses the magenta color.
         ctx.fillStyle = 'rgb(180, 40, 180)';
-        ctx.fillRect(slime.col * TILE, slime.row * TILE, TILE, TILE);
+        ctx.beginPath();
+        ctx.arc(slime.col * TILE + TILE / 2, slime.row * TILE + TILE / 2, TILE / 2 - 2, 0, Math.PI * 2);
+        ctx.fill();
+        // 4a. Stage 12: small 4x4 shine highlight on the top-left of the blob.
+        ctx.fillStyle = 'rgb(220, 100, 220)';
+        ctx.fillRect(slime.col * TILE + 8, slime.row * TILE + 8, 4, 4);
 
         // 4b. Stage 5: yellow attack-flash on the swing's target tile.
         //     Drawn after the slime so a successful hit overlays the slime
@@ -145,9 +170,33 @@
           ctx.fillRect(attackFlash.col * TILE, attackFlash.row * TILE, TILE, TILE);
         }
 
-        // 5. Player at (player.col, player.row)
-        ctx.fillStyle = 'blue';
-        ctx.fillRect(player.col * TILE, player.row * TILE, TILE, TILE);
+        // 5. Player at (player.col, player.row) — Stage 12 tiny knight.
+        //    4 fillRect calls: body, helmet, eye, and a sword that rotates
+        //    with player.facing. 3w x 8h for left/right (vertical sword),
+        //    8w x 3h for up/down (horizontal sword). px/py are local
+        //    shortcuts so the facing branches stay readable.
+        var px = player.col * TILE;
+        var py = player.row * TILE;
+        // body (16x16 blue)
+        ctx.fillStyle = '#4488ff';
+        ctx.fillRect(px + 8, py + 8, 16, 16);
+        // helmet (8x6 light blue, sits above the body)
+        ctx.fillStyle = '#88aaff';
+        ctx.fillRect(px + 12, py + 4, 8, 6);
+        // eye (2x2 white, on the body just under the helmet)
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(px + 15, py + 12, 2, 2);
+        // sword (#ddd, points in the player's facing direction)
+        ctx.fillStyle = '#ddd';
+        if (player.facing === 'right') {
+          ctx.fillRect(px + 24, py + 12, 3, 8);
+        } else if (player.facing === 'left') {
+          ctx.fillRect(px + 5,  py + 12, 3, 8);
+        } else if (player.facing === 'down') {
+          ctx.fillRect(px + 14, py + 24, 8, 3);
+        } else { // up
+          ctx.fillRect(px + 14, py + 5,  8, 3);
+        }
 
         // 5b. Stage 6: red hit-flash on the player's tile after contact
         //     damage. Drawn AFTER the player so the flash overlays the
@@ -158,29 +207,64 @@
           ctx.fillRect(playerFlash.col * TILE, playerFlash.row * TILE, TILE, TILE);
         }
 
-        // 6. HUD — text setup
+        // 6. HUD top bar (y=0..26) — Stage 12. Semi-transparent backdrop,
+        //    HP rects (left), slime HP rects (right), centered title with
+        //    drop shadow, and a small state indicator below the title.
+        //    Drawn AFTER the scene so it sits on top of any entity that
+        //    wanders into the top strip.
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(0, 0, W, 26);
+
+        // 6a. Player HP — "HP" label + 5 rects (8w x 6h, 1px gap). Red
+        //     when the slot is filled, dark gray when empty.
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 16px monospace';
+        ctx.font = 'bold 11px monospace';
         ctx.textBaseline = 'top';
+        ctx.textAlign = 'left';
+        ctx.fillText('HP', 8, 9);
+        for (var hi = 0; hi < 5; hi++) {
+          ctx.fillStyle = hi < player.hp ? 'red' : '#444';
+          ctx.fillRect(30 + hi * 9, 10, 8, 6);
+        }
 
-        // 7. HUD — Player HP (top-left)
-        ctx.fillText('Player HP: ' + player.hp, 8, 8);
-
-        // 8. HUD — Slime HP (top-right)
-        ctx.fillText('Slime HP: ' + slime.hp, W - 130, 8);
-
-        // 8b. Stage 7: state indicator (top-center). Color-coded:
-        //      white = playing, lime = win, red = lose. Tiny but visible.
-        ctx.fillStyle = state === 'win' ? 'lime' : (state === 'lose' ? 'red' : 'white');
-        ctx.fillText('State: ' + state, 280, 8);
-        // restore default fillStyle for the rest of the HUD
+        // 6b. Slime HP — "Slime" label + 3 rects. Lime when filled,
+        //     dark gray when empty.
         ctx.fillStyle = '#fff';
+        ctx.fillText('Slime', W - 90, 9);
+        for (var shi = 0; shi < 3; shi++) {
+          ctx.fillStyle = shi < slime.hp ? 'lime' : '#444';
+          ctx.fillRect(W - 50 + shi * 9, 10, 8, 6);
+        }
 
-        // 9. State text (center) — title in Stage 3
-        ctx.fillText('DUNGEON SPARK', (W / 2) - 60, (H / 2) - 8);
+        // 6c. Title "DUNGEON SPARK" — center, with a 1px drop shadow.
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 12px monospace';
+        ctx.fillStyle = '#888';
+        ctx.fillText('DUNGEON SPARK', W / 2 + 1, 7); // shadow (1px down-right)
+        ctx.fillStyle = '#fff';
+        ctx.fillText('DUNGEON SPARK', W / 2, 6);     // main
+        ctx.textAlign = 'left'; // restore default
 
-        // 10. Controls placeholder (bottom)
-        ctx.fillText('WASD/Arrows: move | Space: attack | R: restart', 80, H - 24);
+        // 6d. State indicator — just the word ("PLAYING" / "WIN" / "LOSE")
+        //     in a color that matches the state. Sits below the title.
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 10px monospace';
+        ctx.fillStyle = state === 'win' ? 'lime' : (state === 'lose' ? 'red' : '#fff');
+        var stateLabel = state === 'playing' ? 'PLAYING' : (state === 'win' ? 'WIN' : 'LOSE');
+        ctx.fillText(stateLabel, W / 2, 20);
+        ctx.textAlign = 'left'; // restore default
+
+        // 6e. HUD bottom bar (y=H-20..H) — controls text on a
+        //     semi-transparent backdrop. The end-game overlay is drawn
+        //     AFTER this and will cover it on win/lose, which is the
+        //     intended behavior.
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(0, H - 20, W, 20);
+        ctx.textAlign = 'center';
+        ctx.font = '10px monospace';
+        ctx.fillStyle = '#aaa';
+        ctx.fillText('WASD/Arrows: move  |  Space: attack  |  R: restart', W / 2, H - 7);
+        ctx.textAlign = 'left'; // restore default
 
         // 11. Stage 7: end-game overlay. Drawn LAST so it sits on top of
         //     the scene. A semi-transparent black rect dims the dungeon,
