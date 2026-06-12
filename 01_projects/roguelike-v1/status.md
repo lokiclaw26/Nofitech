@@ -1,11 +1,11 @@
 ---
 id: roguelike-v1
 title: Roguelike V1 — Dungeon Spark
-phase: build
-status: v0.2-stage-12-shipped
+phase: paused
+status: paused
 progress_pct: 38%
-approval_needed: true
-next_action: "Stage 12 (Better Visual Style) complete. Awaiting NOFI approval to begin Stage 13 — Combat Feedback / Juice."
+approval_needed: false
+next_action: "Project PAUSED 2026-06-13 per NOFI directive. Last shipped: Stage 12 (Better Visual Style). Game server still live at http://192.168.0.29:8770/. Awaiting NOFI new project brief (TBD)."
 blocker: ""
 data_source: real
 created: 2026-06-11
@@ -20,36 +20,39 @@ code: 01_projects/roguelike-v1/code/
 
 # Project: Roguelike V1 — Dungeon Spark
 
-**V0.1 PROTOTYPE SHIPPED 2026-06-12. V0.2 STAGES 11-12 SHIPPED 2026-06-13.**
+**PAUSED 2026-06-13 PER NOFI DIRECTIVE. NEW PROJECT BRIEF PENDING.**
 
 ## Current state
-- **v0.1** — feature-complete, Argus QA pass 49/49, released as `roguelike-v1-v0.1-playable-prototype`
-- **v0.2 dev** — Stages 11 (obstacles) + 12 (visuals) shipped, 3 more build stages + 1 QA checkpoint remaining (13-16)
-- 477 lines in single `code/index.html` (v0.1 was 357; v0.2 +120)
-- Run: `python3 -m http.server 8770 --bind 0.0.0.0` (or `bash code/serve-game.sh`)
-- Open: `http://192.168.0.29:8770/`
+- **Status:** Paused. No further v0.2 work scheduled.
+- **Last shipped:** Stage 12 — Better Visual Style (commit `7ad2638`, tag `roguelike-v1-stage-12`)
+- **v0.1 release:** `roguelike-v1-v0.1-playable-prototype` (annotated, still valid)
+- **Code baseline:** 477 lines in single `code/index.html` (UNCHANGED at pause)
+- **Run:** `python3 -m http.server 8770 --bind 0.0.0.0` (server still running, PID 137327, HTTP 200)
+- **Open:** http://192.168.0.29:8770/
 
-## V0.1 features (still working)
+## V0.1 features (shipped, still working)
 - Player movement: WASD or Arrows, 1 tile per press, walls block
 - Slime enemy: greedy Manhattan chase, 500ms tick, 1 HP per contact tick
 - Player attack: Space, 1 dmg, 400ms cooldown, yellow flash
 - Win: 3 attacks to kill slime → YOU WIN → R to restart
 - Lose: 5 hits from slime → YOU DIED → R to restart
-- Restart: R key, only in win/lose state, resets all 12 fields
-- No external deps, no installs, no auth, no sound, no menus, no save/load
+- Restart: R key, only in win/lose state
 
-## V0.2 features (Stages 11-12)
+## V0.2 features shipped (Stages 11-12)
 - 6 hand-authored obstacle tiles (pillars) at (6,4), (12,3), (4,7), (14,7), (8,10), (15,9)
-- Floor: 2-tone checker `#2a2a2a`/`#3a3a3a`
-- Walls: base `#1a1a1a` + 1px `#333` inner-edge highlight
-- Pillars: base `#555` + 24x24 `#444` carved inset
+- Floor: 2-tone checker, walls with stone inner highlight, carved pillars
 - Slime: round blob (arc + shine highlight)
 - Player: tiny knight (body + helmet + eye + sword in facing direction)
 - HUD top bar: backdrop, HP rects, slime HP rects, "DUNGEON SPARK" title with shadow, state indicator
 - HUD bottom bar: backdrop, controls text
-- All v0.1 + Stage 11 mechanics byte-identical to Stage 11 (movePlayer, playerAttack, slimeTick, inBoundsAndFree, applyContactDamage, resetGame, keydown, setInterval, OBSTACLES, isObstacle, win condition, lose condition, overlays)
 
-## Completed stages
+## V0.2 stages NOT YET BUILT (paused before these)
+- Stage 13 — Combat Feedback / Juice
+- Stage 14 — Exit Door Objective
+- Stage 15 — One Health Potion
+- Stage 16 — v0.2 QA Checkpoint
+
+## All completed stages
 - Stage 0 — Project setup + stack confirmation
 - Stage 1 — Game Concept and MVP Scope (4 design docs)
 - Stage 2 — Technical Skeleton (canvas + room + walls + player + slime + HUD)
@@ -61,16 +64,17 @@ code: 01_projects/roguelike-v1/code/
 - Stage 8 — Restart
 - Stage 9 — Final Playable QA Pass + v0.1 Prototype Checkpoint (49/49 PASS)
 - Stage 10 — Fun and Visual Upgrade Plan (planning only)
-- Stage 11 — Room Obstacles (6 pillars, 20/20 Argus PASS, 357→393 LOC)
-- Stage 12 — Better Visual Style (8 visual changes, 31/31 Argus PASS, 393→477 LOC)
+- Stage 11 — Room Obstacles (6 pillars, 20/20 Argus PASS)
+- Stage 12 — Better Visual Style (8 visual changes, 31/31 Argus PASS)
+- Stage 13 — RGV1 Freeze (state-change only, no code, no QA)
 
-## V0.2 plan (Stages 13-16, awaiting NOFI approval)
-- Stage 13 — Combat Feedback / Juice (slime hit flash, sword slash arc, "-1" damage numbers, screen shake — no animation loop)
-- Stage 14 — Exit Door Objective (replaces Stage 7 win condition)
-- Stage 15 — One Health Potion
-- Stage 16 — v0.2 QA Checkpoint
+## Resume conditions
+The project can be resumed by NOFI saying any of:
+- "Resume RGV1 Stage 13" — picks up where Stage 12 left off
+- "Resume RGV1 from v0.1" — discards the v0.2 work, reverts to the v0.1 prototype as the working baseline
+- A completely different direction
 
-## Hard constraints (locked)
+## Hard constraints (locked, still apply on resume)
 - HTML5 Canvas + vanilla JS only
 - No external libraries, no new engine
 - No procedural generation, no inventory, no complex art system
@@ -78,10 +82,11 @@ code: 01_projects/roguelike-v1/code/
 - No multiplayer, no save/load, no mobile export
 
 ## Open
-- NOFI must approve Stage 13 to continue v0.2 build
-- 3 non-blocking cosmetic concerns from Stage 9 QA (stale caption, raw state string, stale comment) — 1 already addressed in Stage 12 (raw "State: playing" → formatted "PLAYING")
+- Awaiting NOFI new project brief
 
 ## Git
-- 12 stage tags: `roguelike-v1-stage-0` through `roguelike-v1-stage-12`
-- Release tag: `roguelike-v1-v0.1-playable-prototype` (annotated)
-- Stage 12 commit: pending
+- 13 stage tags: `roguelike-v1-stage-0` through `roguelike-v1-stage-13` (RG-013 is the freeze, machine-validated by `STATUS: complete` equivalent — events + commit + state.json)
+- Release tag: `roguelike-v1-v0.1-playable-prototype` (annotated, still valid)
+- Pause tag: `roguelike-v1-paused` (pending, annotated)
+- Last code commit: `7ad2638` (Stage 12)
+- Freeze commit: pending
