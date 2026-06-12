@@ -1,32 +1,31 @@
 ---
 id: roguelike-v1
 title: Roguelike V1 — Dungeon Spark
-phase: ship
-status: complete
-progress_pct: 100%
-approval_needed: false
-next_action: "V0.1 PROTOTYPE COMPLETE — 9 stages, 357 lines, full Argus QA pass. Awaiting NOFI decision: freeze v0.1 or plan v0.2."
+phase: plan
+status: v0.2-planning
+progress_pct: 12%
+approval_needed: true
+next_action: "Stage 10 (v0.2 plan) complete. Awaiting NOFI approval to begin Stage 11 — Room Obstacles."
 blocker: ""
 data_source: real
 created: 2026-06-11
-updated: 2026-06-12
+updated: 2026-06-13
 version: 0.1
 charter: 01_projects/roguelike-v1/charter.md
 plan: 01_projects/roguelike-v1/plan.md
 tasks: 01_projects/roguelike-v1/tasks/
-evidence: 00_company_os/04_agents/logs/2026-06-12/
+evidence: 00_company_os/04_agents/logs/2026-06-12/ 00_company_os/04_agents/logs/2026-06-13/
 code: 01_projects/roguelike-v1/code/
 ---
 
 # Project: Roguelike V1 — Dungeon Spark
 
-**V0.1 PROTOTYPE COMPLETE.** First playable roguelike prototype, shipped 2026-06-12.
+**V0.1 PROTOTYPE SHIPPED 2026-06-12. V0.2 PLAN COMPLETE 2026-06-13.**
 
 ## Current state
-- **v0.1** — feature-complete, Argus QA pass 49/49
-- 357 lines in single `code/index.html`
-- 9 stages shipped: Stage 0 (setup), Stage 1 (scope), Stage 2 (skeleton), Stage 3 (move), Stage 4 (slime AI), Stage 5 (attack), Stage 6 (contact damage), Stage 7 (win/lose), Stage 8 (restart), Stage 9 (final QA)
-- 0 blocking bugs, 3 non-blocking cosmetic concerns
+- **v0.1** — feature-complete, Argus QA pass 49/49, released as `roguelike-v1-v0.1-playable-prototype`
+- **v0.2 plan** — Stage 10 complete, 6 stages proposed (11–16)
+- 357 lines in single `code/index.html` (v0.1 baseline; v0.2 estimated +150–230 LOC)
 - Run: `python3 -m http.server 8770 --bind 0.0.0.0` (or `bash code/serve-game.sh`)
 - Open: `http://192.168.0.29:8770/`
 
@@ -51,12 +50,28 @@ code: 01_projects/roguelike-v1/code/
 - Stage 7 — Win/Lose States (state machine, YOU WIN / YOU DIED overlays)
 - Stage 8 — Restart (R key, resetGame function)
 - Stage 9 — Final Playable QA Pass + v0.1 Prototype Checkpoint (49/49 PASS)
+- Stage 10 — Fun and Visual Upgrade Plan (5 candidates, 6-stage v0.2 plan, 0 code)
 
-## Open (post-v0.1)
-- Awaiting NOFI decision: freeze v0.1 or plan v0.2 improvements
+## V0.2 plan (proposed, awaiting NOFI approval)
+- Stage 11 — Room Obstacles (static pillars, hand-authored `OBSTACLES` constant)
+- Stage 12 — Better Visual Style (fillRect knight + arc blob, dungeon floor pattern, HUD polish)
+- Stage 13 — Combat Feedback / Juice (slime hit flash, sword slash arc, "-1" numbers, screen shake — no animation loop)
+- Stage 14 — Exit Door Objective (replaces Stage 7 win condition: kill slime → door unlocks → step on door → win)
+- Stage 15 — One Health Potion (one-shot +1 HP pickup, no inventory)
+- Stage 16 — v0.2 QA Checkpoint (full regression against v0.1 features + new v0.2 surfaces)
+
+## Hard constraints (locked)
+- HTML5 Canvas + vanilla JS only
+- No external libraries, no new engine
+- No procedural generation, no inventory, no complex art system
+- No sound unless NOFI approves separately
+- No multiplayer, no save/load, no mobile export
+
+## Open
+- NOFI must approve Stage 11 to begin v0.2 build
 - 3 non-blocking cosmetic concerns from Stage 9 QA (stale caption, raw state string, stale comment)
 
 ## Git
-- 9 stage tags: `roguelike-v1-stage-0` through `roguelike-v1-stage-8`
+- 10 stage tags: `roguelike-v1-stage-0` through `roguelike-v1-stage-10`
 - Release tag: `roguelike-v1-v0.1-playable-prototype` (annotated)
-- Total commits in this run: 9 (one per stage) + closure commits
+- Stage 10 commit: `d48f329`
