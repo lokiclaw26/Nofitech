@@ -1,23 +1,23 @@
 {
   "schema": "nofitech-agent-state/v1",
-  "updated": "2026-06-13T05:05:00.000000+00:00",
+  "updated": "2026-06-13T05:45:00.000000+00:00",
   "agents": {
     "thor": {
       "status": "idle",
-      "current_assignment": "DIY-003 Stage 3 (Real Wikipedia images) complete. Awaiting NOFI approval to begin Stage 4 (Inventory list + search/filter/tag UI).",
-      "last_activity": "2026-06-13T05:05:00.000000+00:00",
+      "current_assignment": "DIY-004 Stage 4 (One-line AI search + per-model image) complete. Awaiting NOFI approval to begin Stage 5 (Inventory list page).",
+      "last_activity": "2026-06-13T05:45:00.000000+00:00",
       "blocker": ""
     },
     "forge": {
       "status": "idle",
-      "current_assignment": "DIY-003 implementation delivered and verified (24/24 PASS). Standing by for Stage 4.",
-      "last_activity": "2026-06-13T05:05:00.000000+00:00",
+      "current_assignment": "DIY-004 was a well-specified 250-line change applied by Thor directly. Standing by for Stage 5.",
+      "last_activity": "2026-06-13T05:45:00.000000+00:00",
       "blocker": ""
     },
     "argus": {
       "status": "idle",
-      "current_assignment": "DIY-003 verification delivered (24/24 PASS). Standing by for Stage 4.",
-      "last_activity": "2026-06-13T05:05:00.000000+00:00",
+      "current_assignment": "DIY-004 verified (24/24 PASS). Standing by for Stage 5.",
+      "last_activity": "2026-06-13T05:45:00.000000+00:00",
       "blocker": ""
     }
   }

@@ -132,8 +132,7 @@ function CandidateImage({
 
 export default function AddComponent() {
   // Form state
-  const [name, setName] = useState("")
-  const [modelNumber, setModelNumber] = useState("")
+  const [query, setQuery] = useState("")
   const [quantity, setQuantity] = useState(1)
   const [location, setLocation] = useState("")
 
@@ -147,7 +146,7 @@ export default function AddComponent() {
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<Status>("idle")
 
-  const formValid = name.trim() !== "" && modelNumber.trim() !== ""
+  const formValid = query.trim() !== ""
 
   // -----------------------------------------------------------------------
   // Step 1: search
@@ -160,10 +159,7 @@ export default function AddComponent() {
       const res = await fetch(`${API_BASE}/api/components/search`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          model_number: modelNumber.trim(),
-        }),
+        body: JSON.stringify({ query: query.trim() }),
       })
       if (!res.ok) {
         const text = await res.text()
@@ -228,8 +224,7 @@ export default function AddComponent() {
         setShowSuccess(false)
         setShowConfirm(false)
         setPickedCandidate(null)
-        setName("")
-        setModelNumber("")
+        setQuery("")
         setQuantity(1)
         setLocation("")
         setError(null)
@@ -268,29 +263,20 @@ export default function AddComponent() {
         className="bg-white border border-slate-200 rounded-lg p-6 shadow-sm"
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
+          <div className="sm:col-span-2">
             <label className="block text-sm font-medium text-slate-700 mb-1">
-              Component name <span className="text-red-500">*</span>
+              Component <span className="text-red-500">*</span>
             </label>
             <input
-              data-testid="input-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. ESP32"
+              data-testid="input-query"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="e.g. ESP32 DevKit V1, Arduino Uno, Raspberry Pi 4, LM358"
               className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Model number <span className="text-red-500">*</span>
-            </label>
-            <input
-              data-testid="input-model"
-              value={modelNumber}
-              onChange={(e) => setModelNumber(e.target.value)}
-              placeholder="e.g. DevKit V1"
-              className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
-            />
+            <p className="text-xs text-slate-500 mt-1">
+              Just type the component. The system identifies the model, fetches specs, and asks you to pick if there are multiple matches.
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -361,7 +347,7 @@ export default function AddComponent() {
                     <DialogDescription>
                       {searchResults.length} match
                       {searchResults.length === 1 ? "" : "es"} for &quot;
-                      {name.trim()} {modelNumber.trim()}&quot;
+                      {query.trim()}&quot;
                     </DialogDescription>
                   </DialogHeader>
                 </div>
@@ -433,8 +419,8 @@ export default function AddComponent() {
                   <DialogHeader>
                     <DialogTitle>No matches</DialogTitle>
                     <DialogDescription>
-                      No components found for &quot;{name.trim()} {modelNumber.trim()}&quot;.
-                      Try a different name or model.
+                      No components found for &quot;{query.trim()}&quot;.
+                      Try a different component name.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="mt-6 flex justify-center">

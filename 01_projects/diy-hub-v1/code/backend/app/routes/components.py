@@ -1,11 +1,15 @@
-"""Components router — Stage 3 (real Wikipedia images).
+"""Components router — Stage 4 (one-line AI search + per-model images).
 
 Three endpoints, all under ``/api/components``:
 
-- ``POST /api/components/search`` — returns candidate list from the local
-  mock catalog. For each candidate we also call the Wikipedia REST
-  endpoint to attach a real ``image_url``/``image_source``/
-  ``image_attribution`` block (or null when Wikipedia has no thumbnail).
+- ``POST /api/components/search`` — accepts a single free-text
+  ``query`` field, runs it through the rule-based ``parser.parse_query``
+  to identify the component and (if possible) the specific model, and
+  returns 1+ candidates. Each candidate carries a hardcoded
+  ``image_url`` (direct Wikimedia Commons thumbnail, pre-verified) so
+  per-model images are visually distinct in the UI. Wikipedia REST is
+  only called as a FALLBACK when the candidate has no hardcoded
+  ``image_url`` (e.g. synthetic fallback for unknown queries).
 - ``POST /api/components`` — persists a single component to SQLite and,
   if the request carries an ``image_url``, downloads that image to
   ``data/images/<slug>.<ext>`` and writes the local path into
@@ -20,7 +24,7 @@ The Stage 1 ``components`` table already has the columns we need:
 created_at, updated_at``. The new spec fields (``interfaces``,
 ``key_specs``, ``tags``, ``voltage``, ``datasheet_url``, ``source_url``,
 ``model_number``) are stored as a JSON blob inside ``notes`` — no
-schema change, no migration. Stage 4+ can split them out into proper
+schema change, no migration. Stage 5+ can split them out into proper
 columns.
 """
 from __future__ import annotations
@@ -40,7 +44,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from ..db import SessionLocal, engine, get_images_dir
-from ..mock_data import search_components, slug_for_image
+from ..mock_data import slug_for_image
+from ..parser import parse_query
 from ..wikipedia import fetch_wikipedia_image
 
 
@@ -52,8 +57,8 @@ router = APIRouter(prefix="/api/components", tags=["components"])
 # ---------------------------------------------------------------------------
 
 class SearchRequest(BaseModel):
-    name: str = Field(..., description="Component name, e.g. 'ESP32'")
-    model_number: str = Field(..., description="Model number, e.g. 'DevKit V1'")
+    """Stage 4: single free-text query, no separate name/model fields."""
+    query: str = Field(..., description="Free-text component query, e.g. 'ESP32 DevKit V1' or 'arduino uno'")
 
 
 class CreateComponentRequest(BaseModel):
@@ -232,31 +237,40 @@ def download_image(image_url: str, slug: str) -> Optional[Dict[str, Any]]:
 
 @router.post("/search")
 def search(req: SearchRequest) -> Dict[str, Any]:
-    """Return candidate components from the local mock catalog.
+    """Return candidate components for a free-text query.
 
-    Response shape matches the Stage 3 spec: ``{candidates, total}``.
-    Each candidate has all the public spec fields the confirmation
-    popup needs, plus ``image_url`` / ``image_source`` /
-    ``image_attribution`` (or null when Wikipedia has no thumbnail for
-    the candidate's ``wikipedia_title``). The lookup is cached in
-    process, so duplicate searches are free.
+    Response shape: ``{candidates, total}``. Each candidate has the
+    full spec the confirmation popup needs, plus ``image_url`` /
+    ``image_source`` / ``image_attribution``. The hardcoded
+    ``image_url`` (Wikimedia Commons thumbnail, pre-verified) is used
+    when present. Wikipedia REST is only called as a fallback for
+    synthetic candidates that have no hardcoded image.
     """
-    name = (req.name or "").strip()
-    model_number = (req.model_number or "").strip()
-    if not name or not model_number:
+    query = (req.query or "").strip()
+    if not query:
         raise HTTPException(
             status_code=400,
-            detail="Both 'name' and 'model_number' are required",
+            detail="'query' is required and must be non-empty",
         )
 
-    candidates = search_components(name, model_number)
+    candidates = parse_query(query)
     for c in candidates:
-        title = c.get("wikipedia_title") or c.get("name") or ""
-        wiki = fetch_wikipedia_image(title)
-        # Attach image metadata. Keep all candidate fields as-is.
-        c["image_url"] = wiki["url"]
-        c["image_source"] = wiki["source"]
-        c["image_attribution"] = wiki["attribution"]
+        # Stage 4: prefer the hardcoded image_url. Only fall back to
+        # Wikipedia when the candidate has no image_url set.
+        hardcoded_url = c.get("image_url")
+        if hardcoded_url:
+            c["image_url"] = hardcoded_url
+            c["image_source"] = "commons"
+            c["image_attribution"] = {
+                "license": "CC BY-SA",
+                "source_url": "https://commons.wikimedia.org/",
+            }
+        else:
+            title = c.get("wikipedia_title") or c.get("name") or query
+            wiki = fetch_wikipedia_image(title)
+            c["image_url"] = wiki["url"]
+            c["image_source"] = wiki["source"]
+            c["image_attribution"] = wiki["attribution"]
     return {"candidates": candidates, "total": len(candidates)}
 
 
