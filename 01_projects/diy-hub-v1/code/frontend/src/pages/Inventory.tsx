@@ -4,6 +4,7 @@ import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { CATEGORIES, isCategory, categoryColor } from "@/lib/categories"
 import { sourceBadge, confidenceBadge } from "@/lib/sources"
+import { getPref, setPref } from "@/lib/storage"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -54,6 +55,10 @@ function Chip({ label, color }: { label: string; color?: string }) {
 
 // ---------------------------------------------------------------------------
 // Card
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Card view (large image, all details)
 // ---------------------------------------------------------------------------
 
 function InventoryCard({ c }: { c: Component }) {
@@ -180,6 +185,84 @@ function InventoryCard({ c }: { c: Component }) {
 }
 
 // ---------------------------------------------------------------------------
+// List view (small image, dense rows)
+// ---------------------------------------------------------------------------
+
+function InventoryRow({ c }: { c: Component }) {
+  const src = sourceBadge(c.source)
+  const conf = confidenceBadge(c.confidence)
+  const cat = c.category && isCategory(c.category) ? c.category : null
+  const catColor = cat ? categoryColor[cat] : "bg-gray-100 text-gray-800"
+  return (
+    <div
+      data-testid="inventory-row"
+      className="flex items-center gap-3 px-3 py-2 border-b border-slate-200 hover:bg-slate-50"
+    >
+      {/* Small image (48x48) */}
+      <div className="w-12 h-12 bg-slate-100 rounded shrink-0 flex items-center justify-center overflow-hidden">
+        {c.image_url ? (
+          <img
+            src={c.image_url}
+            alt={c.name}
+            className="max-w-full max-h-full object-contain"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.display = "none"
+            }}
+          />
+        ) : (
+          <svg
+            className="w-5 h-5 text-slate-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
+          </svg>
+        )}
+      </div>
+      {/* Name + model */}
+      <div className="flex-1 min-w-0">
+        <div className="font-medium text-sm text-slate-900 truncate" title={c.name}>
+          {c.name}
+        </div>
+        <div className="text-xs text-slate-500 truncate" title={c.model_number ?? ""}>
+          {c.model_number ?? "—"}
+        </div>
+      </div>
+      {/* Manufacturer */}
+      <div className="hidden md:block text-xs text-slate-600 w-32 truncate" title={c.manufacturer ?? ""}>
+        {c.manufacturer ?? "—"}
+      </div>
+      {/* Category chip */}
+      <div className="hidden sm:block w-32">
+        {cat ? (
+          <Chip label={cat} color={catColor} />
+        ) : (
+          <span className="text-xs text-slate-400">—</span>
+        )}
+      </div>
+      {/* Qty + location */}
+      <div className="hidden lg:block text-xs text-slate-600 w-36 truncate" title={c.location ?? ""}>
+        Qty {c.quantity ?? 1}
+        {c.location ? ` · ${c.location}` : ""}
+      </div>
+      {/* Badges */}
+      <div className="flex gap-1 items-center shrink-0">
+        <Chip label={src.label} color={src.color} />
+        <Chip label={conf.label} color={conf.color} />
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 
@@ -189,6 +272,15 @@ export default function Inventory() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [category, setCategory] = useState<string>("__all__")
+  // Stage 8: view mode toggle (cards | list), persisted in localStorage
+  const [view, setView] = useState<"cards" | "list">(
+    () => getPref<"cards" | "list">("inventory-view", "cards")
+  )
+
+  // Persist view preference when changed
+  useEffect(() => {
+    setPref("inventory-view", view)
+  }, [view])
 
   async function load() {
     setLoading(true)
@@ -291,6 +383,58 @@ export default function Inventory() {
             </option>
           ))}
         </select>
+        {/* Stage 8: view toggle (cards | list) */}
+        <div
+          className="flex border border-slate-300 rounded-md overflow-hidden"
+          role="group"
+          aria-label="View mode"
+          data-testid="inventory-view-toggle"
+        >
+          <button
+            type="button"
+            data-testid="inventory-view-cards"
+            onClick={() => setView("cards")}
+            className={`px-2 py-2 text-sm flex items-center gap-1 ${
+              view === "cards"
+                ? "bg-slate-800 text-white"
+                : "bg-white text-slate-600 hover:bg-slate-50"
+            }`}
+            aria-pressed={view === "cards"}
+            title="Card view (large images)"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"
+              />
+            </svg>
+            <span className="hidden sm:inline">Cards</span>
+          </button>
+          <button
+            type="button"
+            data-testid="inventory-view-list"
+            onClick={() => setView("list")}
+            className={`px-2 py-2 text-sm flex items-center gap-1 border-l border-slate-300 ${
+              view === "list"
+                ? "bg-slate-800 text-white"
+                : "bg-white text-slate-600 hover:bg-slate-50"
+            }`}
+            aria-pressed={view === "list"}
+            title="List view (small images, dense rows)"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 6h16M4 12h16M4 18h16"
+              />
+            </svg>
+            <span className="hidden sm:inline">List</span>
+          </button>
+        </div>
         <Link to="/add">
           <Button data-testid="inventory-add-button">+ Add Component</Button>
         </Link>
@@ -389,14 +533,25 @@ export default function Inventory() {
 
       {/* Card grid */}
       {!loading && !error && filtered.length > 0 && (
-        <div
-          data-testid="inventory-grid"
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-        >
-          {filtered.map((c) => (
-            <InventoryCard key={c.id} c={c} />
-          ))}
-        </div>
+        view === "cards" ? (
+          <div
+            data-testid="inventory-grid"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+          >
+            {filtered.map((c) => (
+              <InventoryCard key={c.id} c={c} />
+            ))}
+          </div>
+        ) : (
+          <div
+            data-testid="inventory-list"
+            className="bg-white border border-slate-200 rounded-md overflow-hidden"
+          >
+            {filtered.map((c) => (
+              <InventoryRow key={c.id} c={c} />
+            ))}
+          </div>
+        )
       )}
     </div>
   )

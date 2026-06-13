@@ -17,10 +17,10 @@
   },
   "projects": {
     "diy-hub-v1": {
-      "status": "stage-7-shipped",
+      "status": "stage-8-shipped",
       "phase": "build",
       "current_task": null,
-      "current_task_title": "Stage 7: Inventory List + Manual Entry",
+      "current_task_title": "Stage 8: Enter-Manually on every search + Inventory list/card view toggle",
       "in_progress_since": null,
       "approval_needed": true,
       "approval_phrase": "NOFI approves Candidate A + B for Stage 7",
@@ -51,6 +51,15 @@
         "New lib: lib/categories.ts (canonical category list + color map)",
         "New lib: lib/sources.ts (source badge + confidence badge color helpers)",
         "All 4 servers 200, no regression to Stage 5/6"
+      ],
+      "stage_8_features": [
+        "AddComponent.tsx: 'Enter manually instead' button added to Confirm dialog (data-testid=btn-enter-manually-from-confirm)",
+        "AddComponent.tsx: 'Enter manually instead' button added to Model Picker dialog (data-testid=btn-enter-manually-from-picker)",
+        "AddComponent.tsx: Empty-state dialog 'Enter manually' button kept (regression OK)",
+        "Inventory.tsx: view toggle UI (Cards | List button group) with data-testids inventory-view-toggle/cards/list",
+        "Inventory.tsx: new InventoryRow component (small 48x48 image, dense rows)",
+        "lib/storage.ts: NEW helper for localStorage preferences with try/catch + 'diy-hub-v1-' prefix",
+        "view state initialized from localStorage and persisted on change"
       ]
     }
   }

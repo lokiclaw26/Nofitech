@@ -573,7 +573,19 @@ export default function AddComponent() {
                     ))}
                   </div>
                 </div>
-                <div className="p-4 border-t border-slate-200 flex justify-end">
+                <div className="p-4 border-t border-slate-200 flex justify-between flex-wrap gap-2">
+                  <Button
+                    variant="ghost"
+                    data-testid="btn-enter-manually-from-picker"
+                    onClick={() => {
+                      setShowModelPicker(false)
+                      setSearchResults([])
+                      setShowManual(true)
+                      resetManualForm()
+                    }}
+                  >
+                    Enter manually instead
+                  </Button>
                   <Button variant="outline" onClick={() => setShowModelPicker(false)}>
                     Cancel
                   </Button>
@@ -858,7 +870,7 @@ export default function AddComponent() {
                       </>
                     )}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <Button
                       variant="outline"
                       disabled={status === "saving" || showSuccess}
@@ -869,6 +881,20 @@ export default function AddComponent() {
                       }}
                     >
                       Cancel
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      data-testid="btn-enter-manually-from-confirm"
+                      disabled={status === "saving" || showSuccess}
+                      onClick={() => {
+                        setShowConfirm(false)
+                        setPickedCandidate(null)
+                        setSearchResults([])
+                        setShowManual(true)
+                        resetManualForm()
+                      }}
+                    >
+                      Enter manually instead
                     </Button>
                     <Button
                       data-testid="btn-save"
