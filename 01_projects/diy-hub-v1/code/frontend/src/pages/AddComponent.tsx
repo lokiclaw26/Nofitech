@@ -13,20 +13,33 @@ import { Button } from "@/components/ui/button"
 // Types
 // ---------------------------------------------------------------------------
 
+// Stage 5: a candidate is what a live source returned. The shape is
+// permissive — live sources return different fields, so all fields
+// are optional. The merge step in live_search.py combines partials.
 interface Candidate {
   id: string
   name: string
-  model_number: string
-  category: string
-  voltage: string
-  interfaces: string[]
-  key_specs: string[]
-  tags: string[]
-  datasheet_url: string
-  source_url: string
-  image_url: string | null
-  image_source: string | null
-  image_attribution: { author?: string; license?: string; source_url?: string } | null
+  model_number?: string
+  category?: string
+  voltage?: string
+  interfaces?: string[]
+  key_specs?: string[]
+  tags?: string[]
+  description?: string
+  datasheet_url?: string
+  source_url?: string
+  image_url?: string | null
+  image_source?: string | null
+  image_attribution?: { author?: string; license?: string; source_url?: string } | null
+  // Stage 5: live-source provenance
+  confidence?: number
+  matched_sources?: string[]
+  wikidata_id?: string
+  commons_filename?: string
+  platformio_url?: string
+  manufacturer?: string
+  release_year?: string
+  source?: "live" | "mock_fallback"
   wikipedia_title?: string
 }
 
@@ -74,7 +87,7 @@ function CandidateImage({
   source,
   attribution,
 }: {
-  url: string | null
+  url?: string | null
   size?: number
   source?: string | null
   attribution?: { author?: string; license?: string; source_url?: string } | null
@@ -149,7 +162,7 @@ export default function AddComponent() {
   const formValid = query.trim() !== ""
 
   // -----------------------------------------------------------------------
-  // Step 1: search
+  // Step 1: search (live lookup, then optional mock fallback)
   // -----------------------------------------------------------------------
   async function handleAdd() {
     if (!formValid) return
@@ -184,6 +197,38 @@ export default function AddComponent() {
     }
   }
 
+  // Operator-triggered mock fallback (only from the empty-state dialog)
+  async function handleMockFallback() {
+    setError(null)
+    setStatus("searching")
+    try {
+      const res = await fetch(`${API_BASE}/api/components/mock-fallback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: query.trim() }),
+      })
+      if (!res.ok) {
+        const text = await res.text()
+        throw new Error(`Fallback failed (${res.status}): ${text}`)
+      }
+      const data = await res.json()
+      const candidates: Candidate[] = data.candidates ?? []
+      setSearchResults(candidates)
+      setShowEmpty(false)
+      if (candidates.length === 1) {
+        setPickedCandidate(candidates[0])
+        setShowConfirm(true)
+      } else if (candidates.length > 1) {
+        setShowModelPicker(true)
+      }
+      setStatus("idle")
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Fallback failed"
+      setError(msg)
+      setStatus("error")
+    }
+  }
+
   // -----------------------------------------------------------------------
   // Step 2: confirmation -> save
   // -----------------------------------------------------------------------
@@ -197,17 +242,25 @@ export default function AddComponent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: pickedCandidate.name,
-          model_number: pickedCandidate.model_number,
-          category: pickedCandidate.category,
+          model_number: pickedCandidate.model_number ?? "Unknown",
+          category: pickedCandidate.category ?? "Other",
           quantity: quantity,
           location: location.trim() || null,
-          voltage: pickedCandidate.voltage,
-          interfaces: pickedCandidate.interfaces,
-          key_specs: pickedCandidate.key_specs,
-          tags: pickedCandidate.tags,
-          datasheet_url: pickedCandidate.datasheet_url,
-          source_url: pickedCandidate.source_url,
+          voltage: pickedCandidate.voltage ?? "",
+          interfaces: pickedCandidate.interfaces ?? [],
+          key_specs: pickedCandidate.key_specs ?? [],
+          tags: pickedCandidate.tags ?? [],
+          description: pickedCandidate.description ?? "",
+          datasheet_url: pickedCandidate.datasheet_url ?? "",
+          source_url: pickedCandidate.source_url ?? "",
           image_url: pickedCandidate.image_url ?? null,
+          // Stage 5: live-source provenance
+          wikidata_id: pickedCandidate.wikidata_id ?? null,
+          commons_filename: pickedCandidate.commons_filename ?? null,
+          manufacturer: pickedCandidate.manufacturer ?? null,
+          release_year: pickedCandidate.release_year ?? null,
+          confidence: pickedCandidate.confidence ?? null,
+          source: pickedCandidate.source ?? "live",
         }),
       })
       if (res.status === 400) {
@@ -251,8 +304,9 @@ export default function AddComponent() {
         Add Component
       </motion.h1>
       <p className="text-slate-600 mb-6">
-        Search a local catalog, pick a model, and save it to your inventory.
-        Real component images are fetched from Wikipedia when available.
+        Search a live online database, pick a model from the real candidates found,
+        and save it to your inventory. Real images and specs come from Wikimedia,
+        Wikidata, Wikipedia, PlatformIO, and public GitHub repos.
       </p>
 
       {/* ------------------- Form ------------------- */}
@@ -371,18 +425,43 @@ export default function AddComponent() {
                       >
                         <div className="flex gap-3 items-center">
                           <CandidateImage
-                            url={c.image_url}
-                            source={c.image_source}
-                            attribution={c.image_attribution}
+                            url={c.image_url ?? null}
+                            source={c.image_source ?? null}
+                            attribution={c.image_attribution ?? null}
                             size={48}
                           />
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <div className="font-medium text-sm truncate">
                               {c.name}
                             </div>
                             <div className="text-xs text-slate-500 truncate">
-                              {c.model_number} &middot; {c.category}
+                              {c.model_number ?? "Unknown"} &middot; {c.category ?? "Other"}
                             </div>
+                            {c.matched_sources && c.matched_sources.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {c.matched_sources.slice(0, 3).map((src) => (
+                                  <span
+                                    key={src}
+                                    className="inline-block px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-medium"
+                                  >
+                                    {src}
+                                  </span>
+                                ))}
+                                {c.confidence != null && (
+                                  <span
+                                    className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                      c.confidence >= 0.7
+                                        ? "bg-green-100 text-green-800"
+                                        : c.confidence >= 0.4
+                                        ? "bg-amber-100 text-amber-800"
+                                        : "bg-red-100 text-red-800"
+                                    }`}
+                                  >
+                                    {Math.round(c.confidence * 100)}%
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </motion.button>
@@ -417,14 +496,27 @@ export default function AddComponent() {
               >
                 <div className="p-6 text-center">
                   <DialogHeader>
-                    <DialogTitle>No matches</DialogTitle>
+                    <DialogTitle>No reliable live result found</DialogTitle>
                     <DialogDescription>
-                      No components found for &quot;{query.trim()}&quot;.
-                      Try a different component name.
+                      Live lookup returned no candidates for &quot;{query.trim()}&quot;.
+                      You can try the offline mock fallback, or enter the component manually.
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="mt-6 flex justify-center">
-                    <Button onClick={() => setShowEmpty(false)}>OK</Button>
+                  <div className="mt-6 flex flex-col gap-2 items-stretch">
+                    <Button
+                      data-testid="btn-mock-fallback"
+                      variant="outline"
+                      onClick={handleMockFallback}
+                      disabled={status === "searching"}
+                    >
+                      {status === "searching" ? "Searching..." : "Try offline mock fallback"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setShowEmpty(false)}
+                    >
+                      Enter manually
+                    </Button>
                   </div>
                 </div>
               </motion.div>
@@ -472,9 +564,9 @@ export default function AddComponent() {
 
                 <div className="p-6 border-b border-slate-200">
                   <DialogHeader>
-                    <DialogTitle>Confirm component</DialogTitle>
+                    <DialogTitle>Confirm component details</DialogTitle>
                     <DialogDescription>
-                      Review the details below, then save to your inventory.
+                      Review the live lookup result, then click ADD TO DATABASE to save.
                     </DialogDescription>
                   </DialogHeader>
                 </div>
@@ -484,53 +576,76 @@ export default function AddComponent() {
                     {/* Image */}
                     <div className="shrink-0 self-start">
                       <CandidateImage
-                        url={pickedCandidate.image_url}
-                        source={pickedCandidate.image_source}
-                        attribution={pickedCandidate.image_attribution}
+                        url={pickedCandidate.image_url ?? null}
+                        source={pickedCandidate.image_source ?? null}
+                        attribution={pickedCandidate.image_attribution ?? null}
                         size={200}
                       />
                     </div>
 
                     {/* Spec fields */}
                     <div className="flex-1 min-w-0 space-y-3 text-sm">
-                      <Field label="Name" value={pickedCandidate.name} />
-                      <Field label="Model" value={pickedCandidate.model_number} />
-                      <Field label="Category" value={pickedCandidate.category} />
-                      <Field label="Voltage" value={pickedCandidate.voltage} />
+                      <Field label="Name" value={pickedCandidate.name ?? ""} />
+                      <Field label="Model" value={pickedCandidate.model_number ?? "Unknown"} />
+                      <Field label="Category" value={pickedCandidate.category ?? "Other"} />
+                      <Field label="Voltage" value={pickedCandidate.voltage ?? ""} />
+                      <Field
+                        label="Source"
+                        value={pickedCandidate.source === "mock_fallback" ? "Offline mock fallback" : "Live internet lookup"}
+                      />
+                      <Field
+                        label="Confidence"
+                        value={
+                          pickedCandidate.confidence != null
+                            ? `${(pickedCandidate.confidence * 100).toFixed(0)}%`
+                            : "—"
+                        }
+                      />
 
-                      {pickedCandidate.interfaces.length > 0 && (
+                      {pickedCandidate.description && (
+                        <div>
+                          <div className="text-xs font-semibold text-slate-500 uppercase mb-1">
+                            Description
+                          </div>
+                          <p className="text-slate-700 text-sm leading-relaxed">
+                            {pickedCandidate.description}
+                          </p>
+                        </div>
+                      )}
+
+                      {(pickedCandidate.interfaces ?? []).length > 0 && (
                         <div>
                           <div className="text-xs font-semibold text-slate-500 uppercase mb-1">
                             Interfaces
                           </div>
                           <div>
-                            {pickedCandidate.interfaces.map((s) => (
+                            {(pickedCandidate.interfaces ?? []).map((s) => (
                               <Chip key={s} label={s} />
                             ))}
                           </div>
                         </div>
                       )}
 
-                      {pickedCandidate.key_specs.length > 0 && (
+                      {(pickedCandidate.key_specs ?? []).length > 0 && (
                         <div>
                           <div className="text-xs font-semibold text-slate-500 uppercase mb-1">
                             Key specs
                           </div>
                           <div>
-                            {pickedCandidate.key_specs.map((s) => (
+                            {(pickedCandidate.key_specs ?? []).map((s) => (
                               <Chip key={s} label={s} />
                             ))}
                           </div>
                         </div>
                       )}
 
-                      {pickedCandidate.tags.length > 0 && (
+                      {(pickedCandidate.tags ?? []).length > 0 && (
                         <div>
                           <div className="text-xs font-semibold text-slate-500 uppercase mb-1">
                             Tags
                           </div>
                           <div>
-                            {pickedCandidate.tags.map((s) => (
+                            {(pickedCandidate.tags ?? []).map((s) => (
                               <Chip key={s} label={s} />
                             ))}
                           </div>
@@ -562,14 +677,54 @@ export default function AddComponent() {
                               Source &rarr;
                             </a>
                           )}
+                          {pickedCandidate.wikidata_id && (
+                            <a
+                              href={`https://www.wikidata.org/wiki/${pickedCandidate.wikidata_id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-slate-700 hover:underline text-sm"
+                            >
+                              Wikidata &rarr;
+                            </a>
+                          )}
+                          {pickedCandidate.platformio_url && (
+                            <a
+                              href={pickedCandidate.platformio_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-slate-700 hover:underline text-sm"
+                            >
+                              PlatformIO &rarr;
+                            </a>
+                          )}
                           {!pickedCandidate.datasheet_url &&
-                            !pickedCandidate.source_url && (
+                            !pickedCandidate.source_url &&
+                            !pickedCandidate.wikidata_id &&
+                            !pickedCandidate.platformio_url && (
                               <span className="text-slate-400 text-sm">
                                 No links for this entry.
                               </span>
                             )}
                         </div>
                       </div>
+
+                      {(pickedCandidate.matched_sources ?? []).length > 0 && (
+                        <div>
+                          <div className="text-xs font-semibold text-slate-500 uppercase mb-1">
+                            Live sources
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {(pickedCandidate.matched_sources ?? []).map((src) => (
+                              <span
+                                key={src}
+                                className="inline-block px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-xs font-medium"
+                              >
+                                {src}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -605,7 +760,7 @@ export default function AddComponent() {
                       disabled={status === "saving" || showSuccess}
                       onClick={handleSave}
                     >
-                      {status === "saving" ? "Saving..." : "Add to database"}
+                      {status === "saving" ? "Saving..." : "ADD TO DATABASE"}
                     </Button>
                   </div>
                 </div>
@@ -655,11 +810,11 @@ export default function AddComponent() {
 // Local helper
 // ---------------------------------------------------------------------------
 
-function Field({ label, value }: { label: string; value: string }) {
+function Field({ label, value }: { label: string; value: string | undefined }) {
   return (
     <div>
       <div className="text-xs font-semibold text-slate-500 uppercase">{label}</div>
-      <div className="text-sm text-slate-800">{value}</div>
+      <div className="text-sm text-slate-800">{value || "—"}</div>
     </div>
   )
 }

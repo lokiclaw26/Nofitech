@@ -3,22 +3,37 @@
   "updated": "2026-06-13T05:45:00.000000+00:00",
   "agents": {
     "thor": {
-      "status": "idle",
-      "current_assignment": "DIY-004 Stage 4 (One-line AI search + per-model image) complete. Awaiting NOFI approval to begin Stage 5 (Inventory list page).",
-      "last_activity": "2026-06-13T05:45:00.000000+00:00",
-      "blocker": ""
+      "status": "supervising",
+      "current_task": null
     },
     "forge": {
       "status": "idle",
-      "current_assignment": "DIY-004 was a well-specified 250-line change applied by Thor directly. Standing by for Stage 5.",
-      "last_activity": "2026-06-13T05:45:00.000000+00:00",
-      "blocker": ""
+      "current_task": null
     },
     "argus": {
       "status": "idle",
-      "current_assignment": "DIY-004 verified (24/24 PASS). Standing by for Stage 5.",
-      "last_activity": "2026-06-13T05:45:00.000000+00:00",
-      "blocker": ""
+      "current_task": null
+    }
+  },
+  "projects": {
+    "diy-hub-v1": {
+      "status": "stage-5-shipped",
+      "phase": "build",
+      "current_task": null,
+      "current_task_title": "Stage 5: Real Live Component Lookup",
+      "in_progress_since": null,
+      "approval_needed": true,
+      "approval_phrase": "NOFI approves free public internet lookup",
+      "stage_progress_pct": 100,
+      "stage_5_features": [
+        "live_search.py: 5 live HTTP clients (Commons, Wikidata, Wikipedia, PlatformIO, GitHub)",
+        "/api/components/search: live lookup with parallel fetch + merge + confidence",
+        "/api/components/detail: re-fetch Wikidata entity + PlatformIO page for richer spec",
+        "/api/components/mock-fallback: explicit operator-triggered offline catalog fallback",
+        "DB schema: 7 new columns (wikidata_id, commons_filename, source_url, manufacturer, release_year, confidence, datasheet_url)",
+        "AddComponent.tsx: state machine (idle -> searching -> picking/reviewing -> saving)",
+        "Confidence badge (green/amber/red), ADD TO DATABASE button, source attribution"
+      ]
     }
   }
 }

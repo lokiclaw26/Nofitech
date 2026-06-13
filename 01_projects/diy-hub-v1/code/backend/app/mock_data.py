@@ -1,23 +1,29 @@
-"""Mock component catalog for DIY Hub V1 (Stage 4).
+"""OFFLINE FALLBACK catalog for DIY Hub V1 (Stage 5).
 
-The catalog is local-only: 15 hard-coded components (name, model,
-category, voltage, interfaces, key_specs, tags, datasheet_url,
-source_url) plus a hardcoded ``image_url`` (direct Wikimedia Commons
-thumbnail, pre-verified to exist) per candidate. The
-``wikipedia_title`` field is kept as a FALLBACK for the wikipedia.py
-fetcher when ``image_url`` is None.
+⚠️ OFFLINE FALLBACK ONLY — NOT the primary lookup path. ⚠️
 
-Each candidate carries a real per-model image. Three families have
-multiple members with DIFFERENT images (e.g. esp32-devkit-v1 and
-esp32-s3 have different photos, not the same family photo) so the
-user can visually distinguish models in the model-picker dialog.
+The primary lookup path is now ``app.live_search`` (real live HTTP
+queries to Wikimedia Commons, Wikidata, Wikipedia, PlatformIO, and
+public GitHub repos — all free, all no-key, all no-login).
 
-When the user-supplied query doesn't match any prefix, the synthetic
-fallback candidate returns ``image_url = None`` and the UI shows the
-"No real image found" empty state.
+This catalog remains ONLY for the explicit operator-triggered offline
+fallback flow:
+    1. Live search returns 0 candidates
+    2. UI shows "No reliable live result found"
+    3. Operator clicks "Try offline mock fallback" button
+    4. THEN this catalog is consulted
+
+NEVER use this catalog as a default. NEVER pre-populate candidates
+from here when the live search succeeds. The whole point of Stage 5
+is real live data, not a hard-coded list.
+
+When the operator clicks ADD TO DATABASE for a candidate from this
+catalog, the saved record is marked with ``source = "mock_fallback"``
+in the notes blob so we can tell, later, which records came from real
+live data and which came from this offline fallback.
 
 The URLs in this module are display strings only — they are never
-fetched here. Image lookup happens in ``app.wikipedia`` (fallback only).
+fetched here. Image lookup happens in ``app.live_search``.
 """
 from __future__ import annotations
 

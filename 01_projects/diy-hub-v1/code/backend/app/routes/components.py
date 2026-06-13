@@ -1,31 +1,28 @@
-"""Components router — Stage 4 (one-line AI search + per-model images).
+"""Components router — Stage 5 (real live component lookup).
 
 Three endpoints, all under ``/api/components``:
 
 - ``POST /api/components/search`` — accepts a single free-text
-  ``query`` field, runs it through the rule-based ``parser.parse_query``
-  to identify the component and (if possible) the specific model, and
-  returns 1+ candidates. Each candidate carries a hardcoded
-  ``image_url`` (direct Wikimedia Commons thumbnail, pre-verified) so
-  per-model images are visually distinct in the UI. Wikipedia REST is
-  only called as a FALLBACK when the candidate has no hardcoded
-  ``image_url`` (e.g. synthetic fallback for unknown queries).
-- ``POST /api/components`` — persists a single component to SQLite and,
-  if the request carries an ``image_url``, downloads that image to
-  ``data/images/<slug>.<ext>`` and writes the local path into
-  ``image_path``. Image download failure NEVER fails the save
+  ``query`` field, runs the live lookup against Wikimedia Commons,
+  Wikidata, Wikipedia REST, PlatformIO, and GitHub (all free, all
+  no-key, all no-login, per NOFI brief), and returns 0+ candidate
+  variants with real images and provenance data.
+- ``POST /api/components/detail`` — accepts a candidate dict
+  (the one the user picked) and returns a richer detail view
+  suitable for the confirmation popup.
+- ``POST /api/components`` — persists a single component to SQLite
+  and, if the request carries an ``image_url``, downloads that
+  image to ``data/images/<slug>.<ext>`` and writes the local path
+  into ``image_path``. Image download failure NEVER fails the save
   (graceful degradation: ``image_path`` is null).
+- ``POST /api/components/mock-fallback`` — explicit operator-
+  triggered offline fallback. Returns candidates from the
+  ``mock_data`` catalog (clearly labeled ``source: mock_fallback``).
+  Only used when the operator clicks the "Try offline mock fallback"
+  button in the empty-state UI.
 - ``GET /api/components`` — returns the list of saved components,
   with their stored ``image_path`` resolved to a public ``image_url``
   for the Inventory page.
-
-The Stage 1 ``components`` table already has the columns we need:
-``id, name, category, quantity, location, notes, image_path,
-created_at, updated_at``. The new spec fields (``interfaces``,
-``key_specs``, ``tags``, ``voltage``, ``datasheet_url``, ``source_url``,
-``model_number``) are stored as a JSON blob inside ``notes`` — no
-schema change, no migration. Stage 5+ can split them out into proper
-columns.
 """
 from __future__ import annotations
 
@@ -44,9 +41,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from ..db import SessionLocal, engine, get_images_dir
+from ..live_search import get_detail as live_get_detail
+from ..live_search import search as live_search
+from ..mock_data import Candidate as MockCandidate
 from ..mock_data import slug_for_image
-from ..parser import parse_query
-from ..wikipedia import fetch_wikipedia_image
+from .. import mock_data
 
 
 router = APIRouter(prefix="/api/components", tags=["components"])
@@ -57,18 +56,22 @@ router = APIRouter(prefix="/api/components", tags=["components"])
 # ---------------------------------------------------------------------------
 
 class SearchRequest(BaseModel):
-    """Stage 4: single free-text query, no separate name/model fields."""
-    query: str = Field(..., description="Free-text component query, e.g. 'ESP32 DevKit V1' or 'arduino uno'")
+    """Stage 5: single free-text query, no separate name/model fields."""
+    query: str = Field(..., description="Free-text component query, e.g. 'Wemos D1 Mini' or 'ESP32 DevKit V1'")
+
+
+class DetailRequest(BaseModel):
+    """Stage 5: the candidate the operator picked from the picker dialog."""
+    candidate: Dict[str, Any] = Field(..., description="A candidate dict from the search result")
 
 
 class CreateComponentRequest(BaseModel):
-    """Full payload sent by the frontend after the user picks a candidate.
+    """Full payload sent by the frontend after the user clicks ADD TO DATABASE.
 
-    The fields are a superset of the Stage 1 ``components`` row. Extra
-    spec fields are kept at the top level for convenience and stored in
-    the ``notes`` column as a JSON blob. ``image_url`` is optional —
-    if present, we download the image to disk and store the local
-    path in ``image_path``.
+    Stage 5 added: ``wikidata_id``, ``commons_filename``, ``source_url``,
+    ``manufacturer``, ``release_year``, ``confidence``, ``datasheet_url``.
+    All are stored as direct columns (no longer packed into the notes
+    JSON blob).
     """
 
     name: str
@@ -80,9 +83,19 @@ class CreateComponentRequest(BaseModel):
     interfaces: List[str] = Field(default_factory=list)
     key_specs: List[str] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
-    datasheet_url: Optional[str] = None
-    source_url: Optional[str] = None
+    description: Optional[str] = None
     image_url: Optional[str] = None
+    # Stage 5: live-source provenance
+    wikidata_id: Optional[str] = None
+    commons_filename: Optional[str] = None
+    source_url: Optional[str] = None
+    manufacturer: Optional[str] = None
+    release_year: Optional[str] = None
+    confidence: Optional[float] = None
+    datasheet_url: Optional[str] = None
+    # If the operator picked the offline mock fallback, this is "mock_fallback"
+    # so we can tell, later, which records came from real live data.
+    source: Optional[str] = "live"
 
 
 # ---------------------------------------------------------------------------
@@ -100,27 +113,8 @@ def _project_root() -> Path:
 
 
 def _row_to_dict(row: Any) -> Dict[str, Any]:
-    """Map a SQLAlchemy Row to the public JSON shape, unflattening ``notes``."""
+    """Map a SQLAlchemy Row to the public JSON shape."""
     raw: Dict[str, Any] = dict(row._mapping)
-    notes_blob: Dict[str, Any] = {}
-    raw_notes = raw.pop("notes", None)
-    if raw_notes:
-        try:
-            notes_blob = json.loads(raw_notes)
-        except (TypeError, ValueError):
-            notes_blob = {}
-    # Flatten notes keys into the public response.
-    for key in (
-        "model_number",
-        "voltage",
-        "interfaces",
-        "key_specs",
-        "tags",
-        "datasheet_url",
-        "source_url",
-    ):
-        if key in notes_blob and key not in raw:
-            raw[key] = notes_blob[key]
     # Add a public image_url that the Inventory page can render. We resolve
     # the stored relative path to ``/api/images/<basename>`` which the
     # static file mount in main.py serves.
@@ -129,7 +123,9 @@ def _row_to_dict(row: Any) -> Dict[str, Any]:
         raw["image_url"] = f"/api/images/{Path(image_path).name}"
     else:
         raw["image_url"] = None
-    raw["image_source"] = "wikipedia" if image_path else None
+    # Normalize source label
+    if not raw.get("source"):
+        raw["source"] = "live"
     return raw
 
 
@@ -137,8 +133,7 @@ def _row_to_dict(row: Any) -> Dict[str, Any]:
 # Image download helper (used by POST /api/components)
 # ---------------------------------------------------------------------------
 
-# Magic byte signatures for the three image types Wikipedia can return.
-# We don't accept SVG — Stage 2's SVG fallback is REMOVED.
+# Magic byte signatures for the three image types Wikimedia can return.
 _MAGIC_JPEG = b"\xff\xd8\xff"
 _MAGIC_PNG = b"\x89PNG"
 _MAGIC_WEBP = b"RIFF"  # +4 bytes + "WEBP"
@@ -173,7 +168,7 @@ def _detect_image_format(data: bytes) -> Optional[str]:
 
 
 def download_image(image_url: str, slug: str) -> Optional[Dict[str, Any]]:
-    """Download a Wikipedia/Wikimedia image to ``data/images/<slug>.<ext>``.
+    """Download a Wikimedia image to ``data/images/<slug>.<ext>``.
 
     Returns ``{"file_path": str, "size_bytes": int, "mime_type": str}``
     on success, or ``None`` on any failure (404, timeout, non-image
@@ -197,8 +192,6 @@ def download_image(image_url: str, slug: str) -> Optional[Dict[str, Any]]:
         print(f"[image-download] network error for {image_url}: {exc}", file=sys.stderr)
         return None
 
-    # Validate it's actually an image. Pick the extension from the
-    # content-type header if it looks safe; otherwise infer from magic.
     ext = _ext_from_content_type(content_type) or _detect_image_format(data)
     if ext is None:
         print(
@@ -207,12 +200,10 @@ def download_image(image_url: str, slug: str) -> Optional[Dict[str, Any]]:
         )
         return None
 
-    # Cross-check: the magic bytes and the content-type should agree.
     magic_ext = _detect_image_format(data)
     if magic_ext is None:
         print(f"[image-download] magic-byte check failed for {image_url}", file=sys.stderr)
         return None
-    # If content-type was wrong, fall back to the magic-byte version.
     if ext != magic_ext:
         ext = magic_ext
 
@@ -222,7 +213,6 @@ def download_image(image_url: str, slug: str) -> Optional[Dict[str, Any]]:
     abs_path = images_dir / filename
     abs_path.write_bytes(data)
 
-    # Relative to project root: "data/images/<slug>.<ext>"
     rel_path = str(abs_path.relative_to(_project_root()))
     return {
         "file_path": rel_path,
@@ -237,14 +227,11 @@ def download_image(image_url: str, slug: str) -> Optional[Dict[str, Any]]:
 
 @router.post("/search")
 def search(req: SearchRequest) -> Dict[str, Any]:
-    """Return candidate components for a free-text query.
+    """Return live candidates for a free-text query.
 
-    Response shape: ``{candidates, total}``. Each candidate has the
-    full spec the confirmation popup needs, plus ``image_url`` /
-    ``image_source`` / ``image_attribution``. The hardcoded
-    ``image_url`` (Wikimedia Commons thumbnail, pre-verified) is used
-    when present. Wikipedia REST is only called as a fallback for
-    synthetic candidates that have no hardcoded image.
+    Runs 5 free public sources in parallel (Wikimedia Commons, Wikidata,
+    Wikipedia REST, PlatformIO, GitHub). NEVER raises — partial failures
+    are recorded in the response's ``sources`` field.
     """
     query = (req.query or "").strip()
     if not query:
@@ -253,25 +240,84 @@ def search(req: SearchRequest) -> Dict[str, Any]:
             detail="'query' is required and must be non-empty",
         )
 
-    candidates = parse_query(query)
-    for c in candidates:
-        # Stage 4: prefer the hardcoded image_url. Only fall back to
-        # Wikipedia when the candidate has no image_url set.
-        hardcoded_url = c.get("image_url")
-        if hardcoded_url:
-            c["image_url"] = hardcoded_url
-            c["image_source"] = "commons"
-            c["image_attribution"] = {
-                "license": "CC BY-SA",
-                "source_url": "https://commons.wikimedia.org/",
-            }
-        else:
-            title = c.get("wikipedia_title") or c.get("name") or query
-            wiki = fetch_wikipedia_image(title)
-            c["image_url"] = wiki["url"]
-            c["image_source"] = wiki["source"]
-            c["image_attribution"] = wiki["attribution"]
-    return {"candidates": candidates, "total": len(candidates)}
+    result = live_search(query)
+    return result
+
+
+@router.post("/detail")
+def detail(req: DetailRequest) -> Dict[str, Any]:
+    """Return a richer detail view for a candidate the operator picked.
+
+    Re-fetches the candidate's Wikidata entity (if any) and PlatformIO
+    page (if any) to pull additional claims. Used by the confirmation
+    popup so the operator sees the fullest possible spec sheet.
+    """
+    if not req.candidate:
+        raise HTTPException(status_code=400, detail="'candidate' is required")
+    return live_get_detail(req.candidate)
+
+
+@router.post("/mock-fallback")
+def mock_fallback(req: SearchRequest) -> Dict[str, Any]:
+    """Explicit operator-triggered offline fallback.
+
+    Only used when the operator clicks the "Try offline mock fallback"
+    button in the empty-state UI. The candidates returned here are
+    clearly labeled ``source: mock_fallback`` so we can tell, later,
+    which records came from real live data and which from this
+    offline catalog.
+
+    Per NOFI brief (2026-06-14): "Mock catalog can remain only as
+    offline fallback, clearly labeled 'mock fallback'."
+    """
+    query = (req.query or "").strip()
+    if not query:
+        raise HTTPException(
+            status_code=400,
+            detail="'query' is required and must be non-empty",
+        )
+
+    # Linear scan of every catalog family, with a substring match.
+    # Cheap (16 candidates) and predictable.
+    q = query.lower()
+    matches: List[MockCandidate] = []
+    for family in (
+        mock_data.ESP32_CANDIDATES,
+        mock_data.ARDUINO_CANDIDATES,
+        mock_data.RASPBERRY_CANDIDATES,
+        mock_data.NEOPIXEL_CANDIDATES,
+        mock_data.SERVO_CANDIDATES,
+        mock_data.LM7805_CANDIDATES,
+        mock_data.LM358_CANDIDATES,
+        # STM32 is synthesized, not in a list — skip for fallback to
+        # avoid duplication; operators using fallback can use manual entry.
+    ):
+        for c in family:
+            haystack = " ".join(
+                str(c.get(k, "")).lower()
+                for k in ("id", "name", "model_number", "tags")
+            )
+            if any(tok in haystack for tok in q.split()):
+                # Mark as mock_fallback so the UI can show the badge
+                c_copy = dict(c)
+                c_copy["source"] = "mock_fallback"
+                matches.append(c_copy)  # type: ignore[arg-type]
+
+    if not matches:
+        # Last-resort synthetic
+        syn = dict(mock_data._synthesize_candidate(q, "Unknown"))
+        syn["source"] = "mock_fallback"
+        matches.append(syn)  # type: ignore[arg-type]
+
+    return {
+        "query": query,
+        "candidates": matches,
+        "sources": {
+            "mock_data": {"status": "ok", "n": len(matches), "note": "offline fallback"},
+        },
+        "error": None,
+        "fallback_used": True,
+    }
 
 
 @router.post("", status_code=201)
@@ -300,15 +346,15 @@ def create_component(req: CreateComponentRequest) -> Dict[str, Any]:
             image_rel_path = downloaded["file_path"]
             image_record = downloaded
 
-    # 2) Pack the new spec fields into the notes column as JSON.
+    # 2) Stage 5: pack the descriptive fields into the notes JSON blob.
+    # The 7 new provenance columns are stored as direct columns instead.
     notes_blob = {
-        "model_number": model_number,
         "voltage": req.voltage or "",
         "interfaces": list(req.interfaces or []),
         "key_specs": list(req.key_specs or []),
         "tags": list(req.tags or []),
-        "datasheet_url": req.datasheet_url or "",
-        "source_url": req.source_url or "",
+        "description": req.description or "",
+        "source": req.source or "live",  # "live" or "mock_fallback"
     }
     notes_json = json.dumps(notes_blob, ensure_ascii=False)
 
@@ -321,9 +367,13 @@ def create_component(req: CreateComponentRequest) -> Dict[str, Any]:
                 """
                 INSERT INTO components
                     (name, category, quantity, location, notes, image_path,
+                     wikidata_id, commons_filename, source_url, manufacturer,
+                     release_year, confidence, datasheet_url,
                      created_at, updated_at)
                 VALUES
                     (:name, :category, :quantity, :location, :notes, :image_path,
+                     :wikidata_id, :commons_filename, :source_url, :manufacturer,
+                     :release_year, :confidence, :datasheet_url,
                      :created_at, :updated_at)
                 """
             ),
@@ -334,6 +384,13 @@ def create_component(req: CreateComponentRequest) -> Dict[str, Any]:
                 "location": (req.location or None),
                 "notes": notes_json,
                 "image_path": image_rel_path,
+                "wikidata_id": req.wikidata_id or None,
+                "commons_filename": req.commons_filename or None,
+                "source_url": req.source_url or None,
+                "manufacturer": req.manufacturer or None,
+                "release_year": req.release_year or None,
+                "confidence": req.confidence if req.confidence is not None else None,
+                "datasheet_url": req.datasheet_url or None,
                 "created_at": now,
                 "updated_at": now,
             },

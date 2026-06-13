@@ -1,5 +1,8 @@
 -- DIY Hub V1 — initial schema (Stage 1, empty tables, no business logic)
+-- Stage 5: added 7 columns for live-source provenance + confidence.
 -- Applied idempotently on backend boot via init_db.py.
+-- (ALTER TABLE statements for the new columns are in init_db.py so the
+-- table can grow without a destructive migration.)
 
 CREATE TABLE IF NOT EXISTS components (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -9,6 +12,15 @@ CREATE TABLE IF NOT EXISTS components (
   location TEXT,
   notes TEXT,
   image_path TEXT,
+  -- Stage 5: live-source provenance. All nullable. When null, the field
+  -- was unknown to every live source at the time of lookup.
+  wikidata_id TEXT,
+  commons_filename TEXT,
+  source_url TEXT,
+  manufacturer TEXT,
+  release_year TEXT,
+  confidence REAL,
+  datasheet_url TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
