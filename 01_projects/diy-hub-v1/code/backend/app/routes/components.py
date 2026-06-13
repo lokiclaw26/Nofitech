@@ -113,8 +113,34 @@ def _project_root() -> Path:
 
 
 def _row_to_dict(row: Any) -> Dict[str, Any]:
-    """Map a SQLAlchemy Row to the public JSON shape."""
+    """Map a SQLAlchemy Row to the public JSON shape.
+
+    Stage 7: parse the notes JSON blob and promote the descriptive fields
+    (source, interfaces, key_specs, tags, description, voltage) to the
+    top level so the Inventory page can render them directly.
+    """
     raw: Dict[str, Any] = dict(row._mapping)
+    # Parse the notes JSON blob and promote descriptive fields to top level.
+    notes_raw = raw.pop("notes", None)
+    notes_blob: Dict[str, Any] = {}
+    if notes_raw:
+        try:
+            notes_blob = json.loads(notes_raw)
+        except (TypeError, ValueError):
+            notes_blob = {}
+    for key in (
+        "source",
+        "voltage",
+        "interfaces",
+        "key_specs",
+        "tags",
+        "description",
+    ):
+        if key in notes_blob and not raw.get(key):
+            raw[key] = notes_blob[key]
+    # Default source to "live" if not set anywhere
+    if not raw.get("source"):
+        raw["source"] = "live"
     # Add a public image_url that the Inventory page can render. We resolve
     # the stored relative path to ``/api/images/<basename>`` which the
     # static file mount in main.py serves.
@@ -123,9 +149,6 @@ def _row_to_dict(row: Any) -> Dict[str, Any]:
         raw["image_url"] = f"/api/images/{Path(image_path).name}"
     else:
         raw["image_url"] = None
-    # Normalize source label
-    if not raw.get("source"):
-        raw["source"] = "live"
     return raw
 
 

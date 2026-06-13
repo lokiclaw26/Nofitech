@@ -159,6 +159,40 @@ export default function AddComponent() {
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<Status>("idle")
 
+  // Stage 7: manual entry state. The empty-state dialog now has 3 buttons:
+  // Try offline mock fallback, Enter manually, Cancel. The manual form
+  // opens in its own dialog (showManual).
+  const [showManual, setShowManual] = useState(false)
+  const [manualSaving, setManualSaving] = useState(false)
+  // Manual form fields (per NOFI Stage 7 brief)
+  const [manualName, setManualName] = useState("")
+  const [manualModel, setManualModel] = useState("")
+  const [manualManufacturer, setManualManufacturer] = useState("")
+  const [manualCategory, setManualCategory] = useState("Other")
+  const [manualQty, setManualQty] = useState(1)
+  const [manualLocation, setManualLocation] = useState("")
+  const [manualVoltage, setManualVoltage] = useState("")
+  const [manualInterfaces, setManualInterfaces] = useState("")
+  const [manualKeySpecs, setManualKeySpecs] = useState("")
+  const [manualTags, setManualTags] = useState("")
+  const [manualDescription, setManualDescription] = useState("")
+  const [manualImageUrl, setManualImageUrl] = useState("")
+
+  function resetManualForm() {
+    setManualName("")
+    setManualModel("")
+    setManualManufacturer("")
+    setManualCategory("Other")
+    setManualQty(1)
+    setManualLocation("")
+    setManualVoltage("")
+    setManualInterfaces("")
+    setManualKeySpecs("")
+    setManualTags("")
+    setManualDescription("")
+    setManualImageUrl("")
+  }
+
   const formValid = query.trim() !== ""
 
   // -----------------------------------------------------------------------
@@ -287,6 +321,77 @@ export default function AddComponent() {
       const msg = e instanceof Error ? e.message : "Save failed"
       setError(msg)
       setStatus("error")
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Stage 7: Manual entry save
+  // -----------------------------------------------------------------------
+  async function handleManualSave() {
+    setError(null)
+    // Validate required fields
+    const name = manualName.trim()
+    const model = manualModel.trim()
+    if (!name) {
+      setError("Name is required")
+      return
+    }
+    if (!model) {
+      setError("Model number is required")
+      return
+    }
+    if (manualQty < 1) {
+      setError("Quantity must be >= 1")
+      return
+    }
+    setManualSaving(true)
+    try {
+      // Helper: split a comma-separated chip input into a clean array
+      const splitChips = (s: string) =>
+        s.split(",")
+          .map((x) => x.trim())
+          .filter((x) => x.length > 0)
+
+      const payload = {
+        name,
+        model_number: model,
+        manufacturer: manualManufacturer.trim() || "",
+        category: manualCategory || "Other",
+        quantity: manualQty,
+        location: manualLocation.trim() || null,
+        voltage: manualVoltage.trim() || "",
+        interfaces: splitChips(manualInterfaces),
+        key_specs: splitChips(manualKeySpecs),
+        tags: splitChips(manualTags),
+        description: manualDescription.trim() || "",
+        image_url: manualImageUrl.trim() || null,
+        source: "manual",
+      }
+      const res = await fetch(`${API_BASE}/api/components`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      if (res.status === 400) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.detail || "Validation failed (400)")
+      }
+      if (!res.ok) {
+        throw new Error(`Save failed (${res.status})`)
+      }
+      // Success: close the manual dialog and reset
+      setShowManual(false)
+      setShowEmpty(false)
+      resetManualForm()
+      // Use the existing success animation flow
+      setShowSuccess(true)
+      window.setTimeout(() => {
+        setShowSuccess(false)
+      }, 1500)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Manual save failed")
+    } finally {
+      setManualSaving(false)
     }
   }
 
@@ -512,10 +617,20 @@ export default function AddComponent() {
                       {status === "searching" ? "Searching..." : "Try offline mock fallback"}
                     </Button>
                     <Button
+                      data-testid="btn-enter-manually"
+                      variant="outline"
+                      onClick={() => {
+                        setShowEmpty(false)
+                        setShowManual(true)
+                      }}
+                    >
+                      Enter manually
+                    </Button>
+                    <Button
                       variant="ghost"
                       onClick={() => setShowEmpty(false)}
                     >
-                      Enter manually
+                      Cancel
                     </Button>
                   </div>
                 </div>
@@ -797,6 +912,232 @@ export default function AddComponent() {
                     </motion.div>
                   )}
                 </AnimatePresence>
+              </motion.div>
+            </DialogContent>
+          )}
+        </AnimatePresence>
+      </Dialog>
+
+      {/* ------------------- Manual entry dialog (Stage 7) ------------------- */}
+      <Dialog open={showManual} onOpenChange={(open) => {
+        if (!open && !manualSaving) {
+          setShowManual(false)
+          resetManualForm()
+        }
+      }}>
+        <AnimatePresence>
+          {showManual && (
+            <DialogContent
+              forceMount
+              className="max-w-2xl border border-slate-200 !p-0 overflow-hidden"
+              style={{ animation: "none" }}
+            >
+              <motion.div
+                variants={panelVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+              >
+                <div className="p-6 border-b border-slate-200">
+                  <DialogHeader>
+                    <DialogTitle>Enter component manually</DialogTitle>
+                    <DialogDescription>
+                      Type the details you know. Leave optional fields blank.
+                      This record is saved with source = &quot;manual&quot;.
+                    </DialogDescription>
+                  </DialogHeader>
+                </div>
+
+                <div className="p-6 max-h-[60vh] overflow-y-auto">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        data-testid="manual-name"
+                        value={manualName}
+                        onChange={(e) => setManualName(e.target.value)}
+                        placeholder="e.g. Wemos D1 Mini"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Model number <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        data-testid="manual-model"
+                        value={manualModel}
+                        onChange={(e) => setManualModel(e.target.value)}
+                        placeholder="e.g. D1 Mini V3.1.0"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Manufacturer
+                      </label>
+                      <input
+                        data-testid="manual-manufacturer"
+                        value={manualManufacturer}
+                        onChange={(e) => setManualManufacturer(e.target.value)}
+                        placeholder="e.g. Wemos"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Category
+                      </label>
+                      <select
+                        data-testid="manual-category"
+                        value={manualCategory}
+                        onChange={(e) => setManualCategory(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                      >
+                        <option value="Microcontroller">Microcontroller</option>
+                        <option value="Sensor">Sensor</option>
+                        <option value="Display">Display</option>
+                        <option value="Motor">Motor</option>
+                        <option value="Regulator">Regulator</option>
+                        <option value="Op-amp">Op-amp</option>
+                        <option value="Connector">Connector</option>
+                        <option value="Passive">Passive</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Quantity <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        data-testid="manual-qty"
+                        type="number"
+                        min={1}
+                        value={manualQty}
+                        onChange={(e) => setManualQty(Math.max(1, Number(e.target.value) || 1))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Location
+                      </label>
+                      <input
+                        data-testid="manual-location"
+                        value={manualLocation}
+                        onChange={(e) => setManualLocation(e.target.value)}
+                        placeholder="e.g. Drawer A"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Voltage
+                      </label>
+                      <input
+                        data-testid="manual-voltage"
+                        value={manualVoltage}
+                        onChange={(e) => setManualVoltage(e.target.value)}
+                        placeholder="e.g. 3.3V"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Interfaces <span className="text-xs text-slate-500">(comma-separated)</span>
+                      </label>
+                      <input
+                        data-testid="manual-interfaces"
+                        value={manualInterfaces}
+                        onChange={(e) => setManualInterfaces(e.target.value)}
+                        placeholder="e.g. I2C, SPI, UART, USB"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Key specs <span className="text-xs text-slate-500">(comma-separated)</span>
+                      </label>
+                      <input
+                        data-testid="manual-key-specs"
+                        value={manualKeySpecs}
+                        onChange={(e) => setManualKeySpecs(e.target.value)}
+                        placeholder="e.g. 80 MHz, 4MB flash"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Tags <span className="text-xs text-slate-500">(comma-separated)</span>
+                      </label>
+                      <input
+                        data-testid="manual-tags"
+                        value={manualTags}
+                        onChange={(e) => setManualTags(e.target.value)}
+                        placeholder="e.g. esp8266, wifi, smd"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Description
+                      </label>
+                      <textarea
+                        data-testid="manual-description"
+                        value={manualDescription}
+                        onChange={(e) => setManualDescription(e.target.value)}
+                        rows={3}
+                        placeholder="Free-form notes, e.g. 'ESP8266-based WiFi board, breadboard-friendly, 4MB flash'"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Image URL <span className="text-xs text-slate-500">(optional, will be downloaded)</span>
+                      </label>
+                      <input
+                        data-testid="manual-image-url"
+                        value={manualImageUrl}
+                        onChange={(e) => setManualImageUrl(e.target.value)}
+                        placeholder="https://example.com/photo.jpg"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                      />
+                    </div>
+                  </div>
+
+                  {error && (
+                    <p data-testid="manual-error" className="mt-4 text-sm text-red-600">
+                      {error}
+                    </p>
+                  )}
+                </div>
+
+                <div className="p-4 border-t border-slate-200 flex justify-between items-center">
+                  <div className="text-xs text-slate-500">
+                    Saved with source = &quot;manual&quot;
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      disabled={manualSaving}
+                      onClick={() => {
+                        setShowManual(false)
+                        resetManualForm()
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      data-testid="btn-manual-save"
+                      disabled={manualSaving}
+                      onClick={handleManualSave}
+                    >
+                      {manualSaving ? "Saving..." : "Save to inventory"}
+                    </Button>
+                  </div>
+                </div>
               </motion.div>
             </DialogContent>
           )}

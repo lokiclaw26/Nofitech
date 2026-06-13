@@ -17,13 +17,13 @@
   },
   "projects": {
     "diy-hub-v1": {
-      "status": "stage-6-shipped",
+      "status": "stage-7-shipped",
       "phase": "build",
       "current_task": null,
-      "current_task_title": "Stage 6: Vendor Site Scraping (Adafruit, SparkFun, Pololu)",
+      "current_task_title": "Stage 7: Inventory List + Manual Entry",
       "in_progress_since": null,
       "approval_needed": true,
-      "approval_phrase": "NOFI approves vendor site scraping",
+      "approval_phrase": "NOFI approves Candidate A + B for Stage 7",
       "stage_progress_pct": 100,
       "stage_5_features": [
         "live_search.py: 5 live HTTP clients (Commons, Wikidata, Wikipedia, PlatformIO, GitHub)",
@@ -43,6 +43,14 @@
         "NO price/stock display (verified by key scan)",
         "NO DDG scraping (0 hits in code)",
         "NO SparkFun (1 hit, in a comment block explaining why disabled)"
+      ],
+      "stage_7_features": [
+        "Inventory page: full rewrite with 24 cards, search bar, category filter, empty/loading/error states",
+        "Manual entry: 12-field form accessible from empty-state dialog",
+        "Backend: _row_to_dict now promotes source/voltage/interfaces/key_specs/tags/description to top level",
+        "New lib: lib/categories.ts (canonical category list + color map)",
+        "New lib: lib/sources.ts (source badge + confidence badge color helpers)",
+        "All 4 servers 200, no regression to Stage 5/6"
       ]
     }
   }

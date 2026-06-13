@@ -1,8 +1,259 @@
+import { useEffect, useMemo, useState } from "react"
 import { motion } from "framer-motion"
+import { Link } from "react-router-dom"
+import { Button } from "@/components/ui/button"
+import { CATEGORIES, isCategory, categoryColor } from "@/lib/categories"
+import { sourceBadge, confidenceBadge } from "@/lib/sources"
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface Component {
+  id: number
+  name: string
+  model_number?: string
+  category?: string
+  quantity?: number
+  location?: string | null
+  voltage?: string
+  interfaces?: string[]
+  key_specs?: string[]
+  tags?: string[]
+  description?: string
+  manufacturer?: string | null
+  confidence?: number | null
+  source?: string
+  image_url?: string | null
+  image_path?: string | null
+  wikidata_id?: string | null
+  commons_filename?: string | null
+  source_url?: string | null
+  datasheet_url?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ??
+  `${window.location.protocol}//${window.location.hostname}:8780`
+
+// ---------------------------------------------------------------------------
+// Small chip
+// ---------------------------------------------------------------------------
+
+function Chip({ label, color }: { label: string; color?: string }) {
+  const cls = color ?? "bg-slate-200 text-slate-700"
+  return (
+    <span
+      className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium mr-1 mb-1 ${cls}`}
+    >
+      {label}
+    </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Card
+// ---------------------------------------------------------------------------
+
+function InventoryCard({ c }: { c: Component }) {
+  const src = sourceBadge(c.source)
+  const conf = confidenceBadge(c.confidence)
+  const cat = c.category && isCategory(c.category) ? c.category : null
+  const catColor = cat ? categoryColor[cat] : "bg-gray-100 text-gray-800"
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex flex-col"
+      data-testid="inventory-card"
+    >
+      {/* Image area */}
+      <div className="relative bg-slate-100 h-44 flex items-center justify-center">
+        {c.image_url ? (
+          <img
+            src={c.image_url}
+            alt={c.name}
+            className="max-h-full max-w-full object-contain"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            onError={(e) => {
+              // Swap to placeholder on load error
+              (e.currentTarget as HTMLImageElement).style.display = "none"
+            }}
+          />
+        ) : (
+          <div className="text-slate-400 text-sm flex flex-col items-center">
+            <svg
+              className="w-10 h-10 mb-1"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+            <span>No image</span>
+          </div>
+        )}
+        {/* Source + confidence badges overlay (top-right) */}
+        <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+          <Chip label={src.label} color={src.color} />
+          <Chip label={conf.label} color={conf.color} />
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="p-3 flex-1 flex flex-col gap-2 text-sm">
+        <div>
+          <div className="font-semibold text-slate-900 truncate" title={c.name}>
+            {c.name}
+          </div>
+          {c.model_number && (
+            <div className="text-xs text-slate-500 truncate" title={c.model_number}>
+              {c.model_number}
+            </div>
+          )}
+        </div>
+
+        <div className="text-xs text-slate-600 space-y-0.5">
+          {c.manufacturer && (
+            <div>
+              <span className="text-slate-400">Mfr: </span>
+              <span className="text-slate-700">{c.manufacturer}</span>
+            </div>
+          )}
+          {c.voltage && (
+            <div>
+              <span className="text-slate-400">V: </span>
+              <span className="text-slate-700">{c.voltage}</span>
+            </div>
+          )}
+          <div>
+            <span className="text-slate-400">Qty: </span>
+            <span className="text-slate-700 font-medium">{c.quantity ?? 1}</span>
+            {c.location && (
+              <>
+                <span className="text-slate-400"> · </span>
+                <span className="text-slate-700">{c.location}</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {cat && (
+          <div className="flex flex-wrap">
+            <Chip label={cat} color={catColor} />
+          </div>
+        )}
+
+        {(c.interfaces ?? []).length > 0 && (
+          <div className="flex flex-wrap">
+            {(c.interfaces ?? []).slice(0, 4).map((s) => (
+              <Chip key={s} label={s} />
+            ))}
+            {(c.interfaces ?? []).length > 4 && (
+              <Chip label={`+${(c.interfaces ?? []).length - 4} more`} />
+            )}
+          </div>
+        )}
+
+        {(c.tags ?? []).length > 0 && (
+          <div className="flex flex-wrap">
+            {(c.tags ?? []).slice(0, 4).map((s) => (
+              <Chip key={s} label={`#${s}`} color="bg-slate-100 text-slate-600" />
+            ))}
+            {(c.tags ?? []).length > 4 && (
+              <Chip label={`+${(c.tags ?? []).length - 4} more`} />
+            )}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
 
 export default function Inventory() {
+  const [components, setComponents] = useState<Component[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState("")
+  const [category, setCategory] = useState<string>("__all__")
+
+  async function load() {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`${API_BASE}/api/components`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      setComponents(data.components ?? [])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  // Distinct categories present in the loaded data (union with canonical list,
+  // so the dropdown always shows the canonical categories too).
+  const presentCategories = useMemo(() => {
+    const fromData = new Set<string>()
+    for (const c of components) {
+      if (c.category) fromData.add(c.category)
+    }
+    // Union with the canonical list (so the dropdown is stable across reloads)
+    const all = new Set([...CATEGORIES, ...Array.from(fromData)])
+    return Array.from(all).sort()
+  }, [components])
+
+  // Filter
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return components.filter((c) => {
+      // Category filter
+      if (category !== "__all__" && c.category !== category) return false
+      // Search filter (substring match on a bunch of fields)
+      if (q) {
+        const haystack = [
+          c.name,
+          c.model_number,
+          c.category,
+          c.location ?? "",
+          c.manufacturer ?? "",
+          c.description ?? "",
+          ...(c.tags ?? []),
+          ...(c.interfaces ?? []),
+        ]
+          .join(" ")
+          .toLowerCase()
+        if (!haystack.includes(q)) return false
+      }
+      return true
+    })
+  }, [components, search, category])
+
+  const totalQty = useMemo(
+    () => filtered.reduce((sum, c) => sum + (c.quantity ?? 1), 0),
+    [filtered]
+  )
+
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto">
       <motion.h1
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
@@ -12,17 +263,141 @@ export default function Inventory() {
         Inventory
       </motion.h1>
       <p className="text-slate-600 mb-6">
-        Stage 1 placeholder. The components table and filters land in Stage 2.
+        All saved components. Search by name, model, tag, or location. Filter
+        by category. Click a card to see source links and full details (coming
+        in a later stage).
       </p>
 
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
-        className="border rounded-lg p-10 text-center bg-white text-slate-500"
-      >
-        No components yet. Empty state — intentional.
-      </motion.div>
+      {/* Search + filter bar */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <input
+          data-testid="inventory-search"
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by name, model, tag, location, notes..."
+          className="flex-1 px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+        />
+        <select
+          data-testid="inventory-category-filter"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          className="px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 min-w-[180px]"
+        >
+          <option value="__all__">All categories</option>
+          {presentCategories.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+        <Link to="/add">
+          <Button data-testid="inventory-add-button">+ Add Component</Button>
+        </Link>
+      </div>
+
+      {/* Status row */}
+      <div className="text-sm text-slate-500 mb-3 flex items-center gap-3">
+        {loading ? (
+          <span>Loading inventory…</span>
+        ) : error ? (
+          <>
+            <span className="text-red-600" data-testid="inventory-error">
+              {error}
+            </span>
+            <Button size="sm" variant="outline" onClick={load}>
+              Retry
+            </Button>
+          </>
+        ) : (
+          <>
+            <span data-testid="inventory-count">
+              {filtered.length} of {components.length} components
+            </span>
+            {filtered.length > 0 && (
+              <span className="text-slate-400">
+                · {totalQty} total in stock
+              </span>
+            )}
+            {(search || category !== "__all__") && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setSearch("")
+                  setCategory("__all__")
+                }}
+                data-testid="inventory-clear-filters"
+              >
+                Clear filters
+              </Button>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Empty states */}
+      {!loading && !error && components.length === 0 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+          data-testid="inventory-empty-db"
+          className="border-2 border-dashed border-slate-300 rounded-lg p-10 text-center bg-white"
+        >
+          <div className="text-slate-500 mb-4">
+            <svg
+              className="w-12 h-12 mx-auto mb-2 text-slate-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+              />
+            </svg>
+            <p className="text-lg font-medium text-slate-700">
+              No components yet
+            </p>
+            <p className="text-sm mt-1">Add your first component.</p>
+          </div>
+          <Link to="/add">
+            <Button>+ Add Component</Button>
+          </Link>
+        </motion.div>
+      )}
+
+      {!loading && !error && components.length > 0 && filtered.length === 0 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+          data-testid="inventory-empty-filtered"
+          className="border rounded-lg p-8 text-center bg-white text-slate-500"
+        >
+          <p className="text-base font-medium text-slate-700 mb-1">
+            No components match your filters
+          </p>
+          <p className="text-sm">
+            Try clearing the search or selecting a different category.
+          </p>
+        </motion.div>
+      )}
+
+      {/* Card grid */}
+      {!loading && !error && filtered.length > 0 && (
+        <div
+          data-testid="inventory-grid"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+        >
+          {filtered.map((c) => (
+            <InventoryCard key={c.id} c={c} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
