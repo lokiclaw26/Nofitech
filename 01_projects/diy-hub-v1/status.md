@@ -2,10 +2,10 @@
 id: diy-hub-v1
 title: DIY Hub V1
 phase: build
-status: stage-1-in-progress
-progress_pct: 95%
+status: stage-2-shipped
+progress_pct: 65%
 approval_needed: true
-next_action: "Stage 1 (Project Setup + Running App) complete. Awaiting NOFI approval to begin Stage 2 (Add Component CRUD)."
+next_action: "Stage 2 (Add Component flow) complete. Awaiting NOFI approval to begin Stage 3 (Inventory list + search/filter/tag UI)."
 blocker: ""
 data_source: real
 created: 2026-06-13
@@ -20,58 +20,57 @@ code: 01_projects/diy-hub-v1/code/
 
 # Project: DIY Hub V1
 
-**STAGE 1 SHIPPED 2026-06-13. AWAITING NOFI APPROVAL TO BEGIN STAGE 2.**
+**STAGES 1-2 SHIPPED 2026-06-13. AWAITING NOFI APPROVAL TO BEGIN STAGE 3.**
 
 ## Current state
 - **Stage 1:** Project setup + running app — DONE
-- **Frontend:** Vite + React 19 + TypeScript + Tailwind + Shadcn UI + Radix UI + Framer Motion + React Router DOM — RUNNING on port 5173 (PID 153614)
-- **Backend:** FastAPI + SQLAlchemy + SQLite + uvicorn — RUNNING on port 8780 (PID 153443)
-- **Database:** `data/diy-hub.db` — 6 tables (components, ideas, tags, component_tags, images, settings) — empty
-- **Image dir:** `data/images/` — created, writable
-- **Both servers:** HTTP 200
-- **RGV1 game server :8770:** UNTOUCHED, still HTTP 200
-- **Mission Control :8767:** UNTOUCHED, still HTTP 200
-- **End-to-end wiring proven:** Dashboard page fetches `/api/health` and `/api/pages` and displays the responses
-- **Last commit:** pending (will be created at end of Stage 1 closure)
+- **Stage 2:** Add Component flow — DONE (form + mock search + dialog + save + SVG)
+- **Frontend:** Vite + React 19 + TS + Tailwind + Shadcn UI (Button + Dialog) + Radix UI (Slot + Dialog) + Framer Motion + React Router DOM — RUNNING on :5173
+- **Backend:** FastAPI + SQLAlchemy + SQLite + uvicorn — RUNNING on :8780 with 6 API endpoints (/api/health, /api/pages, /api/info, /api/components, /api/components/search, /api/components GET)
+- **Database:** 4 components in SQLite (ESP32 DevKit V1, Arduino Nano, Raspberry Pi 4, STM32 Blue Pill)
+- **Image dir:** 4 SVG files in data/images/ (one per component, mock-generated, category-colored)
+- **RGV1 game server :8770:** UNTOUCHED, HTTP 200
+- **Mission Control :8767:** UNTOUCHED, HTTP 200
 
-## What works (Stage 1 deliverable)
-- 5 routes reachable via top nav bar:
-  - `/` — Dashboard (live fetch of /api/health + /api/pages, Tailwind `bg-red-500` proves pipeline)
-  - `/add` — Add Component (placeholder, framer-motion fade-in)
-  - `/inventory` — Inventory (placeholder, empty state)
-  - `/ideas` — Idea Lab (placeholder, empty state)
-  - `/settings` — Settings (placeholder, empty state)
-- Shadcn Button (uses Radix Slot) imported in Dashboard, AddComponent, NavBar
-- Framer Motion `<motion.h1>` + `<motion.div>` with `initial`/`animate` in all pages
-- React Router DOM v6 with `BrowserRouter` + `Routes` + `Route`
-- 3 API endpoints: `/api/health`, `/api/pages`, `/api/info` (plus auto `/docs`, `/openapi.json`, `/redoc`)
-- CORS configured for http://127.0.0.1:5173 (covers localhost, 10.x, 192.168.x, 172.16-31.x)
+## What works (Stage 2 deliverable)
+- 4-input form on /add: name, model number, quantity, location
+- ADD button gated on name + model_number non-empty
+- POST /api/components/search with 16-component mock catalog (esp32/3, arduino/3, raspberry/2, neopixel/2, servo/2, lm7805/1, lm358/1, + synthetic fallback for any input)
+- 0/1/many branches: empty-state dialog, skip-to-confirm, model-picker dialog
+- Model-picker: Shadcn Dialog with clickable animated cards (thumbnail + name + model + category)
+- Confirmation popup: full spec layout — image (200x200 SVG), name, model, category, voltage, interfaces (chips), key_specs (chips), tags (chips), datasheet link (target=_blank), source link (target=_blank)
+- 2 buttons: ADD TO DATABASE (primary) + CANCEL
+- On ADD TO DATABASE: POST /api/components, 201 response, success animation (green flash 200ms + check scale-in 250ms), form reset after 1.5s
+- Backend saves: row in `components` table (with spec fields JSON-packed in `notes` column) + SVG file in data/images/<slug>.svg + relative path in image_path
+- All animations < 300ms, no bounce, no elastic, no spring
+- Shadcn Dialog uses Radix DialogPrimitive (keyboard-accessible for free)
 
 ## Hard rules honored
-- NO authentication, NO auth, NO signup, NO login, NO API key, NO remote calls, NO telemetry
-- NO systemd, NO autostart, NO cron — `start-dev.sh` is the only start path
+- NO remote calls (mock catalog only, mock SVG generation only)
+- NO auth, NO auth, NO API key, NO telemetry
+- NO systemd, NO autostart, NO cron — start-dev.sh is the only start path
 - NO Docker
-- NO business logic, NO CRUD, NO AI, NO idea generation
-- NO edits to other projects (roguelike-v1 paused, mission-control frozen)
+- NO new dependencies beyond @radix-ui/react-dialog (auto-pulled by `npx shadcn@latest add dialog`)
+- NO changes to other projects (RGV1 paused, MC frozen)
 - RGV1 PID 137327 and Mission Control PID 130719 NOT killed
 
 ## Completed stages
 - Stage 1 — Project Setup + Running App (5 routes, 4 frontend stacks, FastAPI+SQLite, 6-table schema)
+- Stage 2 — Add Component Flow (4-input form, mock search, Shadcn Dialog picker, confirmation popup, save to SQLite + write SVG, success animation)
 
-## V0.1 plan (Stages 2+, awaiting NOFI approval)
-- **Stage 2** — Add Component CRUD + image upload to `data/images/`
+## V0.1 plan (Stages 3+, awaiting NOFI approval)
 - **Stage 3** — Inventory list + search/filter/tag UI
 - **Stage 4** — Idea Lab: draft/save flow + AI-suggest-but-don't-save rule
 - **Stage 5+** — Settings, polish, packaging
 
 ## Git
-- 1 stage tag: `diy-hub-v1-stage-1` (pending, annotated)
-- Stage 1 commit: pending
+- 2 stage tags: `diy-hub-v1-stage-1`, `diy-hub-v1-stage-2` (pending, annotated)
+- Stage 2 commit: pending
 
 ## Ports
 | Service | Port | Bound | PID |
 |---|---|---|---|
-| Frontend (Vite) | 5173 | 0.0.0.0 | 153614 |
-| Backend (uvicorn) | 8780 | 0.0.0.0 | 153443 |
+| Frontend (Vite) | 5173 | 0.0.0.0 | live |
+| Backend (uvicorn) | 8780 | 0.0.0.0 | live |
 | RGV1 (untouched) | 8770 | 0.0.0.0 | 137327 |
 | Mission Control (untouched) | 8767 | 0.0.0.0 | 130719 |

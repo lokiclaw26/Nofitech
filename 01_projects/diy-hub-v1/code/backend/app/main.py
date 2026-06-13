@@ -11,14 +11,18 @@ from fastapi.middleware.cors import CORSMiddleware
 # Importing init_db applies the schema on boot (idempotent).
 from . import init_db  # noqa: F401
 from .db import get_db_path, get_images_dir
+from .routes import components  # noqa: F401  # Stage 2: Add Component flow
 
 PAGES = ["Dashboard", "Add Component", "Inventory", "Idea Lab", "Settings"]
 
 app = FastAPI(
     title="DIY Hub V1 — API",
-    version="0.1.0",
-    description="Stage 1: navigable shell only. No CRUD yet.",
+    version="0.2.0",
+    description="Stage 2: navigable shell + Add Component flow.",
 )
+
+# Stage 2: Add Component flow (search, save, list).
+app.include_router(components.router)
 
 # CORS — Vite dev server is on http://127.0.0.1:5173 (and :5173 on the LAN).
 app.add_middleware(
