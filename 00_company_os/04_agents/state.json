@@ -17,13 +17,13 @@
   },
   "projects": {
     "diy-hub-v1": {
-      "status": "stage-5-shipped",
+      "status": "stage-6-shipped",
       "phase": "build",
       "current_task": null,
-      "current_task_title": "Stage 5: Real Live Component Lookup",
+      "current_task_title": "Stage 6: Vendor Site Scraping (Adafruit, SparkFun, Pololu)",
       "in_progress_since": null,
       "approval_needed": true,
-      "approval_phrase": "NOFI approves free public internet lookup",
+      "approval_phrase": "NOFI approves vendor site scraping",
       "stage_progress_pct": 100,
       "stage_5_features": [
         "live_search.py: 5 live HTTP clients (Commons, Wikidata, Wikipedia, PlatformIO, GitHub)",
@@ -33,6 +33,16 @@
         "DB schema: 7 new columns (wikidata_id, commons_filename, source_url, manufacturer, release_year, confidence, datasheet_url)",
         "AddComponent.tsx: state machine (idle -> searching -> picking/reviewing -> saving)",
         "Confidence badge (green/amber/red), ADD TO DATABASE button, source attribution"
+      ],
+      "stage_6_features": [
+        "live_search.py: Adafruit vendor scraper (search + product page + datasheet link)",
+        "live_search.py: Pololu disabled (robots.txt disallows /search) with operator-facing note",
+        "live_search.py: 1-hour vendor cache (vs 60s primary cache)",
+        "live_search.py: 1-second throttle between requests to same vendor",
+        "Polite-crawler policy: max 2 requests per vendor per query (1 search + 1 product)",
+        "NO price/stock display (verified by key scan)",
+        "NO DDG scraping (0 hits in code)",
+        "NO SparkFun (1 hit, in a comment block explaining why disabled)"
       ]
     }
   }

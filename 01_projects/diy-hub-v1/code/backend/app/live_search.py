@@ -79,6 +79,31 @@ _REQUEST_TIMEOUT = 5  # seconds per source
 _CACHE: Dict[str, Tuple[float, Dict[str, Any]]] = {}
 _CACHE_TTL = 60  # seconds
 
+# Vendor cache: (vendor, query) -> (timestamp, [partial, ...])
+# 1-hour TTL per NOFI brief ("Use cache to avoid repeated requests").
+# Distinct from the 60s primary-source cache above.
+_VENDOR_CACHE: Dict[Tuple[str, str], Tuple[float, List[Dict[str, Any]]]] = {}
+_VENDOR_CACHE_TTL = 3600  # 1 hour
+
+# Last request time per vendor: (vendor, timestamp). Used to enforce the
+# 1-second minimum pause between requests to the same vendor.
+_LAST_VENDOR_REQUEST: Dict[str, float] = {}
+_VENDOR_MIN_INTERVAL = 1.0  # seconds between requests to the same vendor
+
+
+def _vendor_throttle(vendor: str) -> None:
+    """Sleep if needed to enforce the 1-second minimum pause per vendor.
+
+    Called before every vendor HTTP request. Sleeps for the time gap
+    between now and the last request to this vendor (if < 1s).
+    """
+    last = _LAST_VENDOR_REQUEST.get(vendor, 0.0)
+    now = time.time()
+    gap = now - last
+    if gap < _VENDOR_MIN_INTERVAL:
+        time.sleep(_VENDOR_MIN_INTERVAL - gap)
+    _LAST_VENDOR_REQUEST[vendor] = time.time()
+
 
 # -----------------------------------------------------------------------
 # Public surface
@@ -120,17 +145,20 @@ def search(query: str) -> Dict[str, Any]:
     if q in _CACHE and (now - _CACHE[q][0]) < _CACHE_TTL:
         return _CACHE[q][1]
 
-    # Run all 5 sources in parallel
+    # Run all 5 sources in parallel (plus 2 vendor sources — see below)
     sources_status: Dict[str, Dict[str, Any]] = {}
     partials: List[Dict[str, Any]] = []
 
-    with ThreadPoolExecutor(max_workers=5) as pool:
+    with ThreadPoolExecutor(max_workers=7) as pool:
         futures = {
             pool.submit(_fetch_commons, q): "commons",
             pool.submit(_fetch_wikidata, q): "wikidata",
             pool.submit(_fetch_wikipedia, q): "wikipedia",
             pool.submit(_fetch_platformio, q): "platformio",
             pool.submit(_fetch_github, q): "github",
+            # Stage 6: vendor scrapers (Adafruit, Pololu)
+            pool.submit(_fetch_adafruit, q): "adafruit",
+            pool.submit(_fetch_pololu, q): "pololu",
         }
         for fut in as_completed(futures, timeout=_REQUEST_TIMEOUT + 1):
             name = futures[fut]
@@ -653,6 +681,209 @@ def _fetch_github(query: str) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     return partials, status
 
 
+# ---------------------------------------------------------------------------
+# Stage 6: Vendor site scrapers (Adafruit, Pololu)
+# ---------------------------------------------------------------------------
+#
+# Polite-crawler policy (per NOFI brief, 2026-06-14):
+#   - robots.txt must allow the path we're scraping
+#   - 1-second minimum pause between requests to the same vendor
+#   - 1-hour cache per (vendor, query) to avoid repeated requests
+#   - NEVER scrape price/stock/availability (NO purchasing actions)
+#   - NEVER auto-save anything; the operator must click ADD TO DATABASE
+#
+# SparkFun was proposed and REJECTED — their search results page is
+# JS-rendered and has no product URLs in the static HTML. Without a
+# headless browser we can't reliably reach a product page from a query.
+# Pololu's /search is disallowed by their robots.txt, so we do NOT
+# call it. Pololu's candidates are reachable only via direct product
+# URLs (e.g. https://www.pololu.com/product/1182) which the operator
+# can paste into the description field manually if needed.
+#
+
+
+def _vendor_cached(vendor: str, query: str) -> Optional[List[Dict[str, Any]]]:
+    """Return cached vendor partials if fresh, else None."""
+    key = (vendor, query)
+    if key in _VENDOR_CACHE:
+        ts, rows = _VENDOR_CACHE[key]
+        if (time.time() - ts) < _VENDOR_CACHE_TTL:
+            return rows
+    return None
+
+
+def _vendor_store(vendor: str, query: str, rows: List[Dict[str, Any]]) -> None:
+    """Cache vendor partials with a 1-hour TTL."""
+    _VENDOR_CACHE[(vendor, query)] = (time.time(), rows)
+
+
+def _http_get_vendor(vendor: str, url: str, *, headers: Optional[Dict[str, str]] = None,
+                      timeout: int = _REQUEST_TIMEOUT) -> Optional[bytes]:
+    """HTTP GET with vendor throttling and a polite User-Agent.
+
+    Returns the response body, or None on any error. NEVER raises.
+    """
+    _vendor_throttle(vendor)
+    h = {
+        "User-Agent": USER_AGENT,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    }
+    if headers:
+        h.update(headers)
+    try:
+        req = urllib.request.Request(url, headers=h)
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.read()
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as exc:
+        print(f"[{vendor}] network error for {url}: {exc}", file=sys.stderr)
+        return None
+
+
+def _extract_meta(html: str, prop: str) -> Optional[str]:
+    """Pull the content attribute from a <meta property="X" content="Y"> tag.
+
+    Returns the first match's content, or None if not found.
+    """
+    pat = re.compile(
+        rf'<meta[^>]+property="{re.escape(prop)}"[^>]+content="([^"]+)"',
+        re.IGNORECASE,
+    )
+    m = pat.search(html)
+    if m:
+        return m.group(1)
+    # Try the reverse attribute order
+    pat2 = re.compile(
+        rf'<meta[^>]+content="([^"]+)"[^>]+property="{re.escape(prop)}"',
+        re.IGNORECASE,
+    )
+    m = pat2.search(html)
+    return m.group(1) if m else None
+
+
+# --- Adafruit ----------------------------------------------------------------
+
+def _fetch_adafruit(query: str) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Search Adafruit for products matching the query.
+
+    Returns up to 1 partial candidate (only the first product page is fetched,
+    per the polite-crawler policy: max 2 HTTP requests per query per vendor).
+
+    robots.txt: Allow: /, only disallows /api/, /ajax/, /cache/, /download/,
+    /i/, /includes/, /tmp/. We scrape /search and /product/<id>, both allowed.
+    """
+    status: Dict[str, Any] = {"status": "ok", "n": 0}
+    cached = _vendor_cached("adafruit", query)
+    if cached is not None:
+        status["n"] = len(cached)
+        status["cache"] = "hit"
+        return list(cached), status
+
+    # 1) Search Adafruit
+    search_url = f"https://www.adafruit.com/search?q={urllib.parse.quote(query)}"
+    body = _http_get_vendor("adafruit", search_url)
+    if body is None:
+        return [], {"status": "timeout", "error": "adafruit search", "n": 0}
+
+    html = body.decode("utf-8", errors="replace")
+    # Find the first product link in the search results
+    # Pattern: <a href="/product/1234" ...>Title</a>
+    product_link = re.search(
+        r'<a[^>]+href="(/product/(\d+)[^"]*)"[^>]*>(.*?)</a>',
+        html, re.IGNORECASE | re.DOTALL,
+    )
+    if not product_link:
+        return [], {"status": "ok", "n": 0}
+
+    product_path = product_link.group(1)
+    product_id = product_link.group(2)
+    product_url = f"https://www.adafruit.com{product_path}"
+
+    # 2) Fetch the product page (1 request max)
+    body2 = _http_get_vendor("adafruit", product_url)
+    if body2 is None:
+        return [], {"status": "timeout", "error": "adafruit product", "n": 0}
+
+    html2 = body2.decode("utf-8", errors="replace")
+    title = _extract_meta(html2, "og:title")
+    image_url = _extract_meta(html2, "og:image")
+    description = _extract_meta(html2, "og:description")
+
+    if not title:
+        # Fallback: parse from <title>
+        m = re.search(r"<title>([^<]+)</title>", html2, re.IGNORECASE)
+        if m:
+            title = m.group(1).split(":", 1)[0].strip()
+    if not title:
+        return [], {"status": "ok", "n": 0}
+
+    # Truncate description to 500 chars
+    if description and len(description) > 500:
+        description = description[:497] + "..."
+
+    # Find a datasheet link in the page body
+    datasheet_url = ""
+    ds_match = re.search(
+        r'<a[^>]+href="([^"]+)"[^>]*>[^<]*[Dd]atasheet[^<]*</a>',
+        html2,
+    )
+    if ds_match:
+        datasheet_url = ds_match.group(1)
+        # Make absolute
+        if datasheet_url.startswith("/"):
+            datasheet_url = f"https://www.adafruit.com{datasheet_url}"
+
+    partial = {
+        "id": f"adafruit:{product_id}",
+        "name": _title_case(title),
+        "model_number": product_id,
+        "category": _guess_category_from_query(query),
+        "description": description or "",
+        "image_url": image_url,
+        "image_source": "adafruit",
+        "image_attribution": {
+            "license": "see vendor page",
+            "source_url": product_url,
+        },
+        "source_url": product_url,
+        "datasheet_url": datasheet_url,
+        "tags": ["adafruit", "vendor"],
+    }
+    rows = [partial]
+    _vendor_store("adafruit", query, rows)
+    status["n"] = 1
+    return rows, status
+
+
+# --- Pololu ------------------------------------------------------------------
+
+def _fetch_pololu(query: str) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Pololu vendor fetcher — DISABLED.
+
+    Pololu's robots.txt disallows /search. To respect it, we do NOT call
+    /search. Instead we return 0 candidates with a note explaining why.
+    Niche components that only Pololu carries can be added via the
+    "Enter manually" form (parked for Stage 7+) or by pasting a direct
+    Pololu product URL into the description field.
+    """
+    return [], {
+        "status": "ok",
+        "n": 0,
+        "note": "Pololu /search disallowed by robots.txt; not scraped. Use direct Pololu URLs or Enter manually.",
+    }
+
+
+# --- SparkFun (DISABLED) -----------------------------------------------------
+
+# SparkFun's search results page is JS-rendered and contains no product
+# URLs in the static HTML. Without a headless browser we cannot extract
+# a product URL from a query. This violates NOFI's "no aggressive
+# scraping" rule. SparkFun is parked until they add a structured search
+# endpoint or a no-JS search page.
+#
+# def _fetch_sparkfun(query: str) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+#     raise NotImplementedError("SparkFun search is JS-rendered, parked.")
+
+
 # -----------------------------------------------------------------------
 # Merge + confidence
 # -----------------------------------------------------------------------
@@ -765,6 +996,9 @@ def _confidence(c: Dict[str, Any], sources_status: Dict[str, Dict[str, Any]]) ->
         score += 0.2
     elif len(matched) == 2:
         score += 0.1
+    # Stage 6: vendor sources are single-source by themselves, so we
+    # don't add an extra bonus for them — the image/description above
+    # already cover what a vendor provides.
     return min(round(score, 2), 1.0)
 
 
