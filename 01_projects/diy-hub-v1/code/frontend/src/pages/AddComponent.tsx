@@ -62,13 +62,26 @@ function Chip({ label }: { label: string }) {
 }
 
 // Renders a candidate's SVG mock_image_data inline (it's a raw SVG string).
+// The server-generated SVG has width="400" height="400" on the outer <svg>
+// tag; we override just those two attributes (not the inner <rect>s) so the
+// SVG scales to the container using its viewBox. Otherwise the natural 400x400
+// overflows the dialog container and gets clipped (image appears missing).
+// Hotfix 2.
 function CandidateImage({ svg, size = 200 }: { svg: string; size?: number }) {
+  // Match the FIRST <svg ...> tag only (not inner <rect>s).
+  const scaled = svg.replace(
+    /<svg([^>]*?)\swidth="[^"]*"/,
+    '<svg$1 width="100%"',
+  ).replace(
+    /<svg([^>]*?)\sheight="[^"]*"/,
+    '<svg$1 height="100%"',
+  )
   return (
     <div
       className="rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shrink-0"
       style={{ width: size, height: size }}
       // svg is generated server-side; safe to inject.
-      dangerouslySetInnerHTML={{ __html: svg }}
+      dangerouslySetInnerHTML={{ __html: scaled }}
     />
   )
 }
