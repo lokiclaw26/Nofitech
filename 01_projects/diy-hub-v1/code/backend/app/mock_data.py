@@ -1,40 +1,23 @@
-"""Mock component catalog for DIY Hub V1 (Stage 2).
+"""Mock component catalog for DIY Hub V1 (Stage 3).
 
-NOFI explicit: NO remote calls. This module is the local-only source of
-truth for the search and image-generation endpoints. The keys are real
-component prefixes (esp32, arduino, raspberry, neopixel, servo, lm7805,
-lm358). When a user-supplied name doesn't match any prefix, the
-``search_components`` function returns one synthetic candidate so the
-flow always has something to render.
-
-Each candidate carries enough metadata for the confirmation popup:
-name, model_number, category, voltage, interfaces (list), key_specs
-(list), tags (list), datasheet_url, source_url, and a deferred
-``mock_image_data`` field that is generated on demand by
-``generate_mock_svg`` (category-coloured 400x400 square, name + model
-centered).
+The catalog is still local-only: 16 hard-coded components (name, model,
+category, voltage, interfaces, key_specs, tags, datasheet_url,
+source_url) and a small prefix-matching table that powers
+``search_components``. We no longer generate mock SVGs here — Stage 3
+fetches real component images from Wikipedia at request time. Each
+candidate carries a ``wikipedia_title`` that the search handler uses to
+look up the image. When the user-supplied name doesn't match any
+prefix, the synthetic-fallback candidate gets
+``wikipedia_title = name.strip()`` (best-effort lookup).
 
 The URLs in this module are display strings only — they are never
-fetched, in line with the Stage 2 no-remote-calls constraint.
+fetched here. Image lookup happens in ``app.wikipedia``.
 """
 from __future__ import annotations
 
 import re
 import uuid
-import xml.etree.ElementTree as ET
-from typing import Callable, Dict, List, Optional, TypedDict
-
-
-# 5-7 background colours keyed by category. Kept tasteful + readable.
-CATEGORY_COLORS: Dict[str, str] = {
-    "Microcontroller": "#1e3a8a",  # deep blue
-    "Sensor": "#047857",            # green
-    "Motor": "#b45309",             # amber
-    "Power": "#7c2d12",             # burnt orange
-    "Display": "#6d28d9",           # purple
-    "LED": "#be185d",               # pink
-    "Other": "#475569",             # slate
-}
+from typing import Dict, List, Optional, TypedDict
 
 
 class Candidate(TypedDict, total=False):
@@ -48,7 +31,7 @@ class Candidate(TypedDict, total=False):
     tags: List[str]
     datasheet_url: str
     source_url: str
-    mock_image_data: str  # raw SVG string
+    wikipedia_title: str  # used by the search handler to look up a real image
 
 
 # ---------------------------------------------------------------------------
@@ -72,6 +55,7 @@ ESP32_CANDIDATES: List[Candidate] = [
         "tags": ["esp32", "wifi", "bluetooth", "iot", "espressif"],
         "datasheet_url": "https://www.espressif.com/sites/default/files/documentation/esp32_datasheet_en.pdf",
         "source_url": "https://www.espressif.com/en/products/socs/esp32",
+        "wikipedia_title": "ESP32",
     },
     {
         "id": "esp32-wroom-32",
@@ -90,6 +74,7 @@ ESP32_CANDIDATES: List[Candidate] = [
         "tags": ["esp32", "wifi", "bluetooth", "module", "espressif"],
         "datasheet_url": "https://www.espressif.com/sites/default/files/documentation/esp32-wroom-32_datasheet_en.pdf",
         "source_url": "https://www.espressif.com/en/products/modules/esp32",
+        "wikipedia_title": "ESP32",
     },
     {
         "id": "esp32-s3",
@@ -107,6 +92,7 @@ ESP32_CANDIDATES: List[Candidate] = [
         "tags": ["esp32", "wifi", "bluetooth", "ai", "espressif"],
         "datasheet_url": "https://www.espressif.com/sites/default/files/documentation/esp32-s3_datasheet_en.pdf",
         "source_url": "https://www.espressif.com/en/products/socs/esp32-s3",
+        "wikipedia_title": "ESP32-S3",
     },
 ]
 
@@ -128,6 +114,7 @@ ARDUINO_CANDIDATES: List[Candidate] = [
         "tags": ["arduino", "atmega", "beginner", "open-source"],
         "datasheet_url": "https://docs.arduino.cc/resources/datasheets/A000066-datasheet.pdf",
         "source_url": "https://store.arduino.cc/products/arduino-uno-rev3",
+        "wikipedia_title": "Arduino Uno",
     },
     {
         "id": "arduino-nano",
@@ -146,6 +133,7 @@ ARDUINO_CANDIDATES: List[Candidate] = [
         "tags": ["arduino", "atmega", "compact", "open-source"],
         "datasheet_url": "https://docs.arduino.cc/resources/datasheets/A000005-datasheet.pdf",
         "source_url": "https://store.arduino.cc/products/arduino-nano",
+        "wikipedia_title": "Arduino Nano",
     },
     {
         "id": "arduino-mega-2560",
@@ -164,6 +152,7 @@ ARDUINO_CANDIDATES: List[Candidate] = [
         "tags": ["arduino", "atmega", "large", "open-source"],
         "datasheet_url": "https://docs.arduino.cc/resources/datasheets/A000067-datasheet.pdf",
         "source_url": "https://store.arduino.cc/products/arduino-mega-2560-rev3",
+        "wikipedia_title": "Arduino Mega",
     },
 ]
 
@@ -184,6 +173,7 @@ RASPBERRY_CANDIDATES: List[Candidate] = [
         "tags": ["raspberry-pi", "linux", "sbc", "wifi"],
         "datasheet_url": "https://datasheets.raspberrypi.com/rpi4/raspberry-pi-4-datasheet.pdf",
         "source_url": "https://www.raspberrypi.com/products/raspberry-pi-4-model-b/",
+        "wikipedia_title": "Raspberry Pi",
     },
     {
         "id": "raspberry-pi-zero-w",
@@ -201,6 +191,7 @@ RASPBERRY_CANDIDATES: List[Candidate] = [
         "tags": ["raspberry-pi", "linux", "sbc", "compact", "wifi"],
         "datasheet_url": "https://datasheets.raspberrypi.com/rpizero/raspberry-pi-zero-w-product-brief.pdf",
         "source_url": "https://www.raspberrypi.com/products/raspberry-pi-zero/",
+        "wikipedia_title": "Raspberry Pi Zero",
     },
 ]
 
@@ -221,6 +212,7 @@ NEOPIXEL_CANDIDATES: List[Candidate] = [
         "tags": ["led", "rgb", "addressable", "neopixel", "ws2812"],
         "datasheet_url": "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf",
         "source_url": "https://www.adafruit.com/category/168",
+        "wikipedia_title": "WS2812",
     },
     {
         "id": "sk6812-rgbw",
@@ -238,6 +230,7 @@ NEOPIXEL_CANDIDATES: List[Candidate] = [
         "tags": ["led", "rgbw", "addressable", "neopixel", "sk6812"],
         "datasheet_url": "https://cdn-shop.adafruit.com/product-files/2757/p2757_SK6812RGBW_REV01.pdf",
         "source_url": "https://www.adafruit.com/product/2757",
+        "wikipedia_title": "SK6812",
     },
 ]
 
@@ -258,6 +251,7 @@ SERVO_CANDIDATES: List[Candidate] = [
         "tags": ["servo", "micro", "pwm", "beginner"],
         "datasheet_url": "https://www.towerpro.com.tw/product/sg90-7/",
         "source_url": "https://www.adafruit.com/product/169",
+        "wikipedia_title": "Servo (radio control)",
     },
     {
         "id": "servo-mg996r",
@@ -275,6 +269,7 @@ SERVO_CANDIDATES: List[Candidate] = [
         "tags": ["servo", "high-torque", "metal-gears", "pwm"],
         "datasheet_url": "https://www.towerpro.com.tw/product/mg996r/",
         "source_url": "https://www.adafruit.com/product/1142",
+        "wikipedia_title": "Servo (radio control)",
     },
 ]
 
@@ -295,6 +290,7 @@ LM7805_CANDIDATES: List[Candidate] = [
         "tags": ["regulator", "linear", "5v", "power"],
         "datasheet_url": "https://www.ti.com/lit/ds/symlink/lm7805.pdf",
         "source_url": "https://www.ti.com/product/LM7805",
+        "wikipedia_title": "78xx",
     },
 ]
 
@@ -315,6 +311,7 @@ LM358_CANDIDATES: List[Candidate] = [
         "tags": ["op-amp", "analog", "signal-conditioning"],
         "datasheet_url": "https://www.ti.com/lit/ds/symlink/lm358.pdf",
         "source_url": "https://www.ti.com/product/LM358",
+        "wikipedia_title": "LM358",
     },
 ]
 
@@ -355,12 +352,15 @@ def _synthesize_candidate(name: str, model_number: str) -> Candidate:
     """Build a generic candidate when the prefix table doesn't match.
 
     Keeps the flow alive for any input: the user always sees a confirmation
-    popup they can either accept (save) or cancel.
+    popup they can either accept (save) or cancel. The ``wikipedia_title``
+    is a best-effort attempt — the search handler will call the lookup and
+    gracefully get null back if Wikipedia has nothing for that name.
     """
     base = _slugify(f"{name} {model_number}", max_length=40)
+    clean_name = name.strip() or "Unknown Component"
     return {
         "id": f"generic-{base}-{uuid.uuid4().hex[:6]}",
-        "name": name.strip() or "Unknown Component",
+        "name": clean_name,
         "model_number": model_number.strip() or "Unknown",
         "category": "Other",
         "voltage": "Unknown",
@@ -369,6 +369,7 @@ def _synthesize_candidate(name: str, model_number: str) -> Candidate:
         "tags": ["uncategorized"],
         "datasheet_url": "",
         "source_url": "",
+        "wikipedia_title": clean_name,
     }
 
 
@@ -384,107 +385,14 @@ def search_components(name: str, model_number: str) -> List[Candidate]:
     return list(matches)
 
 
-# ---------------------------------------------------------------------------
-# Mock image (SVG) generation
-# ---------------------------------------------------------------------------
-
-def generate_mock_svg(name: str, model_number: str, category: str) -> str:
-    """Return a 400x400 SVG string.
-
-    Background colour is keyed by category. The component name and model
-    number are centred, with a thin border. No fonts, no images, no
-    network — just ElementTree.
-    """
-    color = CATEGORY_COLORS.get(category, CATEGORY_COLORS["Other"])
-    safe_name = (name or "Unknown").strip()[:40]
-    safe_model = (model_number or "").strip()[:40]
-
-    svg = ET.Element(
-        "svg",
-        {
-            "xmlns": "http://www.w3.org/2000/svg",
-            "viewBox": "0 0 400 400",
-            "width": "400",
-            "height": "400",
-        },
-    )
-    ET.SubElement(
-        svg,
-        "rect",
-        {"x": "0", "y": "0", "width": "400", "height": "400", "fill": color},
-    )
-    ET.SubElement(
-        svg,
-        "rect",
-        {
-            "x": "4",
-            "y": "4",
-            "width": "392",
-            "height": "392",
-            "fill": "none",
-            "stroke": "#ffffff",
-            "stroke-width": "2",
-            "opacity": "0.4",
-        },
-    )
-    text = ET.SubElement(
-        svg,
-        "text",
-        {
-            "x": "200",
-            "y": "190",
-            "fill": "#ffffff",
-            "font-family": "system-ui, -apple-system, sans-serif",
-            "font-size": "24",
-            "font-weight": "600",
-            "text-anchor": "middle",
-        },
-    )
-    text.text = safe_name
-    sub = ET.SubElement(
-        svg,
-        "text",
-        {
-            "x": "200",
-            "y": "220",
-            "fill": "#ffffff",
-            "font-family": "system-ui, -apple-system, sans-serif",
-            "font-size": "14",
-            "opacity": "0.85",
-            "text-anchor": "middle",
-        },
-    )
-    sub.text = safe_model
-    badge = ET.SubElement(
-        svg,
-        "text",
-        {
-            "x": "200",
-            "y": "370",
-            "fill": "#ffffff",
-            "font-family": "system-ui, -apple-system, sans-serif",
-            "font-size": "12",
-            "opacity": "0.6",
-            "text-anchor": "middle",
-            "letter-spacing": "2",
-        },
-    )
-    badge.text = (category or "OTHER").upper()
-
-    # ElementTree doesn't pretty-print by default; we keep it compact.
-    return '<?xml version="1.0" encoding="UTF-8"?>' + ET.tostring(svg, encoding="unicode")
-
-
 def slug_for_image(name: str, model_number: str) -> str:
-    """Build the SVG filename slug (without extension)."""
+    """Build the image filename slug (without extension)."""
     return _slugify(f"{name}-{model_number}")
 
 
 # Public surface used by the FastAPI router.
 __all__ = [
     "Candidate",
-    "CATEGORY_COLORS",
     "search_components",
-    "generate_mock_svg",
     "slug_for_image",
 ]

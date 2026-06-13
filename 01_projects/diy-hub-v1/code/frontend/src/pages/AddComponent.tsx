@@ -24,7 +24,10 @@ interface Candidate {
   tags: string[]
   datasheet_url: string
   source_url: string
-  mock_image_data: string
+  image_url: string | null
+  image_source: string | null
+  image_attribution: { author?: string; license?: string; source_url?: string } | null
+  wikipedia_title?: string
 }
 
 type Status = "idle" | "searching" | "saving" | "saved" | "error"
@@ -61,28 +64,65 @@ function Chip({ label }: { label: string }) {
   )
 }
 
-// Renders a candidate's SVG mock_image_data inline (it's a raw SVG string).
-// The server-generated SVG has width="400" height="400" on the outer <svg>
-// tag; we override just those two attributes (not the inner <rect>s) so the
-// SVG scales to the container using its viewBox. Otherwise the natural 400x400
-// overflows the dialog container and gets clipped (image appears missing).
-// Hotfix 2.
-function CandidateImage({ svg, size = 200 }: { svg: string; size?: number }) {
-  // Match the FIRST <svg ...> tag only (not inner <rect>s).
-  const scaled = svg.replace(
-    /<svg([^>]*?)\swidth="[^"]*"/,
-    '<svg$1 width="100%"',
-  ).replace(
-    /<svg([^>]*?)\sheight="[^"]*"/,
-    '<svg$1 height="100%"',
-  )
+// Renders the candidate's real image (or a "No real image found" empty
+// state if the backend didn't return one). Uses a plain <img> tag with
+// onError so 404s / network failures fall back gracefully — there is no
+// SVG injection anywhere in this flow.
+function CandidateImage({
+  url,
+  size = 200,
+  source,
+  attribution,
+}: {
+  url: string | null
+  size?: number
+  source?: string | null
+  attribution?: { author?: string; license?: string; source_url?: string } | null
+}) {
+  const [errored, setErrored] = useState(false)
+  if (!url || errored) {
+    return (
+      <div
+        className="rounded-lg overflow-hidden border border-slate-300 bg-slate-100 shrink-0 flex flex-col items-center justify-center text-slate-500"
+        style={{ width: size, height: size }}
+      >
+        <svg
+          className="w-12 h-12 mb-1"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+          />
+        </svg>
+        <span className="text-xs">No real image found</span>
+      </div>
+    )
+  }
   return (
-    <div
-      className="rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shrink-0"
-      style={{ width: size, height: size }}
-      // svg is generated server-side; safe to inject.
-      dangerouslySetInnerHTML={{ __html: scaled }}
-    />
+    <div className="flex flex-col items-start">
+      <div
+        className="rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shrink-0"
+        style={{ width: size, height: size }}
+      >
+        <img
+          src={url}
+          alt=""
+          className="w-full h-full object-contain"
+          onError={() => setErrored(true)}
+          referrerPolicy="no-referrer"
+        />
+      </div>
+      {source === "wikipedia" && (
+        <p className="text-xs text-slate-500 mt-1">
+          Source: Wikipedia{attribution?.license ? ` · ${attribution.license}` : ""}
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -171,6 +211,7 @@ export default function AddComponent() {
           tags: pickedCandidate.tags,
           datasheet_url: pickedCandidate.datasheet_url,
           source_url: pickedCandidate.source_url,
+          image_url: pickedCandidate.image_url ?? null,
         }),
       })
       if (res.status === 400) {
@@ -216,7 +257,7 @@ export default function AddComponent() {
       </motion.h1>
       <p className="text-slate-600 mb-6">
         Search a local catalog, pick a model, and save it to your inventory.
-        No network calls — everything is mocked locally.
+        Real component images are fetched from Wikipedia when available.
       </p>
 
       {/* ------------------- Form ------------------- */}
@@ -343,9 +384,11 @@ export default function AddComponent() {
                         className="text-left p-3 border border-slate-200 rounded-lg hover:border-slate-400 hover:shadow-sm bg-white"
                       >
                         <div className="flex gap-3 items-center">
-                          <div
-                            className="w-12 h-12 rounded overflow-hidden bg-slate-100 shrink-0 border border-slate-200"
-                            dangerouslySetInnerHTML={{ __html: c.mock_image_data }}
+                          <CandidateImage
+                            url={c.image_url}
+                            source={c.image_source}
+                            attribution={c.image_attribution}
+                            size={48}
                           />
                           <div className="min-w-0">
                             <div className="font-medium text-sm truncate">
@@ -454,7 +497,12 @@ export default function AddComponent() {
                   <div className="flex flex-col sm:flex-row gap-6">
                     {/* Image */}
                     <div className="shrink-0 self-start">
-                      <CandidateImage svg={pickedCandidate.mock_image_data} size={200} />
+                      <CandidateImage
+                        url={pickedCandidate.image_url}
+                        source={pickedCandidate.image_source}
+                        attribution={pickedCandidate.image_attribution}
+                        size={200}
+                      />
                     </div>
 
                     {/* Spec fields */}

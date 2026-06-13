@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 # Importing init_db applies the schema on boot (idempotent).
 from . import init_db  # noqa: F401
@@ -23,6 +24,11 @@ app = FastAPI(
 
 # Stage 2: Add Component flow (search, save, list).
 app.include_router(components.router)
+
+# Stage 3: serve the downloaded real images out of data/images/ at
+# /api/images/<basename> so the Inventory page (and the GET /api/components
+# image_url we now return) can render them.
+app.mount("/api/images", StaticFiles(directory=get_images_dir()), name="images")
 
 # CORS — Vite dev server is on http://127.0.0.1:5173 (and :5173 on the LAN).
 app.add_middleware(
