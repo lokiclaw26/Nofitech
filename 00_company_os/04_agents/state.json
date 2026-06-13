@@ -1,23 +1,23 @@
 {
   "schema": "nofitech-agent-state/v1",
-  "updated": "2026-06-13T04:15:00.000000+00:00",
+  "updated": "2026-06-13T04:28:00.000000+00:00",
   "agents": {
     "thor": {
       "status": "idle",
-      "current_assignment": "DIY-002 Stage 2 complete. Awaiting NOFI approval to begin Stage 3 (Inventory list + search/filter/tag UI).",
-      "last_activity": "2026-06-13T04:15:00.000000+00:00",
+      "current_assignment": "DIY-002-HOTFIX-1 complete (NOFI found the bug, Thor fixed it). Awaiting NOFI approval to begin Stage 3 (Inventory list + search/filter/tag UI).",
+      "last_activity": "2026-06-13T04:28:00.000000+00:00",
       "blocker": ""
     },
     "forge": {
       "status": "idle",
-      "current_assignment": "DIY-002 implementation delivered and verified (32/32 PASS). Standing by for Stage 3.",
-      "last_activity": "2026-06-13T04:15:00.000000+00:00",
+      "current_assignment": "DIY-002-HOTFIX-1 was a 4-line fix applied by Thor directly. Standing by for Stage 3.",
+      "last_activity": "2026-06-13T04:28:00.000000+00:00",
       "blocker": ""
     },
     "argus": {
       "status": "idle",
-      "current_assignment": "DIY-002 verification delivered (32/32 PASS). Standing by for Stage 3.",
-      "last_activity": "2026-06-13T04:15:00.000000+00:00",
+      "current_assignment": "DIY-002-HOTFIX-1 verified (11/11 PASS, done by Thor directly). Standing by for Stage 3.",
+      "last_activity": "2026-06-13T04:28:00.000000+00:00",
       "blocker": ""
     }
   }

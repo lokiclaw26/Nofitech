@@ -2,7 +2,8 @@ import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8780"
+const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ??
+  `${window.location.protocol}//${window.location.hostname}:8780`
 
 export default function Dashboard() {
   const [health, setHealth] = useState<string>("loading…")

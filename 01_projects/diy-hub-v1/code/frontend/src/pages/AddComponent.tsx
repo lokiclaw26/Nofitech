@@ -29,7 +29,8 @@ interface Candidate {
 
 type Status = "idle" | "searching" | "saving" | "saved" | "error"
 
-const API_BASE = "http://127.0.0.1:8780"
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ??
+  `${window.location.protocol}//${window.location.hostname}:8780`
 
 // ---------------------------------------------------------------------------
 // Animation variants — all <300ms, no bounce, per NOFI's brief
