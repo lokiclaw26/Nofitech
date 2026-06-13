@@ -2,9 +2,18 @@ import { useEffect, useMemo, useState } from "react"
 import { motion } from "framer-motion"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { CATEGORIES, isCategory, categoryColor } from "@/lib/categories"
 import { sourceBadge, confidenceBadge } from "@/lib/sources"
 import { getPref, setPref } from "@/lib/storage"
+import { imageUrl, API_BASE } from "@/lib/url"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -61,7 +70,146 @@ function Chip({ label, color }: { label: string; color?: string }) {
 // Card view (large image, all details)
 // ---------------------------------------------------------------------------
 
-function InventoryCard({ c }: { c: Component }) {
+// ---------------------------------------------------------------------------
+// Stage 9: inline quantity editor (click to edit, Enter or blur to save)
+// ---------------------------------------------------------------------------
+
+function QuantityEditor({
+  value,
+  onSave,
+  size = "md",
+}: {
+  value: number
+  onSave: (n: number) => Promise<void> | void
+  size?: "sm" | "md"
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(String(value))
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  // Keep draft in sync if the upstream value changes (e.g. after a save)
+  useEffect(() => {
+    if (!editing) setDraft(String(value))
+  }, [value, editing])
+
+  const start = () => {
+    setDraft(String(value))
+    setErr(null)
+    setEditing(true)
+  }
+  const cancel = () => {
+    setEditing(false)
+    setDraft(String(value))
+    setErr(null)
+  }
+  const commit = async () => {
+    const n = parseInt(draft, 10)
+    if (Number.isNaN(n) || n < 1) {
+      setErr("must be >= 1")
+      return
+    }
+    if (n === value) {
+      setEditing(false)
+      return
+    }
+    setBusy(true)
+    setErr(null)
+    try {
+      await onSave(n)
+      setEditing(false)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "save failed")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const sizeCls = size === "sm" ? "text-xs px-1.5 py-0.5 w-12" : "text-sm px-2 py-1 w-20"
+  const btnCls = size === "sm" ? "text-xs px-1.5 py-0.5" : "text-sm px-2 py-1"
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        data-testid="qty-edit-button"
+        onClick={start}
+        className={`${sizeCls} bg-slate-100 hover:bg-slate-200 text-slate-800 rounded font-medium transition-colors`}
+        title="Click to edit quantity"
+      >
+        Qty {value}
+      </button>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-1" data-testid="qty-edit-input">
+      <input
+        type="number"
+        min={1}
+        value={draft}
+        autoFocus
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault()
+            void commit()
+          } else if (e.key === "Escape") {
+            e.preventDefault()
+            cancel()
+          }
+        }}
+        onBlur={() => void commit()}
+        disabled={busy}
+        className={`${sizeCls} border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-slate-400 disabled:opacity-50`}
+      />
+      {err && <span className="text-red-600 text-xs">{err}</span>}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Stage 9: small delete button + handler
+// ---------------------------------------------------------------------------
+
+function DeleteButton({
+  onClick,
+  size = "md",
+  testid = "delete-button",
+}: {
+  onClick: () => void
+  size?: "sm" | "md"
+  testid?: string
+}) {
+  const cls =
+    size === "sm"
+      ? "p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
+      : "p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
+  return (
+    <button
+      type="button"
+      data-testid={testid}
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick()
+      }}
+      className={cls}
+      title="Delete component"
+      aria-label="Delete component"
+    >
+      <svg className={size === "sm" ? "w-3.5 h-3.5" : "w-4 h-4"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"
+        />
+      </svg>
+    </button>
+  )
+}
+
+function InventoryCard({ c, onQuantityChange, onDeleteClick }: { c: Component; onQuantityChange: (id: number, n: number) => Promise<void>; onDeleteClick: (c: Component) => void }) {
   const src = sourceBadge(c.source)
   const conf = confidenceBadge(c.confidence)
   const cat = c.category && isCategory(c.category) ? c.category : null
@@ -77,9 +225,9 @@ function InventoryCard({ c }: { c: Component }) {
     >
       {/* Image area */}
       <div className="relative bg-slate-100 h-44 flex items-center justify-center">
-        {c.image_url ? (
+        {imageUrl(c.image_url) ? (
           <img
-            src={c.image_url}
+            src={imageUrl(c.image_url)!}
             alt={c.name}
             className="max-h-full max-w-full object-contain"
             loading="lazy"
@@ -140,14 +288,16 @@ function InventoryCard({ c }: { c: Component }) {
               <span className="text-slate-700">{c.voltage}</span>
             </div>
           )}
-          <div>
-            <span className="text-slate-400">Qty: </span>
-            <span className="text-slate-700 font-medium">{c.quantity ?? 1}</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-slate-400">Qty:</span>
+            <QuantityEditor
+              value={c.quantity ?? 1}
+              onSave={(n) => onQuantityChange(c.id, n)}
+            />
             {c.location && (
-              <>
-                <span className="text-slate-400"> · </span>
-                <span className="text-slate-700">{c.location}</span>
-              </>
+              <span className="text-slate-700 truncate" title={c.location}>
+                · {c.location}
+              </span>
             )}
           </div>
         </div>
@@ -180,6 +330,11 @@ function InventoryCard({ c }: { c: Component }) {
           </div>
         )}
       </div>
+      {/* Stage 9: footer with delete button */}
+      <div className="px-3 py-2 border-t border-slate-100 flex items-center justify-between bg-slate-50/40">
+        <span className="text-xs text-slate-400">ID #{c.id}</span>
+        <DeleteButton onClick={() => onDeleteClick(c)} testid="delete-button-card" />
+      </div>
     </motion.div>
   )
 }
@@ -188,7 +343,7 @@ function InventoryCard({ c }: { c: Component }) {
 // List view (small image, dense rows)
 // ---------------------------------------------------------------------------
 
-function InventoryRow({ c }: { c: Component }) {
+function InventoryRow({ c, onQuantityChange, onDeleteClick }: { c: Component; onQuantityChange: (id: number, n: number) => Promise<void>; onDeleteClick: (c: Component) => void }) {
   const src = sourceBadge(c.source)
   const conf = confidenceBadge(c.confidence)
   const cat = c.category && isCategory(c.category) ? c.category : null
@@ -200,9 +355,9 @@ function InventoryRow({ c }: { c: Component }) {
     >
       {/* Small image (48x48) */}
       <div className="w-12 h-12 bg-slate-100 rounded shrink-0 flex items-center justify-center overflow-hidden">
-        {c.image_url ? (
+        {imageUrl(c.image_url) ? (
           <img
-            src={c.image_url}
+            src={imageUrl(c.image_url)!}
             alt={c.name}
             className="max-w-full max-h-full object-contain"
             loading="lazy"
@@ -248,16 +403,22 @@ function InventoryRow({ c }: { c: Component }) {
           <span className="text-xs text-slate-400">—</span>
         )}
       </div>
-      {/* Qty + location */}
-      <div className="hidden lg:block text-xs text-slate-600 w-36 truncate" title={c.location ?? ""}>
-        Qty {c.quantity ?? 1}
-        {c.location ? ` · ${c.location}` : ""}
+      {/* Qty + location (editable) */}
+      <div className="hidden lg:flex text-xs text-slate-600 w-40 items-center gap-2">
+        <QuantityEditor
+          value={c.quantity ?? 1}
+          onSave={(n) => onQuantityChange(c.id, n)}
+          size="sm"
+        />
+        {c.location && <span className="truncate" title={c.location}>· {c.location}</span>}
       </div>
       {/* Badges */}
       <div className="flex gap-1 items-center shrink-0">
         <Chip label={src.label} color={src.color} />
         <Chip label={conf.label} color={conf.color} />
       </div>
+      {/* Delete button (small in list view) */}
+      <DeleteButton onClick={() => onDeleteClick(c)} size="sm" testid="delete-button-row" />
     </div>
   )
 }
@@ -276,11 +437,22 @@ export default function Inventory() {
   const [view, setView] = useState<"cards" | "list">(
     () => getPref<"cards" | "list">("inventory-view", "cards")
   )
+  // Stage 9: delete dialog state + transient toast
+  const [pendingDelete, setPendingDelete] = useState<Component | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string } | null>(null)
 
   // Persist view preference when changed
   useEffect(() => {
     setPref("inventory-view", view)
   }, [view])
+
+  // Auto-dismiss toast after 3s
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 3000)
+    return () => clearTimeout(t)
+  }, [toast])
 
   async function load() {
     setLoading(true)
@@ -300,6 +472,47 @@ export default function Inventory() {
   useEffect(() => {
     load()
   }, [])
+
+  // Stage 9: inline quantity save handler
+  async function handleQuantityChange(id: number, n: number): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/components/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ quantity: n }),
+    })
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "")
+      throw new Error(`HTTP ${res.status} ${txt}`)
+    }
+    const updated = (await res.json()) as Component
+    setComponents((prev) => prev.map((c) => (c.id === id ? updated : c)))
+    setToast({ kind: "ok", msg: `Updated quantity to ${updated.quantity ?? n}` })
+  }
+
+  // Stage 9: confirm + delete
+  async function confirmDelete(): Promise<void> {
+    if (!pendingDelete) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`${API_BASE}/api/components/${pendingDelete.id}`, {
+        method: "DELETE",
+      })
+      if (!res.ok && res.status !== 204) {
+        const txt = await res.text().catch(() => "")
+        throw new Error(`HTTP ${res.status} ${txt}`)
+      }
+      setComponents((prev) => prev.filter((c) => c.id !== pendingDelete.id))
+      setToast({ kind: "ok", msg: `Deleted "${pendingDelete.name}"` })
+      setPendingDelete(null)
+    } catch (e) {
+      setToast({
+        kind: "err",
+        msg: e instanceof Error ? e.message : "delete failed",
+      })
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   // Distinct categories present in the loaded data (union with canonical list,
   // so the dropdown always shows the canonical categories too).
@@ -539,7 +752,12 @@ export default function Inventory() {
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
           >
             {filtered.map((c) => (
-              <InventoryCard key={c.id} c={c} />
+              <InventoryCard
+                key={c.id}
+                c={c}
+                onQuantityChange={handleQuantityChange}
+                onDeleteClick={setPendingDelete}
+              />
             ))}
           </div>
         ) : (
@@ -548,10 +766,77 @@ export default function Inventory() {
             className="bg-white border border-slate-200 rounded-md overflow-hidden"
           >
             {filtered.map((c) => (
-              <InventoryRow key={c.id} c={c} />
+              <InventoryRow
+                key={c.id}
+                c={c}
+                onQuantityChange={handleQuantityChange}
+                onDeleteClick={setPendingDelete}
+              />
             ))}
           </div>
         )
+      )}
+
+      {/* Stage 9: delete confirmation dialog */}
+      <Dialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setPendingDelete(null)
+        }}
+      >
+        <DialogContent data-testid="delete-confirm-dialog">
+          <DialogHeader>
+            <DialogTitle>Delete component?</DialogTitle>
+            <DialogDescription>
+              {pendingDelete ? (
+                <>
+                  This will permanently remove{" "}
+                  <span className="font-semibold text-slate-900">
+                    {pendingDelete.name}
+                  </span>{" "}
+                  {pendingDelete.model_number ? (
+                    <span className="text-slate-500">
+                      ({pendingDelete.model_number})
+                    </span>
+                  ) : null}{" "}
+                  from the inventory. This action cannot be undone.
+                </>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setPendingDelete(null)}
+              disabled={deleting}
+              data-testid="delete-cancel-button"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void confirmDelete()}
+              disabled={deleting}
+              data-testid="delete-confirm-button"
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Stage 9: transient toast (success/error) */}
+      {toast && (
+        <div
+          data-testid="inventory-toast"
+          className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded shadow-lg text-sm font-medium ${
+            toast.kind === "ok"
+              ? "bg-emerald-600 text-white"
+              : "bg-red-600 text-white"
+          }`}
+        >
+          {toast.msg}
+        </div>
       )}
     </div>
   )

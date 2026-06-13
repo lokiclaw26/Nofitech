@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
@@ -96,6 +97,25 @@ class CreateComponentRequest(BaseModel):
     # If the operator picked the offline mock fallback, this is "mock_fallback"
     # so we can tell, later, which records came from real live data.
     source: Optional[str] = "live"
+
+
+class UpdateComponentRequest(BaseModel):
+    """Stage 9: partial update payload. All fields optional; only those
+    present are updated. Used by the inline quantity editor in the
+    Inventory page (and any future edit forms).
+    """
+    name: Optional[str] = None
+    model_number: Optional[str] = None
+    category: Optional[str] = None
+    quantity: Optional[int] = None
+    location: Optional[str] = None
+    voltage: Optional[str] = None
+    interfaces: Optional[List[str]] = None
+    key_specs: Optional[List[str]] = None
+    tags: Optional[List[str]] = None
+    description: Optional[str] = None
+    manufacturer: Optional[str] = None
+    confidence: Optional[float] = None
 
 
 # ---------------------------------------------------------------------------
@@ -458,3 +478,133 @@ def list_components() -> Dict[str, Any]:
         ).all()
     items = [_row_to_dict(r) for r in rows]
     return {"components": items, "total": len(items)}
+
+
+# Stage 9 fields that live in the ``notes`` JSON blob (not direct columns).
+# PATCH needs to merge these INTO the existing blob.
+_NOTES_FIELDS = ("voltage", "interfaces", "key_specs", "tags", "description")
+
+
+@router.patch("/{component_id}")
+def update_component(component_id: int, req: UpdateComponentRequest) -> Dict[str, Any]:
+    """Stage 9: partial update. Only fields explicitly set in the body
+    are written. ``notes``-blob fields (voltage, interfaces, key_specs,
+    tags, description) are merged into the existing notes JSON, not
+    replaced. Returns the updated row in the public shape.
+    """
+    # 1) Verify the component exists
+    with engine.connect() as conn:
+        existing = conn.execute(
+            text("SELECT id FROM components WHERE id = :id"),
+            {"id": component_id},
+        ).first()
+    if not existing:
+        raise HTTPException(status_code=404, detail=f"component {component_id} not found")
+
+    # 2) Build the direct-column update set
+    direct_payload: Dict[str, Any] = {}
+    for fname in ("name", "model_number", "category", "quantity", "location", "manufacturer", "confidence"):
+        val = getattr(req, fname, None)
+        if val is not None:
+            direct_payload[fname] = val
+
+    # Validate quantity if present
+    if "quantity" in direct_payload and direct_payload["quantity"] < 1:
+        raise HTTPException(status_code=400, detail="'quantity' must be >= 1")
+
+    # 3) Build the notes-merge payload
+    notes_payload: Dict[str, Any] = {}
+    for fname in _NOTES_FIELDS:
+        val = getattr(req, fname, None)
+        if val is not None:
+            notes_payload[fname] = val
+
+    # 4) Apply
+    now = _now_iso()
+    with engine.begin() as conn:
+        if direct_payload:
+            set_clauses = ", ".join(f"{k} = :{k}" for k in direct_payload)
+            direct_payload["updated_at"] = now
+            direct_payload["id"] = component_id
+            conn.execute(
+                text(f"UPDATE components SET {set_clauses}, updated_at = :updated_at WHERE id = :id"),
+                direct_payload,
+            )
+
+        if notes_payload:
+            # Merge into existing notes blob
+            row = conn.execute(
+                text("SELECT notes FROM components WHERE id = :id"),
+                {"id": component_id},
+            ).first()
+            existing_blob: Dict[str, Any] = {}
+            if row and row[0]:
+                try:
+                    existing_blob = json.loads(row[0])
+                except (TypeError, ValueError):
+                    existing_blob = {}
+            existing_blob.update(notes_payload)
+            conn.execute(
+                text("UPDATE components SET notes = :notes, updated_at = :updated_at WHERE id = :id"),
+                {"notes": json.dumps(existing_blob, ensure_ascii=False), "updated_at": now, "id": component_id},
+            )
+
+        row = conn.execute(
+            text("SELECT * FROM components WHERE id = :id"),
+            {"id": component_id},
+        ).one()
+
+    return _row_to_dict(row)
+
+
+@router.delete("/{component_id}", status_code=204, response_class=Response)
+def delete_component(component_id: int) -> Response:
+    """Stage 9: hard delete a component and its image file (if any).
+
+    Returns 204 No Content on success. Returns 404 if the component does
+    not exist. The on-disk image file is removed best-effort; failure
+    to remove the file does NOT fail the delete.
+    """
+    # 1) Look up the image path (if any) so we can remove the file after.
+    image_path_to_remove: Optional[str] = None
+    with engine.connect() as conn:
+        row = conn.execute(
+            text("SELECT image_path FROM components WHERE id = :id"),
+            {"id": component_id},
+        ).first()
+    if not row:
+        raise HTTPException(status_code=404, detail=f"component {component_id} not found")
+    if row[0]:
+        image_path_to_remove = row[0]
+
+    # 2) Delete the row (CASCADE handles images table FK if it exists)
+    with engine.begin() as conn:
+        # Remove from images table (best effort)
+        conn.execute(
+            text("DELETE FROM images WHERE file_path = :fp"),
+            {"fp": image_path_to_remove} if image_path_to_remove else {"fp": ""},
+        )
+        # Also try matching by basename (some images have only basename stored)
+        if image_path_to_remove:
+            basename = Path(image_path_to_remove).name
+            conn.execute(
+                text("DELETE FROM images WHERE file_path LIKE :pat OR file_path = :bn"),
+                {"pat": f"%/{basename}", "bn": basename},
+            )
+        result = conn.execute(
+            text("DELETE FROM components WHERE id = :id"),
+            {"id": component_id},
+        )
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail=f"component {component_id} not found")
+
+    # 3) Remove the image file best-effort (do not fail the delete)
+    if image_path_to_remove:
+        try:
+            full_path = _project_root() / image_path_to_remove
+            if full_path.exists():
+                full_path.unlink()
+        except OSError as exc:
+            print(f"[delete-component] could not remove image file {image_path_to_remove}: {exc}", file=sys.stderr)
+
+    return Response(status_code=204)

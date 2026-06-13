@@ -1,6 +1,6 @@
 {
   "schema": "nofitech-agent-state/v1",
-  "updated": "2026-06-13T05:45:00.000000+00:00",
+  "updated": "2026-06-14T22:35:00.000000+00:00",
   "agents": {
     "thor": {
       "status": "supervising",
@@ -17,41 +17,14 @@
   },
   "projects": {
     "diy-hub-v1": {
-      "status": "stage-8-shipped",
+      "status": "stage-9-shipped",
       "phase": "build",
       "current_task": null,
-      "current_task_title": "Stage 8: Enter-Manually on every search + Inventory list/card view toggle",
+      "current_task_title": "Stage 9: Fix broken image URLs + add delete + add qty edit on inventory",
       "in_progress_since": null,
       "approval_needed": true,
-      "approval_phrase": "NOFI approves Candidate A + B for Stage 7",
+      "approval_phrase": "Triggered by NOFI bug report, urgent fix",
       "stage_progress_pct": 100,
-      "stage_5_features": [
-        "live_search.py: 5 live HTTP clients (Commons, Wikidata, Wikipedia, PlatformIO, GitHub)",
-        "/api/components/search: live lookup with parallel fetch + merge + confidence",
-        "/api/components/detail: re-fetch Wikidata entity + PlatformIO page for richer spec",
-        "/api/components/mock-fallback: explicit operator-triggered offline catalog fallback",
-        "DB schema: 7 new columns (wikidata_id, commons_filename, source_url, manufacturer, release_year, confidence, datasheet_url)",
-        "AddComponent.tsx: state machine (idle -> searching -> picking/reviewing -> saving)",
-        "Confidence badge (green/amber/red), ADD TO DATABASE button, source attribution"
-      ],
-      "stage_6_features": [
-        "live_search.py: Adafruit vendor scraper (search + product page + datasheet link)",
-        "live_search.py: Pololu disabled (robots.txt disallows /search) with operator-facing note",
-        "live_search.py: 1-hour vendor cache (vs 60s primary cache)",
-        "live_search.py: 1-second throttle between requests to same vendor",
-        "Polite-crawler policy: max 2 requests per vendor per query (1 search + 1 product)",
-        "NO price/stock display (verified by key scan)",
-        "NO DDG scraping (0 hits in code)",
-        "NO SparkFun (1 hit, in a comment block explaining why disabled)"
-      ],
-      "stage_7_features": [
-        "Inventory page: full rewrite with 24 cards, search bar, category filter, empty/loading/error states",
-        "Manual entry: 12-field form accessible from empty-state dialog",
-        "Backend: _row_to_dict now promotes source/voltage/interfaces/key_specs/tags/description to top level",
-        "New lib: lib/categories.ts (canonical category list + color map)",
-        "New lib: lib/sources.ts (source badge + confidence badge color helpers)",
-        "All 4 servers 200, no regression to Stage 5/6"
-      ],
       "stage_8_features": [
         "AddComponent.tsx: 'Enter manually instead' button added to Confirm dialog (data-testid=btn-enter-manually-from-confirm)",
         "AddComponent.tsx: 'Enter manually instead' button added to Model Picker dialog (data-testid=btn-enter-manually-from-picker)",
@@ -60,7 +33,25 @@
         "Inventory.tsx: new InventoryRow component (small 48x48 image, dense rows)",
         "lib/storage.ts: NEW helper for localStorage preferences with try/catch + 'diy-hub-v1-' prefix",
         "view state initialized from localStorage and persisted on change"
-      ]
+      ],
+      "stage_9_features": [
+        "ROOT CAUSE FIX: Vite dev server (port 5173) does NOT proxy /api/images/* to FastAPI (port 8780). Card img src used relative path -> 404 silently.",
+        "NEW lib/url.ts: imageUrl() helper prepends API_BASE so /api/images/foo.jpg becomes http://host:8780/api/images/foo.jpg",
+        "NEW backend PATCH /api/components/{id}: partial update (quantity, location, name, model, category, manufacturer, description, voltage, interfaces, key_specs, tags, confidence). Direct columns updated, notes-blob fields merged.",
+        "NEW backend DELETE /api/components/{id}: hard delete, returns 204, removes on-disk image file best-effort, 404 if not found",
+        "Inventory: QuantityEditor component (click to edit, Enter to save, Escape to cancel, Blur to save, validation >= 1)",
+        "Inventory: DeleteButton component on every card (footer) and every row (right side)",
+        "Inventory: shadcn Dialog with confirmation: 'Delete [name]? This cannot be undone.' Cancel + Delete buttons",
+        "Inventory: success/error toast (bottom-right, auto-dismiss 3s)",
+        "Inventory: PATCH /api/components/{id} on qty change -> updates list in place, success toast",
+        "Inventory: DELETE /api/components/{id} on confirm -> removes from list in place, success toast",
+        "Argus verification: 16/16 frontend + 8/8 backend = 24/24 total"
+      ],
+      "stage_9_bug_fixes": {
+        "image_url_bug": "Card img src used relative path /api/images/foo.jpg, Vite 404s it. Now uses imageUrl() helper that prepends API_BASE (http://192.168.0.29:8780). Verified: GET http://192.168.0.29:8780/api/images/esp32-devkit-v1-devkit-v1.jpg returns HTTP 200, 121091 bytes, content-type image/jpeg.",
+        "fastapi_204_bug": "First version of DELETE returned None with status_code=204. FastAPI raised AssertionError on startup: 'Status code 204 must not have a response body'. Fixed by importing Response from fastapi.responses and returning Response(status_code=204).",
+        "sqlalchemy_empty_row_bug": "First version used .one() which raises NoResultFound for empty result sets, returning HTTP 500 for nonexistent IDs. Fixed by switching to .first() and checking `if not row`."
+      }
     }
   }
 }
