@@ -1,6 +1,6 @@
 {
   "schema": "nofitech-agent-state/v1",
-  "updated": "2026-06-14T22:35:00.000000+00:00",
+  "updated": "2026-06-14T22:45:00.000000+00:00",
   "agents": {
     "thor": {
       "status": "supervising",
@@ -17,40 +17,33 @@
   },
   "projects": {
     "diy-hub-v1": {
-      "status": "stage-9-shipped",
+      "status": "stage-10-shipped",
       "phase": "build",
       "current_task": null,
-      "current_task_title": "Stage 9: Fix broken image URLs + add delete + add qty edit on inventory",
+      "current_task_title": "Stage 10: Component Lookup Quality Fix",
       "in_progress_since": null,
       "approval_needed": true,
-      "approval_phrase": "Triggered by NOFI bug report, urgent fix",
+      "approval_phrase": "NOFI approves Component Lookup Quality Fix",
       "stage_progress_pct": 100,
-      "stage_8_features": [
-        "AddComponent.tsx: 'Enter manually instead' button added to Confirm dialog (data-testid=btn-enter-manually-from-confirm)",
-        "AddComponent.tsx: 'Enter manually instead' button added to Model Picker dialog (data-testid=btn-enter-manually-from-picker)",
-        "AddComponent.tsx: Empty-state dialog 'Enter manually' button kept (regression OK)",
-        "Inventory.tsx: view toggle UI (Cards | List button group) with data-testids inventory-view-toggle/cards/list",
-        "Inventory.tsx: new InventoryRow component (small 48x48 image, dense rows)",
-        "lib/storage.ts: NEW helper for localStorage preferences with try/catch + 'diy-hub-v1-' prefix",
-        "view state initialized from localStorage and persisted on change"
+      "stage_10_features": [
+        "NEW code/backend/app/quality.py: pure-Python clean/rank/validate module (340+ LOC)",
+        "Hard blacklist: tutorial/demo/library/example/blog/guide/etc in title/desc/source -> conf = 0.0 (rejected)",
+        "Strong token overlap check: at least 1 normalized alphanumeric query token (>=3 chars) in title (or trusted source URL bypasses)",
+        "Image validation: must be http(s), .jpg/.jpeg/.png/.webp, on approved domain (16 domains including adafruit.com, cdn-shop.adafruit.com, commons/upload.wikimedia.org, platformio.org, raw.githubusercontent.com, etc)",
+        "Score calibration: Adafruit product w/ image ~0.65+, Wikidata+image ~0.55+, PlatformIO ~0.40, GitHub-only ~0.0",
+        "Threshold: 0.50 confidence required; max 12 candidates returned",
+        "Response shape: candidates, rejected_count, quality_threshold, best_confidence",
+        "live_search.search() refactored to call rank_and_filter() after _merge()",
+        "Frontend AddComponent.tsx: model picker dialog shows 'N clean matches (best X% confidence, Y filtered out below 50%)'",
+        "Frontend empty-state dialog: 'No reliable match found' with full explanation + Enter Manually + Mock Fallback"
       ],
-      "stage_9_features": [
-        "ROOT CAUSE FIX: Vite dev server (port 5173) does NOT proxy /api/images/* to FastAPI (port 8780). Card img src used relative path -> 404 silently.",
-        "NEW lib/url.ts: imageUrl() helper prepends API_BASE so /api/images/foo.jpg becomes http://host:8780/api/images/foo.jpg",
-        "NEW backend PATCH /api/components/{id}: partial update (quantity, location, name, model, category, manufacturer, description, voltage, interfaces, key_specs, tags, confidence). Direct columns updated, notes-blob fields merged.",
-        "NEW backend DELETE /api/components/{id}: hard delete, returns 204, removes on-disk image file best-effort, 404 if not found",
-        "Inventory: QuantityEditor component (click to edit, Enter to save, Escape to cancel, Blur to save, validation >= 1)",
-        "Inventory: DeleteButton component on every card (footer) and every row (right side)",
-        "Inventory: shadcn Dialog with confirmation: 'Delete [name]? This cannot be undone.' Cancel + Delete buttons",
-        "Inventory: success/error toast (bottom-right, auto-dismiss 3s)",
-        "Inventory: PATCH /api/components/{id} on qty change -> updates list in place, success toast",
-        "Inventory: DELETE /api/components/{id} on confirm -> removes from list in place, success toast",
-        "Argus verification: 16/16 frontend + 8/8 backend = 24/24 total"
-      ],
-      "stage_9_bug_fixes": {
-        "image_url_bug": "Card img src used relative path /api/images/foo.jpg, Vite 404s it. Now uses imageUrl() helper that prepends API_BASE (http://192.168.0.29:8780). Verified: GET http://192.168.0.29:8780/api/images/esp32-devkit-v1-devkit-v1.jpg returns HTTP 200, 121091 bytes, content-type image/jpeg.",
-        "fastapi_204_bug": "First version of DELETE returned None with status_code=204. FastAPI raised AssertionError on startup: 'Status code 204 must not have a response body'. Fixed by importing Response from fastapi.responses and returning Response(status_code=204).",
-        "sqlalchemy_empty_row_bug": "First version used .one() which raises NoResultFound for empty result sets, returning HTTP 500 for nonexistent IDs. Fixed by switching to .first() and checking `if not row`."
+      "stage_10_test_results": {
+        "ESP32 DevKit V1": {"candidates": 2, "rejected": 4, "best_confidence": 1.0},
+        "Wemos D1 Mini": {"candidates": 6, "rejected": 5, "best_confidence": 0.75},
+        "BME280": {"candidates": 5, "rejected": 6, "best_confidence": 1.0},
+        "INA219": {"candidates": 4, "rejected": 1, "best_confidence": 1.0},
+        "TP4056": {"candidates": 4, "rejected": 3, "best_confidence": 0.95},
+        "ILI9488 XPT2046": {"candidates": 1, "rejected": 1, "best_confidence": 0.75}
       }
     }
   }

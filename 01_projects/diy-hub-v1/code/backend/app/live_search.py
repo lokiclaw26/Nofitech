@@ -176,11 +176,18 @@ def search(query: str) -> Dict[str, Any]:
     for c in candidates:
         c["confidence"] = _confidence(c, sources_status)
 
+    # Stage 10: clean + rank + filter (reject <50% confidence, drop tutorials/demos/etc)
+    from .quality import rank_and_filter  # late import to avoid heavy dep at module load
+    ranked = rank_and_filter(candidates, q)
+
     result: Dict[str, Any] = {
         "query": q,
-        "candidates": candidates,
+        "candidates": ranked["candidates"],
+        "rejected_count": ranked["rejected_count"],
+        "quality_threshold": ranked["quality_threshold"],
+        "best_confidence": ranked["best_confidence"],
         "sources": sources_status,
-        "error": None if candidates else "no reliable live result found",
+        "error": None if ranked["candidates"] else "no reliable match found",
     }
 
     # Cache the result

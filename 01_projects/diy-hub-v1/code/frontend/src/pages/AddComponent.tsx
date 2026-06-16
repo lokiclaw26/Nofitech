@@ -151,6 +151,12 @@ export default function AddComponent() {
 
   // Flow state
   const [searchResults, setSearchResults] = useState<Candidate[]>([])
+  // Stage 10: quality metadata from the last search (rejected count, best confidence, threshold)
+  const [selectedQualityMeta, setSelectedQualityMeta] = useState<{
+    rejected_count: number
+    best_confidence: number
+    quality_threshold: number
+  } | null>(null)
   const [pickedCandidate, setPickedCandidate] = useState<Candidate | null>(null)
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
@@ -215,6 +221,11 @@ export default function AddComponent() {
       const data = await res.json()
       const candidates: Candidate[] = data.candidates ?? []
       setSearchResults(candidates)
+      setSelectedQualityMeta({
+        rejected_count: data.rejected_count ?? 0,
+        best_confidence: data.best_confidence ?? 0,
+        quality_threshold: data.quality_threshold ?? 0.5,
+      })
       if (candidates.length === 0) {
         setShowEmpty(true)
       } else if (candidates.length === 1) {
@@ -504,9 +515,17 @@ export default function AddComponent() {
                   <DialogHeader>
                     <DialogTitle>Select a model</DialogTitle>
                     <DialogDescription>
-                      {searchResults.length} match
+                      {searchResults.length} clean match
                       {searchResults.length === 1 ? "" : "es"} for &quot;
                       {query.trim()}&quot;
+                      {selectedQualityMeta ? (
+                        <>
+                          {" "}
+                          (best {Math.round(selectedQualityMeta.best_confidence * 100)}%
+                          confidence, {selectedQualityMeta.rejected_count} filtered out
+                          below 50%)
+                        </>
+                      ) : null}
                     </DialogDescription>
                   </DialogHeader>
                 </div>
@@ -613,10 +632,14 @@ export default function AddComponent() {
               >
                 <div className="p-6 text-center">
                   <DialogHeader>
-                    <DialogTitle>No reliable live result found</DialogTitle>
+                    <DialogTitle>No reliable match found</DialogTitle>
                     <DialogDescription>
-                      Live lookup returned no candidates for &quot;{query.trim()}&quot;.
-                      You can try the offline mock fallback, or enter the component manually.
+                      Live lookup returned no high-confidence candidates for
+                      &quot;{query.trim()}&quot;. We filter out unrelated
+                      results (tutorials, demos, GitHub projects, weak
+                      keyword matches) and only show candidates with at least
+                      50% confidence. You can try the offline mock fallback,
+                      or enter the component manually.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="mt-6 flex flex-col gap-2 items-stretch">
