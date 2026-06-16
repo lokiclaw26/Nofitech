@@ -488,6 +488,14 @@
   </div>
 </section>
 
+<!-- ========== 9. GitHub Connection (NEW at Stage 20) ========== -->
+<section>
+  <h2><span class="num">9.</span> GitHub Connection <span class="hint" id="github-hint">live</span></h2>
+  <div class="body">
+    <div id="github" class="summary-grid"></div>
+  </div>
+</section>
+
 <footer>
   <span id="foot-version">v— · live</span>
   <span id="foot-lan">LAN: detecting…</span>
@@ -1222,6 +1230,47 @@ function updateHeaderPills(version, overview, logs) {
 }
 
 // ============================================================
+// 9. GitHub Connection (Stage 20 — additive, no other changes)
+// ============================================================
+function renderGitHub(d) {
+  const c = d.cron || {};
+  const l = d.local || {};
+  const r = d.repo || {};
+
+  const statusCls = d.status === "ok" ? "green" : d.status === "behind" ? "amber" : d.status === "failed" ? "red" : "gray";
+  const statusLabel = d.status === "ok" ? "in sync" : d.status === "behind" ? `${l.unpushed_commits || 0} unpushed` : d.status === "failed" ? "last push failed" : "unknown";
+  const outcomeCls = c.last_outcome === "success" ? "green" : c.last_outcome === "no_changes" ? "gray" : c.last_outcome === "failed" ? "red" : "amber";
+
+  const repoShort = r.url ? r.url.replace("https://github.com/", "").replace(".git", "") : "—";
+  const cells = [
+    { label: "Sync status",   value: badge(statusLabel, statusCls) },
+    { label: "Repo",          value: r.url ? `<a href="${esc(r.url)}" target="_blank">${esc(repoShort)}</a>` : "—" },
+    { label: "Visibility",    value: esc(r.visibility || "—") },
+    { label: "Last push",     value: r.last_push_at ? new Date(r.last_push_at).toLocaleString() : "—" },
+    { label: "Local branch",  value: esc(l.branch || "—") },
+    { label: "Local HEAD",    value: l.last_commit_sha ? `<code>${esc((l.last_commit_sha || "").slice(0,8))}</code> <span class="muted">${esc((l.last_commit_msg || "").slice(0,50))}</span>` : "—" },
+    { label: "Unpushed",      value: l.unpushed_commits != null ? (l.unpushed_commits === 0 ? badge("0", "green") : badge(String(l.unpushed_commits), "amber")) : "—" },
+    { label: "Cron job",      value: c.job_id ? `<code>${esc(c.job_id.slice(0,12))}</code> · ${esc(c.name || "")}` : "—" },
+    { label: "Schedule",      value: esc(c.schedule || "—") },
+    { label: "Next run",      value: c.next_run ? new Date(c.next_run).toLocaleString() : "—" },
+    { label: "Last cron run", value: c.last_run ? new Date(c.last_run).toLocaleString() : "never" },
+    { label: "Last outcome",  value: badge(c.last_outcome || "unknown", outcomeCls) },
+    { label: "Last duration", value: c.last_duration_ms != null ? `${c.last_duration_ms} ms` : "—" },
+    { label: "Last msg",      value: c.last_message ? `<span class="muted">${esc(c.last_message.slice(0,60))}</span>` : "—" },
+    { label: "Last error",    value: c.last_error ? `<span class="dash" style="color:var(--red)">${esc(c.last_error.slice(0,80))}</span>` : "—" },
+  ];
+
+  $("#github").innerHTML = `<div class="health-grid">${cells.map(c => `
+    <div class="health-cell">
+      <span class="muted">${esc(c.label)}</span>
+      <div>${c.value}</div>
+    </div>`).join("")}</div>`;
+
+  const h = document.getElementById("github-hint");
+  if (h) h.textContent = `${d.status || "unknown"} · ${c.last_outcome || "never"}`;
+}
+
+// ============================================================
 // Main loader
 // ============================================================
 async function loadAll() {
@@ -1236,6 +1285,7 @@ async function loadAll() {
     ["provider", "/api/data/provider"],
     ["logs",     "/api/data/logs"],
     ["orders",   "/api/data/orders"],
+    ["github",   "/api/data/github"],
   ];
   const results = {};
   await Promise.all(endpoints.map(async ([k, url]) => {
@@ -1259,6 +1309,8 @@ async function loadAll() {
   renderWarnings(results.logs || {}, results.overview || {});
   // Stage 19: Pending Orders panel — reads /api/data/orders
   renderOrders(results.orders || {});
+  // Stage 20: GitHub Connection panel — reads /api/data/github
+  renderGitHub(results.github || {});
 
   refreshTasksCounts().then(() => {
     if (results.tasks) renderTasks(results.tasks);
