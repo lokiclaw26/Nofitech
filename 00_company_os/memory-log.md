@@ -589,3 +589,28 @@
   Need a follow-up sub-task to spawn Forge+Argus retroactively to write
   proper logs for those stages, OR be honest and mark them
   'thor_direct_unverified'.
+
+### 018. SOUL rule - Thor orchestrate only, never perform (2026-06-16)
+- **When:** 2026-06-16T12:21:39Z local
+- **Decision:** NOFI directive 2026-06-16 16:20 local, written into Thor SOUL.
+  ABSOLUTE: THOR IS NOT ALLOWED TO PERFORM ANY TASK. ONLY ORCHESTRATE.
+  NEVER PERFORM A TASK.
+- **What it kills:** the previous carve-out allowing Thor to do <10-line tiny
+  fixes. That carve-out caused 3 violations in one session and the page
+  showed 2d-ago stale data because no sub-agent log files were written.
+- **What Thor can still do (orchestration only):**
+  - Read files (verification)
+  - Write coordination logs at 00_company_os/04_agents/logs/<date>/thor-*.md
+  - Append to events.jsonl
+  - Update 00_company_os/04_agents/state.json
+  - Create task files at 01_projects/<project>/tasks/<TASK_ID>.md
+  - Spawn Forge/Argus sub-agents via delegate_task
+  - Send messages, use memory/skill/todo
+- **What Thor CANNOT do (anymore):**
+  - Edit code, config, HTML, JS, Python, shell, SQL, JSON
+  - Run tools that produce results (other than delegation)
+  - Make external API calls (other than read-only verification)
+  - Git commit, git push, test, run scripts
+- **Enforcement:** every time Thor is about to do work, ask: will a sub-agent
+  log file be written in the next 60s? If no, spawn a sub-agent.
+- **Saved to:** ~/.hermes/memory (SOUL entry), ~/.hermes/skills/software-development/thor-orchestrate-only/SKILL.md
