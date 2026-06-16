@@ -14,6 +14,9 @@ Stage 14: automatic task and event wiring — data_tasks() reads 14-field
 Stage 17: Provider/Model panel retired from the HTML; new Warnings panel
           with fix-order buttons (POST /api/data/order). The /api/data/provider
           endpoint is still served for any hidden API consumer.
+Stage 20 (2026-06-16): added Section 9 "GitHub Connection" — new endpoint
+          /api/data/github reads git remote, GitHub API, last cron run, and
+          last_run.json. Additive only — no changes to existing endpoints.
 
 Endpoints:
   GET  /                              → static HTML
@@ -26,6 +29,7 @@ Endpoints:
   GET  /api/data/projects             → 0+ rows from 01_projects/*/status.md
   GET  /api/data/provider             → 2 rows: free, paid  (panel retired; endpoint kept)
   GET  /api/data/logs                 → events + health + env + jsonl_events
+  GET  /api/data/github               → git remote + GitHub API + last cron run (Stage 20)
   GET  /api/data/events               → last 50 events from events.jsonl
   POST /api/data/order                → append a fix_order event to events.jsonl (Stage 17→19)
   GET  /api/data/orders               → list pending/in_progress fix_order events (Stage 19)
@@ -37,6 +41,7 @@ import os
 import re
 import time
 import urllib.parse
+import urllib.request
 import glob
 import socket
 import subprocess
@@ -526,6 +531,180 @@ def data_tasks(include_demo=False):
         "include_demo": include_demo,
         "reason": None if rows else "No real tasks yet.",
     }
+
+
+# ---------- GitHub Connection (Section 9, added 2026-06-16 FORGE/NOFI directive) ----------
+
+def data_github():
+    """GitHub connection status + cron job state.
+    Reads:
+      - git remote origin URL
+      - GitHub API for repo info (if token available)
+      - git log for unpushed commits
+      - ~/.hermes/cron-output/github-push-nofitech/last_run.json
+      - hermes cron list (parsed for next run)
+    Additive — does not modify any existing endpoint or function.
+    """
+    out = {"ts": datetime.now(tz=timezone.utc).isoformat(), "errors": []}
+
+    # ---- repo info ----
+    out["repo"] = {"url": "", "visibility": "?", "last_push_at": None,
+                   "total_commits_on_main": 0, "description": ""}
+    try:
+        r = subprocess.run(
+            ["git", "-C", str(COMPANY_ROOT), "remote", "get-url", "origin"],
+            capture_output=True, text=True, timeout=5,
+        )
+        out["repo"]["url"] = r.stdout.strip()
+    except Exception as e:
+        out["errors"].append(f"git remote failed: {e}")
+
+    # GitHub API (if token)
+    env_file = Path.home() / ".hermes" / "scripts" / ".env.github"
+    if env_file.exists():
+        try:
+            env = {}
+            for line in env_file.read_text().splitlines():
+                if "=" in line and not line.startswith("#"):
+                    k, v = line.split("=", 1)
+                    env[k.strip()] = v.strip()
+            token = env.get("GITHUB_TOKEN", "")
+            # Parse owner/repo from URL
+            url = out["repo"]["url"]
+            if "github.com/" in url:
+                owner_repo = url.split("github.com/")[-1].rstrip(".git").rstrip("/")
+                if "/" in owner_repo:
+                    owner, repo = owner_repo.split("/", 1)
+                    api_url = f"https://api.github.com/repos/{owner}/{repo}"
+                    req = urllib.request.Request(api_url, headers={
+                        "Authorization": f"token {token}",
+                        "Accept": "application/vnd.github+json",
+                        "User-Agent": "nofitech-mission-control",
+                    })
+                    try:
+                        with urllib.request.urlopen(req, timeout=5) as r:
+                            data = json.loads(r.read())
+                            out["repo"]["visibility"] = data.get("visibility", "?")
+                            out["repo"]["last_push_at"] = data.get("pushed_at")
+                            out["repo"]["description"] = data.get("description", "")
+                            # default_branch + size
+                            out["repo"]["default_branch"] = data.get("default_branch", "?")
+                            out["repo"]["size_kb"] = data.get("size", 0)
+                            out["repo"]["stars"] = data.get("stargazers_count", 0)
+                            out["repo"]["open_issues"] = data.get("open_issues_count", 0)
+                    except Exception as api_e:
+                        out["errors"].append(f"github api repo: {api_e}")
+        except Exception as e:
+            out["errors"].append(f"github api: {e}")
+
+    # ---- local state ----
+    out["local"] = {"branch": "?", "last_commit_sha": "", "last_commit_msg": "",
+                    "unpushed_commits": 0}
+    try:
+        r = subprocess.run(
+            ["git", "-C", str(COMPANY_ROOT), "branch", "--show-current"],
+            capture_output=True, text=True, timeout=5,
+        )
+        out["local"]["branch"] = r.stdout.strip() or "(detached)"
+    except Exception:
+        pass
+    try:
+        r = subprocess.run(
+            ["git", "-C", str(COMPANY_ROOT), "log", "-1", "--format=%H|%s"],
+            capture_output=True, text=True, timeout=5,
+        )
+        parts = r.stdout.strip().split("|", 1)
+        if parts and parts[0]:
+            out["local"]["last_commit_sha"] = parts[0]
+            out["local"]["last_commit_msg"] = parts[1] if len(parts) > 1 else ""
+    except Exception:
+        pass
+    # Unpushed commits — try origin/<branch>, then fall back to 0 if ref not found
+    try:
+        branch = out["local"]["branch"] or "main"
+        # Try the exact remote ref
+        r = subprocess.run(
+            ["git", "-C", str(COMPANY_ROOT), "log", f"origin/{branch}..HEAD", "--oneline"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if r.returncode == 0:
+            out["local"]["unpushed_commits"] = len(
+                [l for l in r.stdout.splitlines() if l.strip()]
+            )
+    except Exception:
+        pass
+
+    # ---- cron state ----
+    out["cron"] = {
+        "job_id": "", "name": "", "schedule": "", "next_run": "", "last_run": None,
+        "last_outcome": "unknown", "last_message": "", "last_error": "",
+        "last_duration_ms": 0, "last_files_changed": 0, "last_commit_sha": "",
+    }
+    try:
+        r = subprocess.run(
+            ["hermes", "cron", "list"],
+            capture_output=True, text=True, timeout=5,
+        )
+        text = r.stdout
+        # The cron list output is a pretty-printed block per job. Find the
+        # block that mentions github-push-nofitech and extract its fields.
+        # Block delimiters: hex job_id line `  <hex> [active]` followed by
+        # indented `Name: ...`, `Schedule: ...`, `Next run: ...`.
+        lines = text.splitlines()
+        for i, line in enumerate(lines):
+            if "github-push-nofitech" in line.lower():
+                # Walk backwards to find the job_id (8+ hex chars at line start)
+                for j in range(i, max(-1, i - 5), -1):
+                    m = re.search(r'^\s*([a-f0-9]{8,})\s*\[', lines[j])
+                    if m:
+                        out["cron"]["job_id"] = m.group(1)
+                        break
+                # Walk forward within the same block to extract fields.
+                # The block ends at the next job_id or at a blank line followed
+                # by another job_id. Cap at +10 lines.
+                ctx = "\n".join(lines[i:i + 10])
+                m = re.search(r'Name:\s*(\S+)', ctx)
+                if m:
+                    out["cron"]["name"] = m.group(1)
+                m = re.search(r'Schedule:\s*(\S+)', ctx)
+                if m:
+                    out["cron"]["schedule"] = m.group(1)
+                m = re.search(r'Next run:\s*(\S+)', ctx)
+                if m:
+                    out["cron"]["next_run"] = m.group(1)
+                break
+    except Exception as e:
+        out["errors"].append(f"hermes cron: {e}")
+
+    # ---- last run status from file ----
+    status_file = (Path.home() / ".hermes" / "cron-output"
+                   / "github-push-nofitech" / "last_run.json")
+    if status_file.exists():
+        try:
+            data = json.loads(status_file.read_text())
+            out["cron"]["last_run"] = data.get("ts")
+            out["cron"]["last_outcome"] = data.get("outcome", "unknown")
+            out["cron"]["last_message"] = data.get("message", "")
+            out["cron"]["last_error"] = data.get("error", "")
+            out["cron"]["last_duration_ms"] = data.get("duration_ms", 0)
+            out["cron"]["last_files_changed"] = data.get("files_changed", 0)
+            out["cron"]["last_commit_sha"] = data.get("commit_sha", "")
+        except Exception as e:
+            out["errors"].append(f"last_run.json read: {e}")
+    else:
+        out["cron"]["last_outcome"] = "never_ran"
+
+    # ---- overall status ----
+    if out["cron"]["last_outcome"] == "failed":
+        out["status"] = "failed"
+    elif out["local"]["unpushed_commits"] and out["local"]["unpushed_commits"] > 0:
+        out["status"] = "behind"
+    elif out["cron"]["last_outcome"] in ("success", "no_changes"):
+        out["status"] = "ok"
+    else:
+        out["status"] = "unknown"
+
+    return out
 
 
 # ---------- events.jsonl (Stage 14) ----------
@@ -1149,6 +1328,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self._json(data_provider())
             if path == "/api/data/logs":
                 return self._json(data_logs())
+            if path == "/api/data/github":
+                # Section 9, added 2026-06-16 (FORGE/NOFI directive)
+                return self._json(data_github())
             if path == "/api/data/events":
                 # Stage 14: serve the last 50 events from events.jsonl
                 qs_e = urllib.parse.parse_qs(p.query)
