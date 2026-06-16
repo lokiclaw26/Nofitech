@@ -5,11 +5,11 @@ phase: build
 status: stage-11-shipped
 progress_pct: 100%
 approval_needed: true
-next_action: "Stage 11 (Real fix for Wemos D1 Mini + similar bugs) shipped 2026-06-14 23:15Z. 20/20 Argus tests pass. Wemos D1 Mini: 6 junk → 2 real. Awaiting NOFI verification of the live add-component page before next stage."
+next_action: "Stage 11 (Real fix for Wemos D1 Mini + similar bugs) shipped 2026-06-16 10:14Z. 20/20 Argus tests pass. Wemos D1 Mini: 6 junk → 2 real. Awaiting NOFI verification of the live add-component page before next stage."
 blocker: ""
 data_source: real
 created: 2026-06-13
-updated: 2026-06-14
+updated: 2026-06-16
 version: 0.11.0
 charter: 01_projects/diy-hub-v1/charter.md
 plan: 01_projects/diy-hub-v1/plan.md
@@ -20,11 +20,11 @@ code: 01_projects/diy-hub-v1/code/
 
 # Project: DIY Hub V1
 
-**STAGES 1-11 SHIPPED 2026-06-14 23:15Z. AWAITING NOFI VERIFICATION OF STAGE 11.**
+**STAGES 1-11 SHIPPED 2026-06-16 10:14Z. AWAITING NOFI VERIFICATION OF STAGE 11.**
 
 ## Current state (live)
 - **Stage 11 (latest):** Component Lookup Quality Fix — Real fix for Wemos D1 Mini. 6 junk candidates → 2 real (PlatformIO + Wikidata). All 6 NOFI test cases now clean.
-- **20/20 Argus tests pass** (last verification 2026-06-14 23:15Z)
+- **20/20 Argus tests pass** (last verification 2026-06-16 10:14Z)
 - **Frontend:** Vite + React 19 + TS + Tailwind + Shadcn UI + Radix UI + Framer Motion + React Router DOM — RUNNING on :5173
 - **Backend:** FastAPI + SQLAlchemy + SQLite + urllib (stdlib) + uvicorn — RUNNING on :8780
 - **Database:** ~26 components in SQLite (`01_projects/diy-hub-v1/data/diy-hub.db`)
@@ -53,8 +53,8 @@ code: 01_projects/diy-hub-v1/code/
 | Stage 7 | 2026-06-14 | Settings (theme toggle, data export) |
 | Stage 8 | 2026-06-14 | Enter-Manually everywhere + List/Card view toggle |
 | Stage 9 | 2026-06-14 | Image URL fix (Vite no proxy for /api/*) + Delete + Inline Qty Edit |
-| Stage 10 | 2026-06-14 | Component Lookup Quality Fix (1st pass — had bugs in real use) |
-| **Stage 11** | **2026-06-14 23:15Z** | **Component Lookup Quality Fix (real fix — Wemos D1 Mini 6→2, all clean)** |
+| Stage 10 | 2026-06-16 | Component Lookup Quality Fix (1st pass — had bugs in real use) |
+| **Stage 11** | **2026-06-16 10:14Z** | **Component Lookup Quality Fix (real fix — Wemos D1 Mini 6→2, all clean)** |
 
 ## What works (Stage 11 deliverable)
 - **5 quality fixes** in `code/backend/app/quality.py`:

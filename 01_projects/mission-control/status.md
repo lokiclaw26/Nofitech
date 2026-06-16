@@ -9,7 +9,7 @@ next_action: "Mission Control v1.15.0 is the OPERATIONAL MONITOR. The page serve
 blocker: ""
 data_source: real
 created: 2026-06-10
-updated: 2026-06-14
+updated: 2026-06-16
 version: 1.15.0-order-cleanup
 charter: 01_projects/mission-control/charter.md
 tasks: 01_projects/mission-control/tasks/
