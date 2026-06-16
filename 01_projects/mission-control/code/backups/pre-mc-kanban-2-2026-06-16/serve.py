@@ -21,10 +21,6 @@ MC-KANBAN-1 (2026-06-16): added Section 10 "Kanban — Multi-Agent Board" —
           3 endpoints serve the Hermes Agent Kanban tab (NOFI's 3-agent team:
           Thor/Forge/Argus). Reads the same project task files already on
           disk; no external kanban.db, no pip deps.
-MC-KANBAN-2 (2026-06-16): dual-format parser. kanban_parser now reads BOTH
-          YAML frontmatter (Format A) and markdown `| Field | Value |` tables
-          (Format B). PATCH writes a SEPARATE `kanban_status` field instead
-          of overwriting the project-native `status` field (data-loss fix).
 
 Endpoints:
   GET  /                              → static HTML
@@ -1290,14 +1286,7 @@ def data_kanban(include_archived: bool = False) -> dict:
 
 
 def patch_kanban_task(task_id: str, new_status: str) -> tuple[int, dict]:
-    """PATCH /api/data/kanban/task/:id — update task's `kanban_status` on disk.
-
-    MC-KANBAN-2: writes to `kanban_status` (a separate field), NOT to `status`.
-    The project-native `status` field is preserved exactly. Detects the file
-    format (YAML frontmatter vs markdown table) and routes to the correct
-    mutator. For Format B (markdown table), inserts/updates a
-    `| **kanban_status** | <new> |` row right after the `| **status** | ... |`
-    row, leaving all other rows untouched.
+    """PATCH /api/data/kanban/task/:id — update frontmatter status on disk.
 
     Returns (http_status, body_dict). The body is a full updated board on
     success, an error dict on failure."""
@@ -1554,10 +1543,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._json({"error": "server error", "detail": str(e)}, 500)
 
     def do_PATCH(self):
-        """MC-KANBAN-1+2: PATCH /api/data/kanban/task/:id — update task's
-        `kanban_status` on disk (separate from project-native `status`).
-        Body: { "status": "running" }. Returns 200 on success with the full
-        updated board, 400 on bad status, 404 on unknown task_id."""
+        """MC-KANBAN-1: PATCH /api/data/kanban/task/:id — update frontmatter
+        status on disk. Body: { "status": "running" }. Returns 200 on success
+        with the full updated board, 400 on bad status, 404 on unknown task_id."""
         try:
             p = urllib.parse.urlparse(self.path)
             prefix = "/api/data/kanban/task/"

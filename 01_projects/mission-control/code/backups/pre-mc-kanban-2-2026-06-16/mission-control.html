@@ -1812,37 +1812,24 @@ function renderKanbanColumn(col, agentById, search) {
 }
 
 function renderKanbanCard(t, agentById) {
-  // MC-KANBAN-2: use `kanban_status` for the column-class (so a card stays in
-  // the column the PATCH put it in, even if the project-native `status`
-  // differs). Fall back to the raw `status` for legacy cards.
-  const ks = (t.kanban_status || t.status || "triage").toLowerCase();
-  const rawStatus = (t.status || "triage").toLowerCase();
+  const status = (t.status || "triage").toLowerCase();
   const pri = (t.priority || "normal").toLowerCase();
-  const assignee = (t.assigned_to || t.assignee || "").toLowerCase();
+  const assignee = (t.assignee || "").toLowerCase();
   const assigneeMeta = assignee && agentById[assignee] ? agentById[assignee] : null;
   const createdRel = t.created ? relTime(t.created) : "—";
-  const body = (t.body || t.preview || "").trim();
+  const body = (t.body || "").trim();
   const isOpen = _kanbanOpenCards.has(t.task_id);
   const assigneeChip = assigneeMeta
     ? `<span class="card-assignee assignee-${esc(assignee)}">${esc(assigneeMeta.emoji)} ${esc(assigneeMeta.name)}</span>`
     : (assignee ? `<span class="card-assignee">${esc(assignee)}</span>` : `<span class="card-assignee" style="color:var(--text3)">unassigned</span>`);
-  // Show the project-native status too if it differs from the kanban column
-  // (e.g. project says `in_progress` but board is `running` because the user
-  // manually moved the card).
-  const statusTooltip = (ks !== rawStatus)
-    ? `title="kanban: ${esc(ks)} · project: ${esc(rawStatus)}"`
-    : `title="status: ${esc(ks)}"`;
-  const statusBadge = (ks !== rawStatus)
-    ? `<span class="card-status-raw" title="project status: ${esc(rawStatus)}" style="font-size:10px;color:var(--text3);margin-left:4px">(${esc(rawStatus)})</span>`
-    : "";
 
-  return `<div class="kanban-card status-${esc(ks)} assignee-${esc(assignee)}" draggable="true" data-task-id="${esc(t.task_id)}" title="drag to move · click to expand">
+  return `<div class="kanban-card status-${esc(status)} assignee-${esc(assignee)}" draggable="true" data-task-id="${esc(t.task_id)}" title="drag to move · click to expand">
     <div class="card-id">${esc(t.task_id)}</div>
     <div class="card-title">${esc(t.title || t.task_id)}</div>
     <div class="card-meta">
       <span class="card-priority priority-${esc(pri)}">${esc(pri)}</span>
       ${assigneeChip}
-      <span class="card-status-dot status-${esc(ks)}" ${statusTooltip}></span>${statusBadge}
+      <span class="card-status-dot status-${esc(status)}" title="status: ${esc(status)}"></span>
       <span class="ts" title="${esc(t.created || '')}">created ${esc(createdRel)}</span>
     </div>
     <div class="card-body" style="display:${isOpen ? 'block' : 'none'}">${esc(body) || '<span class="muted">(no body)</span>'}</div>

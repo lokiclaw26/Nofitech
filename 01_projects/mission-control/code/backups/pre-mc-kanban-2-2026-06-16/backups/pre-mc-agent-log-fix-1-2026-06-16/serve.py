@@ -17,14 +17,6 @@ Stage 17: Provider/Model panel retired from the HTML; new Warnings panel
 Stage 20 (2026-06-16): added Section 9 "GitHub Connection" — new endpoint
           /api/data/github reads git remote, GitHub API, last cron run, and
           last_run.json. Additive only — no changes to existing endpoints.
-MC-KANBAN-1 (2026-06-16): added Section 10 "Kanban — Multi-Agent Board" —
-          3 endpoints serve the Hermes Agent Kanban tab (NOFI's 3-agent team:
-          Thor/Forge/Argus). Reads the same project task files already on
-          disk; no external kanban.db, no pip deps.
-MC-KANBAN-2 (2026-06-16): dual-format parser. kanban_parser now reads BOTH
-          YAML frontmatter (Format A) and markdown `| Field | Value |` tables
-          (Format B). PATCH writes a SEPARATE `kanban_status` field instead
-          of overwriting the project-native `status` field (data-loss fix).
 
 Endpoints:
   GET  /                              → static HTML
@@ -41,9 +33,6 @@ Endpoints:
   GET  /api/data/events               → last 50 events from events.jsonl
   POST /api/data/order                → append a fix_order event to events.jsonl (Stage 17→19)
   GET  /api/data/orders               → list pending/in_progress fix_order events (Stage 19)
-  GET  /api/data/kanban               → full board grouped by status + 3-agent lanes (MC-KANBAN-1)
-  PATCH /api/data/kanban/task/:id     → update task status on disk (MC-KANBAN-1)
-  POST /api/data/kanban/task          → create a new task file from the UI (MC-KANBAN-1)
 """
 import http.server
 import socketserver
@@ -59,12 +48,6 @@ import subprocess
 import uuid
 from pathlib import Path
 from datetime import datetime, timezone
-
-# MC-KANBAN-1 (2026-06-16): 3-endpoint Kanban tab.
-# Imported here so the board parser lives next to the static HTML/JS that
-# renders it. The parser reads the SAME project task files that the existing
-# /api/data/tasks endpoint already scans, so no DB is introduced.
-import kanban_parser  # noqa: E402  (intentional local import — keeps top of file clean)
 
 PORT = 8767
 HOST = "0.0.0.0"  # v1.3.0 — full LAN access (reversed Stage-1 'local only' lock per NOFI directive)
@@ -454,23 +437,6 @@ def data_agents():
         if blocker is None:
             reasons.append("no blocker")
 
-        # ---- MC-AGENT-LOG-FIX-1: expose mtime_iso + mtime_age_seconds so the
-        # frontend can decide its own "stuck" threshold. Stale = no fresh log
-        # in 30+ min AND agent claims to be spawning/in_progress (i.e. should
-        # be writing logs but isn't).
-        if last_mtime:
-            mtime_iso = datetime.fromtimestamp(last_mtime, tz=timezone.utc).isoformat()
-            mtime_age_seconds = int(time.time() - last_mtime)
-        else:
-            mtime_iso = None
-            mtime_age_seconds = None
-        STUCK_STATUSES = {"spawning", "in_progress", "in-progress"}
-        stale = bool(
-            mtime_age_seconds is not None
-            and mtime_age_seconds > 30 * 60
-            and status in STUCK_STATUSES
-        )
-
         rows.append({
             "id": oid,
             "name": meta["name"],
@@ -478,10 +444,7 @@ def data_agents():
             "emoji": meta["emoji"],
             "status": status,
             "last_activity": rel_time(last_mtime) if last_mtime else "—",
-            "last_activity_iso": mtime_iso,
-            "mtime_iso": mtime_iso,
-            "mtime_age_seconds": mtime_age_seconds,
-            "stale": stale,
+            "last_activity_iso": datetime.fromtimestamp(last_mtime, tz=timezone.utc).isoformat() if last_mtime else None,
             "last_log": str(last_file.relative_to(COMPANY_ROOT)) if last_file else None,
             "current_assignment": current_assignment,
             "blocker": blocker,
@@ -1277,103 +1240,6 @@ def data_logs():
     }
 
 
-# ---------- MC-KANBAN-1: Kanban tab endpoints (added 2026-06-16) ----------
-
-def data_kanban(include_archived: bool = False) -> dict:
-    """GET /api/data/kanban — full board grouped by 6 columns, with 3-agent
-    swimlanes inside Running. Reads project task files via kanban_parser.
-    No external kanban.db; no pip deps. Additive to the existing endpoints."""
-    board = kanban_parser.build_board(COMPANY_ROOT, include_archived=include_archived)
-    board["last_updated"] = datetime.now(timezone.utc).isoformat()
-    board["errors"] = []
-    return board
-
-
-def patch_kanban_task(task_id: str, new_status: str) -> tuple[int, dict]:
-    """PATCH /api/data/kanban/task/:id — update task's `kanban_status` on disk.
-
-    MC-KANBAN-2: writes to `kanban_status` (a separate field), NOT to `status`.
-    The project-native `status` field is preserved exactly. Detects the file
-    format (YAML frontmatter vs markdown table) and routes to the correct
-    mutator. For Format B (markdown table), inserts/updates a
-    `| **kanban_status** | <new> |` row right after the `| **status** | ... |`
-    row, leaving all other rows untouched.
-
-    Returns (http_status, body_dict). The body is a full updated board on
-    success, an error dict on failure."""
-    task_id = (task_id or "").strip()
-    new_status = (new_status or "").strip().lower()
-    if not task_id:
-        return 400, {"error": "task_id is required", "ok": False}
-    if new_status not in kanban_parser.ALLOWED_STATUSES:
-        return 400, {
-            "error": f"unknown status: {new_status!r}",
-            "allowed": list(kanban_parser.ALLOWED_STATUSES),
-            "ok": False,
-        }
-    ok, reason, path = kanban_parser.update_task_status(task_id, new_status, COMPANY_ROOT)
-    if not ok:
-        # 404 only for "not found"; 400 for any other write failure
-        if "not found" in reason:
-            return 404, {"error": reason, "ok": False, "task_id": task_id}
-        return 400, {"error": reason, "ok": False}
-    board = data_kanban(include_archived=False)
-    return 200, {
-        "ok": True,
-        "task_id": task_id,
-        "new_status": new_status,
-        "path": str(path.relative_to(COMPANY_ROOT)) if path else None,
-        "reason": reason,
-        "board": board,
-    }
-
-
-def create_kanban_task(payload: dict) -> tuple[int, dict]:
-    """POST /api/data/kanban/task — create a new task file from the Kanban UI.
-
-    Body: { title, assignee, priority }
-    Writes to 01_projects/mission-control/tasks/<TASK_ID>.md (existing convention
-    — keeps everything in one project tree). Returns 201 on success."""
-    title = (payload.get("title") or "").strip()
-    assignee = (payload.get("assignee") or "").strip().lower()
-    priority = (payload.get("priority") or "normal").strip().lower()
-    if not title:
-        return 400, {"error": "title is required", "ok": False}
-    if assignee not in kanban_parser.AGENT_IDS:
-        return 400, {
-            "error": f"unknown assignee: {assignee!r}",
-            "allowed": kanban_parser.AGENT_IDS,
-            "ok": False,
-        }
-    # TASK_ID format per spec: "MC-KANBAN-CREATE-<timestamp>" or "MC-<random>"
-    import secrets
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-    rand = secrets.token_hex(3).upper()
-    task_id = f"MC-KANBAN-CREATE-{ts}-{rand}"
-    ok, reason, path = kanban_parser.create_task_file(
-        task_id, title, assignee, priority, COMPANY_ROOT
-    )
-    if not ok:
-        return 400, {"error": reason, "ok": False, "task_id": task_id}
-    board = data_kanban(include_archived=False)
-    # Return the new card so the UI can optimistically insert it
-    new_card = None
-    for col in board.get("columns", []):
-        for t in col.get("tasks", []):
-            if t.get("task_id") == task_id:
-                new_card = t
-                break
-        if new_card:
-            break
-    return 201, {
-        "ok": True,
-        "task_id": task_id,
-        "path": str(path.relative_to(COMPANY_ROOT)) if path else None,
-        "card": new_card,
-        "board": board,
-    }
-
-
 # ---------- HTTP ----------
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -1477,18 +1343,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if path == "/api/data/orders":
                 # Stage 19: list pending/in_progress fix_order events
                 return self._json(data_orders())
-            if path == "/api/data/kanban":
-                # MC-KANBAN-1: 6-column board + 3-agent lanes
-                qs_k = urllib.parse.parse_qs(p.query)
-                include_archived = "true" in (x.lower() for x in qs_k.get("include_archived", []))
-                return self._json(data_kanban(include_archived=include_archived))
-            if path.startswith("/api/data/kanban/task/"):
-                # PATCH only — GET returns 405
-                return self._json({
-                    "error": "method not allowed; use PATCH",
-                    "allowed": ["PATCH"],
-                    "path": path,
-                }, 405)
 
             return self._json({"error": "not found", "path": path}, 404)
 
@@ -1502,30 +1356,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         warning_text, 200 on success with {ok, event_id, ts, order_id,
         status, requires_chat_confirmation, recommended_fix}. The Stage 17
         `ok` and `event_id` fields are preserved for backward compat.
-
-        MC-KANBAN-1: POST /api/data/kanban/task — create a new task file
-        from the UI. Returns 201 on success, 400 on bad input.
         """
         try:
             p = urllib.parse.urlparse(self.path)
-            if p.path == "/api/data/kanban/task":
-                # Read the body (Content-Length, capped to 16 KiB to be safe)
-                try:
-                    length = int(self.headers.get("Content-Length") or "0")
-                except (TypeError, ValueError):
-                    length = 0
-                if length <= 0 or length > 16 * 1024:
-                    return self._json({"error": "missing or oversized body"}, 400)
-                raw = self.rfile.read(length)
-                try:
-                    payload = json.loads(raw.decode("utf-8"))
-                except (UnicodeDecodeError, json.JSONDecodeError) as e:
-                    return self._json({"error": "invalid JSON", "detail": str(e)}, 400)
-                if not isinstance(payload, dict):
-                    return self._json({"error": "body must be a JSON object"}, 400)
-                status, body = create_kanban_task(payload)
-                return self._json(body, status)
-
             if p.path != "/api/data/order":
                 return self._json({"error": "not found", "path": p.path}, 404)
 
@@ -1550,39 +1383,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self._json({"error": str(e)}, 400)
             return self._json(result, 200)
 
-        except Exception as e:
-            return self._json({"error": "server error", "detail": str(e)}, 500)
-
-    def do_PATCH(self):
-        """MC-KANBAN-1+2: PATCH /api/data/kanban/task/:id — update task's
-        `kanban_status` on disk (separate from project-native `status`).
-        Body: { "status": "running" }. Returns 200 on success with the full
-        updated board, 400 on bad status, 404 on unknown task_id."""
-        try:
-            p = urllib.parse.urlparse(self.path)
-            prefix = "/api/data/kanban/task/"
-            if not p.path.startswith(prefix):
-                return self._json({"error": "not found", "path": p.path}, 404)
-            task_id = p.path[len(prefix):].strip()
-            if not task_id or "/" in task_id:
-                return self._json({"error": "task_id is required in path"}, 400)
-            # Read body (capped to 4 KiB — only need {"status": "..."})
-            try:
-                length = int(self.headers.get("Content-Length") or "0")
-            except (TypeError, ValueError):
-                length = 0
-            if length < 0 or length > 4 * 1024:
-                return self._json({"error": "missing or oversized body"}, 400)
-            raw = self.rfile.read(length) if length > 0 else b"{}"
-            try:
-                payload = json.loads(raw.decode("utf-8") or "{}")
-            except (UnicodeDecodeError, json.JSONDecodeError) as e:
-                return self._json({"error": "invalid JSON", "detail": str(e)}, 400)
-            if not isinstance(payload, dict):
-                return self._json({"error": "body must be a JSON object"}, 400)
-            new_status = payload.get("status") or ""
-            status, body = patch_kanban_task(task_id, new_status)
-            return self._json(body, status)
         except Exception as e:
             return self._json({"error": "server error", "detail": str(e)}, 500)
 

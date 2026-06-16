@@ -1,24 +1,24 @@
 {
   "schema": "nofitech-agent-state/v1",
-  "updated": "2026-06-16T19:25:00Z",
+  "updated": "2026-06-16T19:36:00Z",
   "agents": {
     "thor": {
-      "last_activity": "2026-06-16T18:55:30Z",
+      "last_activity": "2026-06-16T19:36:00Z",
       "status": "supervising",
-      "current_assignment": "MC-KANBAN-1",
-      "current_task": "MC-KANBAN-1"
+      "current_assignment": "MC-KANBAN-2-DUAL-FORMAT-PARSER",
+      "current_task": "MC-KANBAN-2-DUAL-FORMAT-PARSER"
     },
     "forge": {
-      "last_activity": "2026-06-16T18:56:00Z",
+      "last_activity": "2026-06-16T19:36:00Z",
       "status": "in_progress",
-      "current_assignment": "MC-KANBAN-1",
-      "current_task": "MC-KANBAN-1"
+      "current_assignment": "MC-KANBAN-2-DUAL-FORMAT-PARSER",
+      "current_task": "MC-KANBAN-2-DUAL-FORMAT-PARSER"
     },
     "argus": {
-      "last_activity": "2026-06-16T19:25:00Z",
+      "last_activity": "2026-06-16T19:36:00Z",
       "status": "complete",
-      "current_assignment": "MC-KANBAN-1",
-      "current_task": "MC-KANBAN-1"
+      "current_assignment": "MC-KANBAN-2-DUAL-FORMAT-PARSER",
+      "current_task": "MC-KANBAN-2-DUAL-FORMAT-PARSER"
     }
   },
   "projects": {
