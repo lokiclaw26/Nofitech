@@ -162,25 +162,6 @@
   .agent-card.idle    { border-left-color: var(--amber); }
   .agent-card.blocked { border-left-color: var(--red); }
   .agent-card.unknown { border-left-color: var(--text3); }
-  /* MC-AGENT-LOG-FIX-1: stale agent visual — no fresh log in 30+ min */
-  .agent-card.stale { border-left-color: var(--red); box-shadow: inset 0 0 0 1px rgba(220,80,80,0.25); }
-  .stuck-badge {
-    display: inline-block;
-    background: rgba(220,80,80,0.18);
-    color: var(--red);
-    font-size: 0.75em;
-    padding: 1px 6px;
-    border-radius: 4px;
-    margin-left: 6px;
-    cursor: help;
-  }
-  .agent-log-file {
-    color: var(--text3);
-    font-size: 0.7em;
-    font-family: ui-monospace, "SF Mono", Consolas, monospace;
-    margin-top: 2px;
-    word-break: break-all;
-  }
   .agent-name {
     font-size: 1.4em;
     font-weight: 600;
@@ -670,20 +651,10 @@ function renderAgents(d) {
       caHtml = `<span class="dash" title="${esc((a.reasons || []).join("; ") || "no current assignment")}">Idle</span>`;
     }
 
-    // last activity — show "Xm ago" with the log filename underneath,
-    // and a ⚠ stuck badge if the agent is stale (no fresh log in 30+ min
-    // while claiming to be spawning/in_progress).
+    // last activity
     let laHtml;
-    const stale = a.stale === true;
-    const staleTip = stale
-      ? "No fresh log in 30+ min — agent may be stuck"
-      : (a.mtime_age_seconds != null ? `Last log: ${esc(a.last_log || "(none)")}` : "no log yet");
     if (a.last_activity_iso) {
-      const badge = stale ? ` <span class="stuck-badge" title="${staleTip}">⚠ stuck</span>` : "";
-      const logFile = a.last_log
-        ? `<div class="agent-log-file" title="${esc(a.last_log)}">📄 ${esc(a.last_log.split("/").pop())}</div>`
-        : "";
-      laHtml = `<span title="${esc(a.last_activity_iso)}">${esc(relTime(a.last_activity_iso))}</span>${badge}${logFile}`;
+      laHtml = `<span title="${esc(a.last_activity_iso)}">${esc(relTime(a.last_activity_iso))}</span>`;
     } else if (a.last_activity) {
       laHtml = `<span>${esc(a.last_activity)}</span>`;
     } else {
@@ -696,7 +667,7 @@ function renderAgents(d) {
       : '';
 
     return `
-      <div class="agent-card ${cls}${stale ? ' stale' : ''}">
+      <div class="agent-card ${cls}">
         <div class="agent-name"><span class="emoji">${esc(a.emoji || "•")}</span>${esc(a.name)}</div>
         <div class="agent-role">${esc(a.role)} · ${badge(a.status || "—", pill)}</div>
         <div class="agent-row">

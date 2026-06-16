@@ -437,23 +437,6 @@ def data_agents():
         if blocker is None:
             reasons.append("no blocker")
 
-        # ---- MC-AGENT-LOG-FIX-1: expose mtime_iso + mtime_age_seconds so the
-        # frontend can decide its own "stuck" threshold. Stale = no fresh log
-        # in 30+ min AND agent claims to be spawning/in_progress (i.e. should
-        # be writing logs but isn't).
-        if last_mtime:
-            mtime_iso = datetime.fromtimestamp(last_mtime, tz=timezone.utc).isoformat()
-            mtime_age_seconds = int(time.time() - last_mtime)
-        else:
-            mtime_iso = None
-            mtime_age_seconds = None
-        STUCK_STATUSES = {"spawning", "in_progress", "in-progress"}
-        stale = bool(
-            mtime_age_seconds is not None
-            and mtime_age_seconds > 30 * 60
-            and status in STUCK_STATUSES
-        )
-
         rows.append({
             "id": oid,
             "name": meta["name"],
@@ -461,10 +444,7 @@ def data_agents():
             "emoji": meta["emoji"],
             "status": status,
             "last_activity": rel_time(last_mtime) if last_mtime else "—",
-            "last_activity_iso": mtime_iso,
-            "mtime_iso": mtime_iso,
-            "mtime_age_seconds": mtime_age_seconds,
-            "stale": stale,
+            "last_activity_iso": datetime.fromtimestamp(last_mtime, tz=timezone.utc).isoformat() if last_mtime else None,
             "last_log": str(last_file.relative_to(COMPANY_ROOT)) if last_file else None,
             "current_assignment": current_assignment,
             "blocker": blocker,
