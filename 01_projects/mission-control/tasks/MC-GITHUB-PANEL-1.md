@@ -104,3 +104,5 @@ Summary with:
 - Script change: writes last_run.json (what outcome)
 - Regression: all 10 existing endpoints still 200
 - Any blockers
+
+<!-- Stage 20 complete: GitHub panel shipped -->
