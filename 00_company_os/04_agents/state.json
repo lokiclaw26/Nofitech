@@ -1,16 +1,16 @@
 {
   "schema": "nofitech-agent-state/v1",
-  "updated": "2026-06-16T19:36:00Z",
+  "updated": "2026-06-16T20:00:00Z",
   "agents": {
     "thor": {
-      "last_activity": "2026-06-16T19:36:00Z",
+      "last_activity": "2026-06-16T20:00:00Z",
       "status": "supervising",
       "current_assignment": "MC-KANBAN-2-DUAL-FORMAT-PARSER",
       "current_task": "MC-KANBAN-2-DUAL-FORMAT-PARSER"
     },
     "forge": {
-      "last_activity": "2026-06-16T19:36:00Z",
-      "status": "in_progress",
+      "last_activity": "2026-06-16T20:00:00Z",
+      "status": "complete",
       "current_assignment": "MC-KANBAN-2-DUAL-FORMAT-PARSER",
       "current_task": "MC-KANBAN-2-DUAL-FORMAT-PARSER"
     },
