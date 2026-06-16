@@ -1416,10 +1416,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if path in ("/", "/mission-control.html", "/index.html"):
                 return self._static("mission-control.html")
 
-            # MC-KANBAN-MOVE-1 (2026-06-16): standalone Kanban page
-            if path == "/kanban":
-                return self._static("kanban.html")
-
             if path == "/api/health":
                 v = get_version()
                 return self._json({
