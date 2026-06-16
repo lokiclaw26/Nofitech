@@ -15,7 +15,8 @@ description: Stage 2 of value-pipeline. The morning-brief cron (MC-021) handles 
 acceptance:
   - New file: /home/nofidofi/NofiTech-Ind/01_projects/mission-control/code/ondemand.py (or similar). Self-contained stdlib-only.
   - It exposes a function that takes a topic string and: (a) creates a task file under tasks/ with id MC-AUTO-<timestamp>, (b) appends task_assigned + work_started events, (c) returns the task_id.
-  - Mission Control "Pending Orders" panel gets a new button "Execute" per row. Button click POSTs to a new endpoint /api/orders/execute that calls the ondemand function with the order's topic. (Mirrors the existing pattern; do NOT invent new auth.)
+  - Mission Control "Pending Orders" panel gets a new button "Execute" per row. **Button behavior = RECEIPT ONLY (locked rule 006).** Click appends a `order_receipt` event with the order id and topic, marks the order as `receipt_pending=true`, and shows a tooltip "Confirmation required: type 'thor, execute pending order <id>' in chat". Dispatch fires only when the chat message arrives. This is interpretation (A) — safe / matches existing rule. Reversible to interpretation (B) by flipping a single flag in ondemand.py if nofi overrides.
+  - The chat-side path: when nofi's chat message matches `^thor,?\s+(?:work on|execute pending order)\s+(.+)$`, the ondemand module parses the topic, creates the task, dispatches forge.
   - events.jsonl gets a `ondemand_dispatched` event with task_id, source (chat/button/cron), topic.
   - Forge subagent is dispatched via delegate_task with a self-contained prompt that includes the topic, task file path, and the locked rules.
   - End-to-end test: trigger via the panel button OR via a CLI test (e.g. `python3 -c "import ondemand; print(ondemand.dispatch('test topic'))"`), confirm task file appears, events appended, no crashes.
