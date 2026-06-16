@@ -1,6 +1,6 @@
 {
   "schema": "nofitech-agent-state/v1",
-  "updated": "2026-06-16T20:11:00Z",
+  "updated": "2026-06-16T20:50:00Z",
   "agents": {
     "thor": {
       "last_activity": "2026-06-16T20:11:00Z",
@@ -15,7 +15,7 @@
       "current_task": "MC-KANBAN-MOVE-1"
     },
     "argus": {
-      "last_activity": "2026-06-16T20:11:00Z",
+      "last_activity": "2026-06-16T20:50:00Z",
       "status": "complete",
       "current_assignment": "MC-KANBAN-MOVE-1",
       "current_task": "MC-KANBAN-MOVE-1"
