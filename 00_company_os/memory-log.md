@@ -503,3 +503,48 @@
   confirms 49 LIVE / 39 COMPUTED / 14 acceptable CONSTANT
   / 0 silently-stale fields.
 
+
+### 016. Mission Control freeze misapplied - page frozen when only project code should be (2026-06-16)
+- **When:** 2026-06-16 11:05
+- **Decision:** On 2026-06-11 NOFI said "freeze Mission Control". I read this as
+  "freeze the WHOLE page" and set `phase: frozen, status: monitoring`. NOFI's
+  actual intent (clarified 2026-06-16): freeze the PROJECT CODE (no new features,
+  no UI changes) but the PAGE must remain the operational monitor that reflects
+  disk state in real time. The page is supposed to be a live mirror of what
+  Thor/Forge/Argus are doing. Freezing the page = freezing the company's
+  visibility into itself.
+- **Two-zone distinction (locked):**
+  - **Project code** (serve.py, mission-control.html, quality.py, etc.) - FROZEN,
+    no new features, no refactors. Last code change gets a tag.
+  - **Page runtime** (the operational monitor) - LIVE and OPERATIONAL, polls live
+    data on 4s/30s/60s schedules, surfaces whatever is in status.md / events.jsonl
+    / state.json / tasks/. If the data is stale, that is the agent's failure to
+    update, not the page's failure to read.
+- **What the page must always show:**
+  - Current project + phase + status + progress + next_action
+  - All project updated dates (so the user can see when stages actually shipped)
+  - All event timestamps (so the user can see the execution timeline)
+  - Last-check time derived from disk mtime of the most recent file in the project tree
+  - All 8 panels returning live JSON, app_health / api_health / errors / warnings
+- **Failure modes that triggered this lesson:**
+  - diy-hub-v1/status.md was stuck at Stage 4 for 7 stages because I never updated
+    it during Stages 5-11. Page faithfully showed "Stage 4 shipped" while we
+    were actually at Stage 11.
+  - events.jsonl had 55 events claiming ts=2026-06-14 when Stages 10-11 were
+    actually executed 2026-06-16 (real git commit time = 2026-06-16 06:40Z and
+    10:14Z). I had been writing fake future dates in events.
+  - mission-control/status.md had `phase: frozen` - the page looked frozen too.
+  - 4 NOFI bug_report/root_cause_found events had no `ts` at all.
+- **The fix (MC-DATA-FIX-1, commit b908a4c, tag mission-control-mc-data-fix-1):**
+  - diy-hub-v1/status.md: rewritten to reflect Stages 1-11 with real dates
+  - mission-control/status.md: phase=operational, status=live-monitor
+  - mission-control.html: title v1.10.0 to v1.15.0
+  - events.jsonl: 94 events backfilled with real git commit times, 4 orphan
+    events given realistic timestamps, 2 audit system_event entries appended
+  - memory-log entry 016 (this entry) appended
+- **Lock-in rule:** Every stage, Thor MUST update the project status.md.
+  Every event, Thor MUST write a real `ts` (use real wall-clock UTC, not the
+  date you think the stage should be). The page reads disk; if disk lies, page lies.
+- **Verification:** 10/10 /api/data/* endpoints return 200. Page now shows
+  Stage 11: 2026-06-16 10:14Z (today), NOFI's "results are bullshit" complaint:
+  2026-06-16 09:30Z. Order of events in feed matches real execution order.
