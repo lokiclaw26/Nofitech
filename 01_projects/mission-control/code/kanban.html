@@ -480,12 +480,25 @@ let _kanbanPollTimer = null;
 let _kanbanDragTaskId = null;
 let _kanbanOpenCards = new Set();  // task_ids currently expanded
 
+// MC-KANBAN-BUGFIX-2 (2026-06-16): smart-diff polling.
+// Tracks every card DOM node we've rendered, keyed by task_id. The polling
+// tick now only adds/moves/removes cards whose data has changed; cards that
+// are unchanged (same data, same column, same lane) keep their DOM node AND
+// the column body's scrollTop — fixing the 5-second scroll-reset bug.
+let _kanbanCardNodes = new Map();  // task_id -> { cardEl, columnId, laneAssignee, lastData }
+// Stable container of which task_ids are currently rendered, in order. Used
+// only for sanity-checking and the delete-orphans pass.
+let _kanbanRenderedIds = new Set();
+// Set to true by search/lanes toggle to force a full rebuild on next render.
+let _kanbanForceRebuild = true;
+
 async function loadKanban() {
   try {
     const url = "/api/data/kanban" + (_kanbanIncludeArchived ? "?include_archived=true" : "");
     const d = await fetchJSON(url);
     _kanbanState = d;
-    renderKanban(d);
+    smartRenderKanban(d, _kanbanForceRebuild);
+    _kanbanForceRebuild = false;  // consume the flag
     const stamp = document.getElementById("kanban-refresh-stamp");
     if (stamp) {
       const now = new Date();
@@ -498,7 +511,16 @@ async function loadKanban() {
   }
 }
 
+// MC-KANBAN-BUGFIX-2: full re-render path. Used by search/lanes toggles
+// (these change the board structure, so a diff isn't meaningful). Always
+// re-wires event listeners on all cards.
 function renderKanban(d) {
+  _kanbanForceRebuild = true;
+  smartRenderKanban(d, true);
+  _kanbanForceRebuild = false;
+}
+
+function smartRenderKanban(d, forceRebuild) {
   // ---- Summary chips ----
   const summary = d.summary || {};
   const byStatus = summary.by_status || {};
@@ -529,80 +551,360 @@ function renderKanban(d) {
       `${a.role} — running tasks (when lanes on) or any assignee`
     ));
   }
-  document.getElementById("kanban-summary").innerHTML =
+  const sumEl = document.getElementById("kanban-summary");
+  if (sumEl) sumEl.innerHTML =
     statusChips.join("") + `<span style="color:var(--line);margin:0 4px">|</span>` + assigneeChips.join("");
 
   // ---- Board columns ----
   const board = document.getElementById("kanban-board");
+  if (!board) return;
   const search = _kanbanSearch.trim().toLowerCase();
   const columns = d.columns || [];
 
-  board.innerHTML = columns.map(col => renderKanbanColumn(col, agentById, search)).join("");
+  // For full rebuild: drop all tracked cards so we re-create from scratch
+  if (forceRebuild) {
+    _kanbanCardNodes.clear();
+    _kanbanRenderedIds.clear();
+  }
 
-  // Wire up event listeners
+  // Pass 1: figure out the set of "new" task_ids + their target column/lane
+  // and the set of (columnId, laneAssignee) → tasks ordering.
+  const newCardData = new Map();  // task_id -> { task, columnId, laneAssignee }
+  const columnBodyByCol = new Map();   // colId -> { body, useLanes, lanes: [{assignee, body}] }
   for (const col of columns) {
-    const colEl = document.getElementById(`kanban-col-${col.id}`);
-    if (!colEl) continue;
-    // Drag-drop on the column body
-    const body = colEl.querySelector(".kanban-col-body");
-    body.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      colEl.classList.add("dragover");
-    });
-    body.addEventListener("dragleave", () => colEl.classList.remove("dragover"));
-    body.addEventListener("drop", (e) => {
-      e.preventDefault();
-      colEl.classList.remove("dragover");
-      const tid = e.dataTransfer.getData("text/plain") || _kanbanDragTaskId;
-      if (!tid) return;
-      if (col.id === "archived") {
-        // archived column is the +7th — only reachable via show-archived toggle
-        moveCardTo(tid, "archived");
-      } else {
-        moveCardTo(tid, col.id);
+    const useLanes = (col.id === "running" && _kanbanLanesByProfile && Array.isArray(col.lanes));
+    const entry = { body: null, useLanes, lanes: [] };
+    if (useLanes) {
+      for (const lane of col.lanes) {
+        entry.lanes.push({ assignee: lane.assignee, body: null });
+        for (const t of (lane.tasks || [])) {
+          newCardData.set(t.task_id, { task: t, columnId: col.id, laneAssignee: lane.assignee });
+        }
       }
-    });
-    // + button shows inline create form
-    const addBtn = colEl.querySelector(".add-btn");
-    if (addBtn) {
-      addBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        toggleCreateForm(col.id);
-      });
+    } else {
+      for (const t of (col.tasks || [])) {
+        newCardData.set(t.task_id, { task: t, columnId: col.id, laneAssignee: null });
+      }
+    }
+    columnBodyByCol.set(col.id, entry);
+  }
+
+  // Pass 2: ensure column shells + body containers exist on the board.
+  // Re-use existing .kanban-col-body nodes (so column body scrollTop survives).
+  // If forceRebuild, throw the board away and start fresh.
+  if (forceRebuild) {
+    board.innerHTML = "";
+  }
+
+  // Track which columns are kept (to drop stale ones)
+  const keepColIds = new Set(columns.map(c => c.id));
+
+  // Remove column shells that no longer exist (e.g. user toggled show-archived off)
+  for (const oldColEl of Array.from(board.children)) {
+    const cid = oldColEl.dataset.colId;
+    if (cid && !keepColIds.has(cid)) {
+      // Detach all cards inside this column from the tracker so they get re-rendered
+      // if the column reappears later.
+      for (const cardEl of oldColEl.querySelectorAll(".kanban-card")) {
+        const tid = cardEl.dataset.taskId;
+        if (tid) {
+          const e = _kanbanCardNodes.get(tid);
+          if (e) _kanbanCardNodes.delete(tid);
+          _kanbanRenderedIds.delete(tid);
+        }
+      }
+      oldColEl.remove();
     }
   }
 
-  // Wire up card-level handlers (toggle, dragstart)
-  for (const cardEl of board.querySelectorAll(".kanban-card")) {
-    cardEl.addEventListener("dragstart", (e) => {
-      _kanbanDragTaskId = cardEl.dataset.taskId;
-      e.dataTransfer.setData("text/plain", _kanbanDragTaskId);
-      e.dataTransfer.effectAllowed = "move";
-      cardEl.classList.add("dragging");
-    });
-    cardEl.addEventListener("dragend", () => {
-      cardEl.classList.remove("dragging");
-      _kanbanDragTaskId = null;
-    });
-    // Click to expand (toggle body)
-    cardEl.addEventListener("click", (e) => {
-      // ignore clicks on interactive children
-      if (e.target.closest("button, input, select, textarea, a")) return;
-      const tid = cardEl.dataset.taskId;
-      if (!tid) return;
-      if (_kanbanOpenCards.has(tid)) _kanbanOpenCards.delete(tid);
-      else _kanbanOpenCards.add(tid);
-      const body = cardEl.querySelector(".card-body");
-      if (body) body.style.display = _kanbanOpenCards.has(tid) ? "block" : "none";
-    });
+  // Ensure each new column has a shell + body
+  for (const col of columns) {
+    let colEl = document.getElementById(`kanban-col-${col.id}`);
+    if (!colEl) {
+      // Build a fresh column shell
+      const tmp = document.createElement("div");
+      tmp.innerHTML = renderKanbanColumnShell(col);
+      colEl = tmp.firstElementChild;
+      board.appendChild(colEl);
+      wireColumnShell(colEl, col);
+    } else {
+      // Update column header count + label (cheap, non-destructive)
+      const countEl = colEl.querySelector(".col-count");
+      if (countEl) countEl.textContent = col.count ?? 0;
+      const labelEl = colEl.querySelector(".col-label");
+      if (labelEl) labelEl.textContent = col.label || col.id;
+    }
+
+    const entry = columnBodyByCol.get(col.id);
+    const body = colEl.querySelector(".kanban-col-body");
+    entry.body = body;
+
+    if (entry.useLanes) {
+      // Ensure each lane div exists. Reuse existing lane divs.
+      const lanesByAssignee = new Map();
+      for (const laneEl of colEl.querySelectorAll(":scope > .kanban-lane")) {
+        lanesByAssignee.set(laneEl.dataset.lane, laneEl);
+      }
+      for (const laneInfo of entry.lanes) {
+        let laneEl = lanesByAssignee.get(laneInfo.assignee);
+        if (!laneEl) {
+          // Build a new lane div
+          const tmp = document.createElement("div");
+          tmp.innerHTML = renderKanbanLaneShell({ assignee: laneInfo.assignee });
+          laneEl = tmp.firstElementChild;
+          body.appendChild(laneEl);
+        }
+        laneInfo.body = laneEl;
+        // Update lane count
+        const cnt = laneEl.querySelector(".lane-count");
+        if (cnt) {
+          // find the count for this lane
+          const srcLane = col.lanes.find(l => l.assignee === laneInfo.assignee);
+          if (srcLane) cnt.textContent = srcLane.count ?? 0;
+        }
+      }
+      // Remove orphan lane divs (lane assignee disappeared from data)
+      const wantAssignees = new Set(entry.lanes.map(l => l.assignee));
+      for (const [assignee, laneEl] of lanesByAssignee.entries()) {
+        if (!wantAssignees.has(assignee)) {
+          // Detach cards
+          for (const cardEl of laneEl.querySelectorAll(".kanban-card")) {
+            const tid = cardEl.dataset.taskId;
+            if (tid) {
+              const e = _kanbanCardNodes.get(tid);
+              if (e) _kanbanCardNodes.delete(tid);
+              _kanbanRenderedIds.delete(tid);
+            }
+          }
+          laneEl.remove();
+        }
+      }
+    } else {
+      // Not using lanes — remove any leftover lane divs from prior render
+      for (const laneEl of Array.from(body.querySelectorAll(":scope > .kanban-lane"))) {
+        for (const cardEl of laneEl.querySelectorAll(".kanban-card")) {
+          const tid = cardEl.dataset.taskId;
+          if (tid) {
+            const e = _kanbanCardNodes.get(tid);
+            if (e) _kanbanCardNodes.delete(tid);
+            _kanbanRenderedIds.delete(tid);
+          }
+        }
+        laneEl.remove();
+      }
+    }
   }
 
-  // Update section hint
+  // Pass 3: diff cards. Drop removed, add new, move changed-column, in-place update changed-data.
+  // ---- Remove cards no longer in new data ----
+  for (const [tid, entry] of Array.from(_kanbanCardNodes.entries())) {
+    if (!newCardData.has(tid)) {
+      entry.cardEl.remove();
+      _kanbanCardNodes.delete(tid);
+      _kanbanRenderedIds.delete(tid);
+    }
+  }
+
+  // ---- Add / move / update cards ----
+  // Build a sequence per (columnId, laneAssignee) to preserve ordering.
+  // The new data gives us ordering via (col.tasks) and (col.lanes[].tasks).
+  // We process in order so appendChild after a move produces the right sequence.
+  const ordered = [];   // list of { task, columnId, laneAssignee }
+  for (const col of columns) {
+    const useLanes = (col.id === "running" && _kanbanLanesByProfile && Array.isArray(col.lanes));
+    if (useLanes) {
+      for (const lane of col.lanes) {
+        for (const t of (lane.tasks || [])) {
+          ordered.push({ task: t, columnId: col.id, laneAssignee: lane.assignee });
+        }
+      }
+    } else {
+      for (const t of (col.tasks || [])) {
+        ordered.push({ task: t, columnId: col.id, laneAssignee: null });
+      }
+    }
+  }
+
+  for (const { task: t, columnId, laneAssignee } of ordered) {
+    const tid = t.task_id;
+    const existing = _kanbanCardNodes.get(tid);
+    if (existing) {
+      // Card already in DOM
+      const moved = (existing.columnId !== columnId) || (existing.laneAssignee !== laneAssignee);
+      if (moved) {
+        // Move DOM node to new parent
+        const targetBody = findCardParent(columnBodyByCol, columnId, laneAssignee);
+        if (targetBody && existing.cardEl.parentNode !== targetBody) {
+          targetBody.appendChild(existing.cardEl);
+        }
+        existing.columnId = columnId;
+        existing.laneAssignee = laneAssignee;
+      }
+      // In-place content update if data changed
+      if (cardDataChanged(existing.lastData, t)) {
+        // Re-render the card's inner content (replaces the entire card element
+        // children but keeps the same outer element so attached listeners
+        // survive and the column body's scrollTop is unaffected).
+        const newCardHtml = renderKanbanCard(t, agentById);
+        existing.cardEl.outerHTML = newCardHtml;  // replaces element
+        // The new element has fresh listeners — re-wire it.
+        const newEl = document.querySelector(`[data-task-id="${cssEscapeAttr(tid)}"]`);
+        if (newEl) {
+          existing.cardEl = newEl;
+          wireKanbanCard(existing.cardEl);
+        }
+        existing.lastData = snapshotCardData(t);
+      } else {
+        // Even if data unchanged, keep the snapshot fresh (cheap, no DOM work)
+        existing.lastData = snapshotCardData(t);
+      }
+    } else {
+      // New card — create DOM and insert
+      const cardEl = createKanbanCardElement(t, agentById);
+      const targetBody = findCardParent(columnBodyByCol, columnId, laneAssignee);
+      if (targetBody) {
+        targetBody.appendChild(cardEl);
+        wireKanbanCard(cardEl);
+      }
+      _kanbanCardNodes.set(tid, {
+        cardEl,
+        columnId,
+        laneAssignee,
+        lastData: snapshotCardData(t)
+      });
+    }
+    _kanbanRenderedIds.add(tid);
+  }
+
+  // ---- Section hint ----
   const h = document.getElementById("kanban-hint");
   if (h) {
     const n = summary.visible ?? summary.total ?? 0;
     h.textContent = `${n} task${n === 1 ? '' : 's'} · 6 columns · 3 agents`;
   }
+}
+
+// Helpers for the smart diff
+function snapshotCardData(t) {
+  return {
+    title: t.title,
+    status: t.status,
+    kanban_status: t.kanban_status,
+    priority: t.priority,
+    assigned_to: t.assigned_to || t.assignee,
+    created: t.created,
+    body: t.body || t.preview,
+  };
+}
+
+function cardDataChanged(a, b) {
+  if (!a || !b) return true;
+  return (
+    a.title !== b.title ||
+    a.status !== b.status ||
+    a.kanban_status !== b.kanban_status ||
+    a.priority !== b.priority ||
+    a.assigned_to !== (b.assigned_to || b.assignee) ||
+    a.created !== b.created ||
+    a.body !== (b.body || b.preview)
+  );
+}
+
+function findCardParent(columnBodyByCol, columnId, laneAssignee) {
+  const entry = columnBodyByCol.get(columnId);
+  if (!entry) return null;
+  if (entry.useLanes) {
+    const lane = entry.lanes.find(l => l.assignee === laneAssignee);
+    return lane ? lane.body : entry.body;
+  }
+  return entry.body;
+}
+
+function cssEscapeAttr(s) {
+  // Minimal CSS.escape for use inside an attribute-selector quoted string.
+  // We use it for [data-task-id="..."] lookups after outerHTML replacement.
+  if (window.CSS && CSS.escape) return CSS.escape(s);
+  return String(s).replace(/"/g, '\\"');
+}
+
+function renderKanbanColumnShell(col) {
+  // Same structure as the old renderKanbanColumn, but built as a template
+  // for the smart-render path. Lane bodies are filled in by the caller.
+  return `<div class="kanban-col" id="kanban-col-${esc(col.id)}" data-col-id="${esc(col.id)}">
+    <div class="kanban-col-header">
+      <span class="col-label">${esc(col.label)}</span>
+      <span class="col-count">${col.count || 0}</span>
+      <button class="add-btn" title="Create task in ${esc(col.label)}">+</button>
+    </div>
+    <div class="kanban-col-body" data-col-id="${esc(col.id)}"></div>
+  </div>`;
+}
+
+function renderKanbanLaneShell(lane) {
+  return `<div class="kanban-lane lane-${esc(lane.assignee)}" data-lane="${esc(lane.assignee)}">
+    <div class="kanban-lane-header">
+      <span class="lane-emoji">${esc(lane.emoji || "•")}</span>
+      <span>${esc(lane.name || lane.assignee)}</span>
+      <span class="lane-count">0</span>
+    </div>
+  </div>`;
+}
+
+function createKanbanCardElement(t, agentById) {
+  const tmp = document.createElement("div");
+  tmp.innerHTML = renderKanbanCard(t, agentById);
+  return tmp.firstElementChild;
+}
+
+function wireColumnShell(colEl, col) {
+  // Drag-drop on the column body
+  const body = colEl.querySelector(".kanban-col-body");
+  body.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    colEl.classList.add("dragover");
+  });
+  body.addEventListener("dragleave", () => colEl.classList.remove("dragover"));
+  body.addEventListener("drop", (e) => {
+    e.preventDefault();
+    colEl.classList.remove("dragover");
+    const tid = e.dataTransfer.getData("text/plain") || _kanbanDragTaskId;
+    if (!tid) return;
+    if (col.id === "archived") {
+      moveCardTo(tid, "archived");
+    } else {
+      moveCardTo(tid, col.id);
+    }
+  });
+  // + button shows inline create form
+  const addBtn = colEl.querySelector(".add-btn");
+  if (addBtn) {
+    addBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleCreateForm(col.id);
+    });
+  }
+}
+
+function wireKanbanCard(cardEl) {
+  cardEl.addEventListener("dragstart", (e) => {
+    _kanbanDragTaskId = cardEl.dataset.taskId;
+    e.dataTransfer.setData("text/plain", _kanbanDragTaskId);
+    e.dataTransfer.effectAllowed = "move";
+    cardEl.classList.add("dragging");
+  });
+  cardEl.addEventListener("dragend", () => {
+    cardEl.classList.remove("dragging");
+    _kanbanDragTaskId = null;
+  });
+  cardEl.addEventListener("click", (e) => {
+    if (e.target.closest("button, input, select, textarea, a")) return;
+    const tid = cardEl.dataset.taskId;
+    if (!tid) return;
+    if (_kanbanOpenCards.has(tid)) _kanbanOpenCards.delete(tid);
+    else _kanbanOpenCards.add(tid);
+    const body = cardEl.querySelector(".card-body");
+    if (body) body.style.display = _kanbanOpenCards.has(tid) ? "block" : "none";
+  });
 }
 
 function renderKanbanColumn(col, agentById, search) {

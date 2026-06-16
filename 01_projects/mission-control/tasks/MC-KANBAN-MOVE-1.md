@@ -15,6 +15,7 @@ argus_passed: false
 depends_on: [MC-KANBAN-2-DUAL-FORMAT-PARSER]
 blocks: [MC-KANBAN-FREEZE-ACCEPTANCE]
 tags: [mission-control, kanban, navigation, sidebar, page-split, new-feature]
+kanban_status: done
 ---
 
 # MC-KANBAN-MOVE-1 — Move Kanban to a Separate Page with Sidebar Nav
