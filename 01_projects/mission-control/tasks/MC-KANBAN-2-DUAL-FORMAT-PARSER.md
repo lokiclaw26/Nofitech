@@ -15,6 +15,7 @@ argus_passed: false
 depends_on: [MC-KANBAN-1]
 blocks: []
 tags: [mission-control, kanban, parser, dual-format, data-loss-fix, bug-fix]
+kanban_status: running
 ---
 
 # MC-KANBAN-2 — Dual-Format Parser + Data Loss Fix
