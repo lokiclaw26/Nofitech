@@ -5,9 +5,11 @@
 **project:** diy-hub-v1
 **agent:** forge
 **status:** complete
+**argus_result:** pass
 **priority:** high
 **created:** 2026-06-13
-**updated:** 2026-06-13
+**updated:** 2026-06-16T11:22:01Z
+**evidence:** 00_company_os/04_agents/logs/2026-06-13/forge-diy002-hotfix2-1781214686.md
 **description:** NOFI found a live bug after the runtime-hostname hotfix: the component images are not visible in the model-picker cards and the confirmation popup. Root cause: the server-generated SVG has width="400" height="400" baked in, so the SVG renders at its natural 400x400 size and overflows the smaller dialog containers (200x200 in the confirmation popup, smaller in the model-picker cards). Fix: in the CandidateImage component, override only the outer <svg> tag's width/height to "100%" so the SVG scales to the container.
 **acceptance:**
 - AddComponent.tsx CandidateImage component: SVG is scaled to its container: yes

@@ -5,9 +5,11 @@
 **project:** diy-hub-v1
 **agent:** forge
 **status:** complete
+**argus_result:** pass
 **priority:** high
 **created:** 2026-06-13
-**updated:** 2026-06-13
+**updated:** 2026-06-16T11:22:01Z
+**evidence:** 00_company_os/04_agents/logs/2026-06-13/forge-diy002-hotfix1-1781214686.md
 **description:** NOFI found a real bug live: AddComponent.tsx and Dashboard.tsx both hardcode the API URL to http://127.0.0.1:8780. When NOFI accesses the frontend on http://192.168.0.29:5173 (LAN IP), the browser tries to fetch from 127.0.0.1:8780, which is the user's own device, not the server. Fix: runtime hostname. 4 lines total, 2 files only.
 **acceptance:**
 - AddComponent.tsx uses a runtime-computed API base: yes

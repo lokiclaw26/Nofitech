@@ -1,18 +1,24 @@
 {
   "schema": "nofitech-agent-state/v1",
-  "updated": "2026-06-14T23:15:00.000000+00:00",
+  "updated": "2026-06-16T11:24:33Z",
   "agents": {
     "thor": {
+      "last_activity": "2026-06-16T11:24:33Z",
       "status": "supervising",
-      "current_task": null
+      "current_assignment": "coordinating MC-FIX-AGENT-ACTIVITY-1",
+      "current_task": "MC-FIX-AGENT-ACTIVITY-1"
     },
     "forge": {
-      "status": "idle",
-      "current_task": null
+      "last_activity": "2026-06-16T11:23:06Z",
+      "status": "active",
+      "current_assignment": "MC-FIX-AGENT-ACTIVITY-1",
+      "current_task": "MC-FIX-AGENT-ACTIVITY-1"
     },
     "argus": {
-      "status": "idle",
-      "current_task": null
+      "last_activity": "2026-06-16T11:20:55Z",
+      "status": "active",
+      "current_assignment": "MC-FIX-AGENT-ACTIVITY-1",
+      "current_task": "MC-FIX-AGENT-ACTIVITY-1"
     }
   },
   "projects": {
@@ -36,12 +42,42 @@
         "Added wikidata.org/entity/ to trusted source patterns (was missing /entity/ format)"
       ],
       "stage_11_test_results": {
-        "ESP32 DevKit V1":   {"candidates": 2, "rejected": 4, "best": 1.00, "top": "Adafruit ESP32-S3 DevKitC"},
-        "Wemos D1 Mini":     {"candidates": 2, "rejected": 9, "best": 0.75, "top": "PlatformIO wemos-d1-mini"},
-        "BME280":            {"candidates": 5, "rejected": 6, "best": 1.00, "top": "Adafruit BME280 (real product)"},
-        "INA219":            {"candidates": 4, "rejected": 1, "best": 0.80, "top": "Adafruit INA219"},
-        "TP4056":            {"candidates": 3, "rejected": 4, "best": 0.75, "top": "PlatformIO tp4056"},
-        "ILI9488 XPT2046":   {"candidates": 1, "rejected": 1, "best": 0.75, "top": "PlatformIO ili9488-xpt2046"}
+        "ESP32 DevKit V1": {
+          "candidates": 2,
+          "rejected": 4,
+          "best": 1.0,
+          "top": "Adafruit ESP32-S3 DevKitC"
+        },
+        "Wemos D1 Mini": {
+          "candidates": 2,
+          "rejected": 9,
+          "best": 0.75,
+          "top": "PlatformIO wemos-d1-mini"
+        },
+        "BME280": {
+          "candidates": 5,
+          "rejected": 6,
+          "best": 1.0,
+          "top": "Adafruit BME280 (real product)"
+        },
+        "INA219": {
+          "candidates": 4,
+          "rejected": 1,
+          "best": 0.8,
+          "top": "Adafruit INA219"
+        },
+        "TP4056": {
+          "candidates": 3,
+          "rejected": 4,
+          "best": 0.75,
+          "top": "PlatformIO tp4056"
+        },
+        "ILI9488 XPT2046": {
+          "candidates": 1,
+          "rejected": 1,
+          "best": 0.75,
+          "top": "PlatformIO ili9488-xpt2046"
+        }
       }
     }
   }

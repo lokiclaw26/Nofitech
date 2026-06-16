@@ -5,9 +5,11 @@
 **project:** diy-hub-v1
 **agent:** forge
 **status:** complete
+**argus_result:** pass
 **priority:** high
 **created:** 2026-06-13
-**updated:** 2026-06-13
+**updated:** 2026-06-16T11:22:01Z
+**evidence:** 00_company_os/04_agents/logs/2026-06-13/forge-diy003-1781214686.md
 **description:** NOFI found that the Stage 2 colored-SVG images are useless for identifying components. Replace the mock data images with real component images fetched from public Wikipedia/Wikimedia sources. NO Google, NO Octopart, NO paid APIs, NO API keys, NO login, NO purchasing links/actions. Real network calls to Wikipedia REST + Wikimedia Commons API only. On save, download the image to data/images/ and store the local path. If no real image is found, show a "No real image found" empty state (NOT a colored SVG block) and allow manual upload/URL later (Stage 4+). The colored SVG is REMOVED — not used as a fallback in this stage.
 **acceptance:**
 - POST /api/components/search still returns 1+ candidates for known components: yes

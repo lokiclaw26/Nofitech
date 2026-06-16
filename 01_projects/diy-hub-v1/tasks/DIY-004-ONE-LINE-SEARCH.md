@@ -5,9 +5,11 @@
 **project:** diy-hub-v1
 **agent:** forge
 **status:** complete
+**argus_result:** pass
 **priority:** high
 **created:** 2026-06-13
-**updated:** 2026-06-13
+**updated:** 2026-06-16T11:22:01Z
+**evidence:** 00_company_os/04_agents/logs/2026-06-13/forge-diy004-1781214686.md
 **description:** NOFI redesigns the Add Component flow. Replace the 4-input form with a single text input. The backend AI parses the query to identify the component and its model, fetches per-model details from public Wikipedia/Wikimedia. If multiple possible models match, return them as candidates and let the user pick. Each model gets its own real image (no more shared ESP32 image for all 3 ESP32 candidates). NO Google, NO Octopart, NO paid APIs, NO API keys, NO login, NO purchasing. Rule-based keyword parser (no LLM API calls).
 **acceptance:**
 - Form is 1 text input (component query) + quantity + location: yes
