@@ -3,7 +3,7 @@ task_id: MC-KANBAN-MOVE-1
 title: Move Kanban to a separate page with sidebar nav (Main + Kanban tabs)
 project: mission-control
 phase: live-monitor
-status: in_progress
+status: complete
 priority: high
 created: 2026-06-16T20:10:00+00:00
 created_by: thor

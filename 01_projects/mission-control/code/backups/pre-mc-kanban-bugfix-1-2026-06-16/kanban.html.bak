@@ -467,11 +467,6 @@ function relTime(iso) {
 // /api/data/kanban/task. The board polls every 5s (kanban-poll).
 // ============================================================
 
-// MC-KANBAN-BUGFIX-1: suppress browser default drag behavior (was causing page to scroll-to-top when user dragged anything)
-document.addEventListener('dragover', e => e.preventDefault());
-document.addEventListener('drop', e => e.preventDefault());
-let _kanbanCreateFormOpen = false;  // MC-KANBAN-BUGFIX-1: pause 5s polling re-render while inline create form is open
-
 let _kanbanState = null;   // last fetched board dict
 let _kanbanIncludeArchived = false;
 let _kanbanLanesByProfile = true;
@@ -716,7 +711,6 @@ function toggleCreateForm(colId) {
   const existing = colEl.querySelector(".kanban-create-form");
   if (existing) {
     existing.remove();
-    _kanbanCreateFormOpen = false;  // MC-KANBAN-BUGFIX-1: form closed, resume polling
     return;
   }
   // Close any other open form first
@@ -754,9 +748,7 @@ function toggleCreateForm(colId) {
   form.querySelector(".cancel").addEventListener("click", (e) => {
     e.preventDefault();
     form.remove();
-    _kanbanCreateFormOpen = false;  // MC-KANBAN-BUGFIX-1: form cancelled, resume polling
   });
-  _kanbanCreateFormOpen = true;  // MC-KANBAN-BUGFIX-1: form opened, pause polling
 }
 
 async function submitCreateTask(form, colId) {
@@ -782,7 +774,6 @@ async function submitCreateTask(form, colId) {
       throw new Error(j.error || `HTTP ${r.status}`);
     }
     form.remove();
-    _kanbanCreateFormOpen = false;  // MC-KANBAN-BUGFIX-1: form submitted, resume polling
     await loadKanban();
   } catch (e) {
     alert(`Create failed: ${e.message}`);
@@ -791,10 +782,7 @@ async function submitCreateTask(form, colId) {
 
 function startKanbanPolling() {
   if (_kanbanPollTimer) return;
-  _kanbanPollTimer = setInterval(async () => {
-    if (_kanbanCreateFormOpen) return;  // MC-KANBAN-BUGFIX-1: pause re-render, keep form intact
-    await loadKanban();
-  }, 5000);
+  _kanbanPollTimer = setInterval(loadKanban, 5000);
 }
 function stopKanbanPolling() {
   if (_kanbanPollTimer) { clearInterval(_kanbanPollTimer); _kanbanPollTimer = null; }

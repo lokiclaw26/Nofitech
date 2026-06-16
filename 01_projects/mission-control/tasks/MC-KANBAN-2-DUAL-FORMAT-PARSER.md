@@ -3,7 +3,7 @@ task_id: MC-KANBAN-2-DUAL-FORMAT-PARSER
 title: Extend Kanban parser to read YAML frontmatter + markdown-table task files; fix PATCH data-loss bug; add missing git tag
 project: mission-control
 phase: live-monitor
-status: in_progress
+status: complete
 priority: high
 created: 2026-06-16T19:35:00+00:00
 created_by: thor
@@ -15,7 +15,7 @@ argus_passed: false
 depends_on: [MC-KANBAN-1]
 blocks: []
 tags: [mission-control, kanban, parser, dual-format, data-loss-fix, bug-fix]
-kanban_status: running
+kanban_status: done
 ---
 
 # MC-KANBAN-2 — Dual-Format Parser + Data Loss Fix

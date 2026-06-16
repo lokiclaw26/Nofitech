@@ -3,7 +3,7 @@ task_id: MC-KANBAN-1
 title: Hermes Kanban tab in Mission Control — 3-agent swimlanes (Thor/Forge/Argus)
 project: mission-control
 phase: live-monitor
-status: in_progress
+status: complete
 priority: high
 created: 2026-06-16T18:55:00+00:00
 created_by: thor

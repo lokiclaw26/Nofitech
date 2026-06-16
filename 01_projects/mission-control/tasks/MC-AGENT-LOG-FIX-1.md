@@ -3,7 +3,7 @@ task_id: MC-AGENT-LOG-FIX-1
 title: Fix stale agent last_activity display in Mission Control Section 2
 project: mission-control
 phase: live-monitor
-status: in_progress
+status: complete
 priority: high
 created: 2026-06-16T15:58:00+00:00
 created_by: thor
