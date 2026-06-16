@@ -1,24 +1,24 @@
 {
   "schema": "nofitech-agent-state/v1",
-  "updated": "2026-06-16T11:24:33Z",
+  "updated": "2026-06-16T11:39:11Z",
   "agents": {
     "thor": {
-      "last_activity": "2026-06-16T11:24:33Z",
+      "last_activity": "2026-06-16T11:39:11Z",
       "status": "supervising",
-      "current_assignment": "coordinating MC-FIX-AGENT-ACTIVITY-1",
-      "current_task": "MC-FIX-AGENT-ACTIVITY-1"
+      "current_assignment": "coordinating MC-GITHUB-REPO-SETUP-1",
+      "current_task": "MC-GITHUB-REPO-SETUP-1"
     },
     "forge": {
-      "last_activity": "2026-06-16T11:23:06Z",
-      "status": "active",
-      "current_assignment": "MC-FIX-AGENT-ACTIVITY-1",
-      "current_task": "MC-FIX-AGENT-ACTIVITY-1"
+      "last_activity": "2026-06-16T11:39:11Z",
+      "status": "spawning",
+      "current_assignment": "MC-GITHUB-REPO-SETUP-1",
+      "current_task": "MC-GITHUB-REPO-SETUP-1"
     },
     "argus": {
-      "last_activity": "2026-06-16T11:20:55Z",
-      "status": "active",
-      "current_assignment": "MC-FIX-AGENT-ACTIVITY-1",
-      "current_task": "MC-FIX-AGENT-ACTIVITY-1"
+      "last_activity": "2026-06-16T11:39:11Z",
+      "status": "spawning",
+      "current_assignment": "MC-GITHUB-REPO-SETUP-1",
+      "current_task": "MC-GITHUB-REPO-SETUP-1"
     }
   },
   "projects": {

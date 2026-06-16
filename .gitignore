@@ -1,15 +1,39 @@
 # Secrets
 .env
+.env.*
 .config/nofitech/.env
+
+# Keys / certs (never in repo)
+*.pem
+*.key
+
+# GitHub credentials (PAT lives in ~/.hermes/scripts/.env.github)
+.hermes/scripts/.env.github
+**/.env.github
 
 # Python
 __pycache__/
+**/__pycache__/
 *.pyc
 *.pyo
+
+# Node / vite
+**/code/.vite/
+**/code/node_modules/
+
+# DIY Hub sqlite (regenerable)
+**/data/diy-hub.db
+**/data/diy-hub.db-journal
+**/data/diy-hub.db-wal
+**/data/diy-hub.db-shm
 
 # Mission Control runtime artifacts (any depth)
 **/code/logs/*.log
 **/code/logs/*.pid
+
+# Test artifacts
+test_*.tmp
+*.tmp
 
 # OS / editor cruft
 .DS_Store

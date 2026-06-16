@@ -1,0 +1,21 @@
+{
+  "agents": {
+    "thor": {
+      "last_activity": "2026-06-16T11:17:57Z",
+      "current_assignment": "coordinating MC-FIX-AGENT-ACTIVITY-1",
+      "status": "active"
+    },
+    "forge": {
+      "last_activity": "2026-06-16T11:17:57Z",
+      "current_assignment": "MC-FIX-AGENT-ACTIVITY-1",
+      "status": "spawning"
+    },
+    "argus": {
+      "last_activity": "2026-06-16T11:17:57Z",
+      "current_assignment": "MC-FIX-AGENT-ACTIVITY-1",
+      "status": "spawning"
+    }
+  },
+  "tasks": {},
+  "updated": "2026-06-16T11:17:57Z"
+}
