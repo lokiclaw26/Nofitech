@@ -1,0 +1,4 @@
+NofiTech Mission Control 1.9.0 (v1.9.0-stage14-wiring)
+  project:  /home/nofidofi/NofiTech-Ind/01_projects/mission-control
+  company:  /home/nofidofi/NofiTech-Ind
+  serving:  http://0.0.0.0:8767/  (LAN access: http://192.168.0.29:8767/)
