@@ -1704,12 +1704,12 @@ _SECRET_PATTERNS = [
     # OpenAI / Anthropic style
     re.compile(r"sk-[A-Za-z0-9_\-]{16,}"),
     re.compile(r"sk-ant-[A-Za-z0-9_\-]{16,}"),
-    # GitHub
-    re.compile(r"ghp_[A-Za-z0-9]{16,}"),
-    re.compile(r"gho_[A-Za-z0-9]{16,}"),
-    re.compile(r"ghu_[A-Za-z0-9]{16,}"),
-    re.compile(r"ghs_[A-Za-z0-9]{16,}"),
-    re.compile(r"ghr_[A-Za-z0-9]{16,}"),
+    # GitHub — MC-MEMORY-GRAPH-2: lowered threshold from 16 to 8
+    re.compile(r"ghp_[A-Za-z0-9]{8,}"),
+    re.compile(r"gho_[A-Za-z0-9]{8,}"),
+    re.compile(r"ghu_[A-Za-z0-9]{8,}"),
+    re.compile(r"ghs_[A-Za-z0-9]{8,}"),
+    re.compile(r"ghr_[A-Za-z0-9]{8,}"),
     # Slack
     re.compile(r"xox[bp]-[A-Za-z0-9\-]{10,}"),
     # AWS
@@ -2261,6 +2261,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if path == "/memory-graph":
                 # Serve the new vanilla-JS page (same pattern as /kanban).
                 return self._static("memory-graph.html")
+
+            # ---- MC-MEMORY-GRAPH-2 (2026-06-17): serve vendored 3D libs ----
+            # The 3D page loads three.min.js and 3d-force-graph.min.js via
+            # relative paths; the browser resolves them to /vendor/... and we
+            # must serve them from the on-disk vendor/ directory. Files only,
+            # no path traversal.
+            if path.startswith("/vendor/"):
+                rel = path[len("/vendor/"):]
+                # Reject any traversal attempts.
+                if ".." in rel.split("/") or rel.startswith("/"):
+                    return self._json({"error": "bad path", "path": path}, 400)
+                return self._static("vendor/" + rel)
 
             if path == "/api/memory-graph" or path == "/api/memory-graph/":
                 g = _mg_load_graph()
