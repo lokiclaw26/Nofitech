@@ -43,7 +43,8 @@ Endpoints:
   GET  /api/data/orders               → list pending/in_progress fix_order events (Stage 19)
   GET  /api/data/kanban               → full board grouped by status + 3-agent lanes (MC-KANBAN-1)
   PATCH /api/data/kanban/task/:id     → update task status on disk (MC-KANBAN-1)
-  POST /api/data/kanban/task          → create a new task file from the UI (MC-KANBAN-1)
+  POST  /api/data/kanban/task         → create a new task file from the UI (MC-KANBAN-1)
+  PATCH /api/data/kanban/task/:id/assign → update task assignee on disk (MC-KANBAN-ASSIGN-1)
 """
 import http.server
 import socketserver
@@ -1328,6 +1329,191 @@ def patch_kanban_task(task_id: str, new_status: str) -> tuple[int, dict]:
     }
 
 
+def assign_kanban_task(task_id: str, payload: dict) -> tuple[int, dict]:
+    """PATCH /api/data/kanban/task/:id/assign — update task's `assigned_to`
+    (Format A YAML) or `owner` row (Format B markdown table) on disk.
+
+    MC-KANBAN-ASSIGN-1 (2026-06-17): supports 4 values — thor, forge, argus,
+    or "" (unassign). Empty string removes the field (Format A) or the row
+    (Format B). Preserves every other line in the file exactly. Returns
+    (http_status, body_dict) with the full updated board on success.
+    """
+    import pathlib  # local; cheap
+    task_id = (task_id or "").strip()
+    if not task_id:
+        return 400, {"error": "task_id is required", "ok": False}
+    new_assignee = (payload.get("assignee") or "").strip().lower()
+    if new_assignee not in {"thor", "forge", "argus", ""}:
+        return 400, {
+            "error": f"unknown assignee: {new_assignee!r}; must be thor, forge, argus, or empty (unassign)",
+            "ok": False,
+            "task_id": task_id,
+        }
+
+    # Find the task file (reuse the same matching strategy as
+    # kanban_parser.update_task_status: stem, exact filename, or frontmatter
+    # task_id / Format B id row).
+    target: pathlib.Path | None = None
+    company_root = pathlib.Path(COMPANY_ROOT)
+    for root in (company_root / "01_projects", company_root / "00_company_os"):
+        if not root.is_dir():
+            continue
+        for td in root.glob("*/tasks"):
+            if not td.is_dir():
+                continue
+            for tf in sorted(td.glob("*.md")):
+                if tf.stem == task_id or tf.name == f"{task_id}.md":
+                    target = tf
+                    break
+                # also match by Format A frontmatter task_id or Format B id
+                try:
+                    txt = tf.read_text(encoding="utf-8")
+                except Exception:
+                    continue
+                meta, _ = kanban_parser.parse_frontmatter(txt)
+                if (meta.get("task_id") or "").strip() == task_id:
+                    target = tf
+                    break
+                table, _ = kanban_parser.parse_markdown_table(txt)
+                if (table.get("id") or "").strip() == task_id:
+                    target = tf
+                    break
+            if target is not None:
+                break
+        if target is not None:
+            break
+    if target is None:
+        return 404, {"error": f"task_id not found: {task_id!r}", "ok": False, "task_id": task_id}
+
+    # Re-detect format
+    txt = target.read_text(encoding="utf-8")
+    fmt = kanban_parser.detect_format(txt)
+
+    # ---- Apply the assign update ----
+    if fmt == "A":
+        # Format A: YAML frontmatter. Update or insert `assigned_to: <value>`
+        # right after `task_id:`. If empty, REMOVE the `assigned_to:` line.
+        lines = txt.splitlines()
+        # find frontmatter bounds
+        if not lines or lines[0].strip() != "---":
+            return 400, {"error": "Format A file is missing leading `---`", "ok": False, "task_id": task_id}
+        end_idx = None
+        for i in range(1, len(lines)):
+            if lines[i].strip() == "---":
+                end_idx = i
+                break
+        if end_idx is None:
+            return 400, {"error": "Format A file is missing closing `---`", "ok": False, "task_id": task_id}
+        header = lines[1:end_idx]
+        body = lines[end_idx + 1:]
+
+        assigned_to_re = re.compile(r"^(\s*assigned_to\s*:\s*)(.*?)(\s*(?:#.*)?)$")
+        task_id_re = re.compile(r"^(\s*task_id\s*:\s*)(.*?)(\s*(?:#.*)?)$")
+
+        if new_assignee:
+            new_header = []
+            replaced = False
+            for line in header:
+                m = assigned_to_re.match(line)
+                if m:
+                    new_header.append(f"{m.group(1)}{new_assignee}{m.group(3)}")
+                    replaced = True
+                else:
+                    new_header.append(line)
+            if not replaced:
+                # insert after task_id: (or at end of header if not found)
+                new_header2 = []
+                inserted = False
+                for line in new_header:
+                    new_header2.append(line)
+                    if (not inserted) and task_id_re.match(line):
+                        new_header2.append(f"assigned_to: {new_assignee}")
+                        inserted = True
+                if not inserted:
+                    new_header2.append(f"assigned_to: {new_assignee}")
+                new_header = new_header2
+        else:
+            # Unassign: remove the `assigned_to:` line entirely (preserve blank lines around it)
+            new_header = [ln for ln in header if not assigned_to_re.match(ln)]
+
+        out = "---\n" + "\n".join(new_header) + "\n---\n" + "\n".join(body)
+        if not out.endswith("\n"):
+            out += "\n"
+        target.write_text(out, encoding="utf-8")
+
+    elif fmt == "B":
+        # Format B: markdown `| **field** | value |` table. Update or insert
+        # the `| **owner** | <value> |` row. If empty, REMOVE the row entirely.
+        lines = txt.splitlines()
+        header_idx = None
+        for i, line in enumerate(lines):
+            if kanban_parser._TABLE_HEADER_RE.match(line):
+                header_idx = i
+                break
+        if header_idx is None:
+            return 400, {"error": "Format B table header not found", "ok": False, "task_id": task_id}
+        data_start = header_idx + 1
+        if data_start < len(lines) and kanban_parser._TABLE_SEP_RE.match(lines[data_start]):
+            data_start += 1
+
+        row_kv_re = kanban_parser._TABLE_ROW_KV_RE
+        owner_row_idx = None
+        id_row_idx = None
+        for j in range(data_start, len(lines)):
+            ln = lines[j]
+            if not ln.lstrip().startswith("|"):
+                break
+            m = row_kv_re.match(ln)
+            if not m:
+                break
+            raw_key = m.group("key").strip()
+            if raw_key.startswith("**") and raw_key.endswith("**") and len(raw_key) >= 4:
+                key = raw_key[2:-2].strip().lower()
+            else:
+                key = raw_key.strip().lower()
+            if key == "owner":
+                owner_row_idx = j
+            elif key == "id":
+                id_row_idx = j
+
+        if new_assignee:
+            if owner_row_idx is not None:
+                # update existing row, preserve exact key rendering
+                ln = lines[owner_row_idx]
+                m = row_kv_re.match(ln)
+                raw_key = m.group("key").strip()
+                lines[owner_row_idx] = f"| {raw_key} | {new_assignee} |"
+            else:
+                # insert new owner row after the id row (or as first data row)
+                insert_at = (id_row_idx + 1) if id_row_idx is not None else data_start
+                lines.insert(insert_at, f"| **owner** | {new_assignee} |")
+        else:
+            # Unassign: remove the owner row entirely
+            if owner_row_idx is not None:
+                lines.pop(owner_row_idx)
+
+        out = "\n".join(lines)
+        if not out.endswith("\n"):
+            out += "\n"
+        target.write_text(out, encoding="utf-8")
+
+    else:
+        return 400, {
+            "error": f"task file is not in a recognized format (A or B): {target.name}",
+            "ok": False,
+            "task_id": task_id,
+        }
+
+    board = data_kanban(include_archived=False)
+    return 200, {
+        "ok": True,
+        "task_id": task_id,
+        "assignee": new_assignee,
+        "path": str(target.relative_to(COMPANY_ROOT)),
+        "board": board,
+    }
+
+
 def create_kanban_task(payload: dict) -> tuple[int, dict]:
     """POST /api/data/kanban/task — create a new task file from the Kanban UI.
 
@@ -1567,12 +1753,45 @@ class Handler(http.server.BaseHTTPRequestHandler):
         """MC-KANBAN-1+2: PATCH /api/data/kanban/task/:id — update task's
         `kanban_status` on disk (separate from project-native `status`).
         Body: { "status": "running" }. Returns 200 on success with the full
-        updated board, 400 on bad status, 404 on unknown task_id."""
+        updated board, 400 on bad status, 404 on unknown task_id.
+
+        MC-KANBAN-ASSIGN-1 (2026-06-17): PATCH /api/data/kanban/task/:id/assign
+        — update task's `assigned_to` (Format A) or `owner` row (Format B).
+        Body: { "assignee": "thor"|"forge"|"argus"|"" }. Returns 200 on
+        success with the full updated board, 400 on bad assignee, 404 on
+        unknown task_id. Empty `assignee` removes the field (unassign).
+        """
         try:
             p = urllib.parse.urlparse(self.path)
             prefix = "/api/data/kanban/task/"
             if not p.path.startswith(prefix):
                 return self._json({"error": "not found", "path": p.path}, 404)
+
+            # MC-KANBAN-ASSIGN-1: /assign sub-route. Must be checked BEFORE
+            # the bare /:id route below, so the suffix doesn't get mistaken
+            # for a task_id.
+            if p.path.endswith("/assign"):
+                task_id = p.path[len(prefix):-len("/assign")].strip()
+                if not task_id or "/" in task_id:
+                    return self._json({"error": "task_id is required in path"}, 400)
+                # Read body (capped to 4 KiB — only need {"assignee": "..."})
+                try:
+                    length = int(self.headers.get("Content-Length") or "0")
+                except (TypeError, ValueError):
+                    length = 0
+                if length < 0 or length > 4 * 1024:
+                    return self._json({"error": "missing or oversized body"}, 400)
+                raw = self.rfile.read(length) if length > 0 else b"{}"
+                try:
+                    payload = json.loads(raw.decode("utf-8") or "{}")
+                except (UnicodeDecodeError, json.JSONDecodeError) as e:
+                    return self._json({"error": "invalid JSON", "detail": str(e)}, 400)
+                if not isinstance(payload, dict):
+                    return self._json({"error": "body must be a JSON object"}, 400)
+                status, body = assign_kanban_task(task_id, payload)
+                return self._json(body, status)
+
+            # Original MC-KANBAN-2: PATCH /api/data/kanban/task/:id (status)
             task_id = p.path[len(prefix):].strip()
             if not task_id or "/" in task_id:
                 return self._json({"error": "task_id is required in path"}, 400)

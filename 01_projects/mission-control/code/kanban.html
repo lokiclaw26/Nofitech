@@ -380,6 +380,53 @@
   /* Drop target highlight while dragging */
   .kanban-card.drag-target { border-color: var(--cyan); }
   .kanban-col.drag-active { background: rgba(88, 166, 255, 0.04); }
+
+  /* ========== MC-KANBAN-ASSIGN-1: per-card assign actions ========== */
+  .card-assign-actions {
+    display: flex; gap: 4px; margin-bottom: 6px;
+    align-items: center; flex-wrap: wrap;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .card-assign-actions .assign-label {
+    font-size: 10px; color: var(--text3); margin-right: 2px;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .card-assign-actions .assign-btn {
+    font-size: 10px; padding: 2px 7px;
+    border: 1px solid var(--line); border-radius: 3px;
+    background: var(--bg); color: var(--text2);
+    cursor: pointer; transition: all 0.15s;
+    font-family: inherit;
+    line-height: 1.4;
+  }
+  .card-assign-actions .assign-btn:hover {
+    color: var(--text); border-color: var(--cyan);
+    background: rgba(88, 166, 255, 0.08);
+  }
+  .card-assign-actions .assign-btn:disabled {
+    opacity: 0.5; cursor: wait;
+  }
+  .card-assign-actions .assign-btn.active {
+    font-weight: 600;
+  }
+  .card-assign-actions .assign-btn[data-agent="thor"].active {
+    color: var(--thor-color);  border-color: var(--thor-color);
+    background: rgba(210, 153, 34, 0.10);
+  }
+  .card-assign-actions .assign-btn[data-agent="forge"].active {
+    color: var(--forge-color); border-color: var(--forge-color);
+    background: rgba(88, 166, 255, 0.10);
+  }
+  .card-assign-actions .assign-btn[data-agent="argus"].active {
+    color: var(--argus-color); border-color: var(--argus-color);
+    background: rgba(247, 120, 186, 0.10);
+  }
+  .card-assign-actions .assign-btn-clear { margin-left: auto; }
+  .card-assign-actions .assign-btn-clear.active {
+    color: var(--red); border-color: var(--red);
+    background: rgba(248, 81, 73, 0.08);
+  }
 </style>
 </head>
 <body>
@@ -905,6 +952,26 @@ function wireKanbanCard(cardEl) {
     const body = cardEl.querySelector(".card-body");
     if (body) body.style.display = _kanbanOpenCards.has(tid) ? "block" : "none";
   });
+  // MC-KANBAN-ASSIGN-1: wire each assign button on this card. The click
+  // handler stops propagation so it doesn't also toggle the card body.
+  for (const btn of cardEl.querySelectorAll(".assign-btn")) {
+    if (btn._assignWired) continue;  // already wired (defensive — outerHTML
+                                     // replacement creates a fresh element,
+                                     // so this is normally false)
+    btn._assignWired = true;
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();  // don't toggle card body
+      const agent = btn.dataset.agent || "";
+      const tid = cardEl.dataset.taskId;
+      if (!tid) return;
+      btn.disabled = true;
+      try {
+        await assignTask(tid, agent);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
 }
 
 function renderKanbanColumn(col, agentById, search) {
@@ -976,6 +1043,20 @@ function renderKanbanCard(t, agentById) {
     ? `<span class="card-status-raw" title="project status: ${esc(rawStatus)}" style="font-size:10px;color:var(--text3);margin-left:4px">(${esc(rawStatus)})</span>`
     : "";
 
+  // MC-KANBAN-ASSIGN-1: build the 4 assign buttons. The current assignee's
+  // button (or the Unassign button if no assignee) gets the `active` class.
+  // Order: Thor, Forge, Argus, Unassign.
+  const assignBtns = [
+    { id: "thor",  label: "⚡ Thor",  title: "Assign to Thor (CEO / Orchestrator)" },
+    { id: "forge", label: "🔨 Forge", title: "Assign to Forge (Builder / Engineer)" },
+    { id: "argus", label: "👁️ Argus", title: "Assign to Argus (QA / Tester)" },
+    { id: "",      label: "✕",         title: "Unassign", cls: "assign-btn-clear" },
+  ].map(b => {
+    const isActive = (b.id === "") ? !assignee : (b.id === assignee);
+    const cls = `assign-btn${isActive ? " active" : ""}${b.cls ? " " + b.cls : ""}`;
+    return `<button type="button" class="${cls}" data-agent="${esc(b.id)}" title="${esc(b.title)}">${b.label}</button>`;
+  }).join("");
+
   return `<div class="kanban-card status-${esc(ks)} assignee-${esc(assignee)}" draggable="true" data-task-id="${esc(t.task_id)}" title="drag to move · click to expand">
     <div class="card-id">${esc(t.task_id)}</div>
     <div class="card-title">${esc(t.title || t.task_id)}</div>
@@ -985,7 +1066,13 @@ function renderKanbanCard(t, agentById) {
       <span class="card-status-dot status-${esc(ks)}" ${statusTooltip}></span>${statusBadge}
       <span class="ts" title="${esc(t.created || '')}">created ${esc(createdRel)}</span>
     </div>
-    <div class="card-body" style="display:${isOpen ? 'block' : 'none'}">${esc(body) || '<span class="muted">(no body)</span>'}</div>
+    <div class="card-body" style="display:${isOpen ? 'block' : 'none'}">
+      <div class="card-assign-actions">
+        <span class="assign-label">Assign to:</span>
+        ${assignBtns}
+      </div>
+      ${esc(body) || '<span class="muted">(no body)</span>'}
+    </div>
   </div>`;
 }
 
@@ -1008,6 +1095,38 @@ async function moveCardTo(taskId, newStatus) {
     // On failure, force a refresh so the card snaps back to its real status
     await loadKanban();
     alert(`Move failed: ${e.message}`);
+  }
+}
+
+// MC-KANBAN-ASSIGN-1 (2026-06-17): assign a task to an agent (or unassign).
+// Calls PATCH /api/data/kanban/task/:id/assign and forces a smart-diff
+// re-render so the active-state highlight updates immediately. We do NOT
+// optimistically re-render before the PATCH (unlike moveCardTo) because
+// the user has to wait for the roundtrip to know if the change succeeded
+// — and the server returns the fresh board in the response, so the rebuild
+// reflects the truth.
+async function assignTask(taskId, agent) {
+  try {
+    const r = await fetch(`/api/data/kanban/task/${encodeURIComponent(taskId)}/assign`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assignee: agent }),
+      cache: "no-store",
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.error || `HTTP ${r.status}`);
+    }
+    const j = await r.json();
+    _kanbanState = j.board;
+    // Force a full rebuild so the card's assignee chip + active button
+    // class reflect the new state immediately (smart diff alone would
+    // also work, but forceRebuild is safer in case the card moved lanes).
+    smartRenderKanban(j.board, true);
+  } catch (e) {
+    // On failure, force a refresh so the card snaps back to its real state
+    await loadKanban();
+    alert(`Assign failed: ${e.message}`);
   }
 }
 
