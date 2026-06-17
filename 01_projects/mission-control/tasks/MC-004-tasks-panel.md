@@ -13,6 +13,7 @@ blockers: ""
 argus_result: pending
 data_source: local-demo
 kanban_status: running
+assigned_to: thor
 ---
 
 Stage 6 — Tasks panel with Blocked Reason column.
