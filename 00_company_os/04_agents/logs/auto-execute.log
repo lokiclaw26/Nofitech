@@ -2,3 +2,5 @@
 2026-06-18T02:17:31+04:00  kanban-auto-execute: dispatch  MC-AUTO-TEST-EXEC-1  agent=forge  title='TEST-EXEC-1: create a hello-world log file at a known path'  priority=low
 2026-06-18T02:19:44+04:00  kanban-auto-execute: dispatch  MC-AUTO-20260618020808-E67940  agent=forge  title='MC-AUTO-EXECUTE-1: cron that calls delegate_task for every running_now MC-AUTO-* child (full hands-off execution)'  priority=urgent
 2026-06-18T02:20:15+04:00  kanban-auto-execute: dispatch  MC-AUTO-TEST-EXEC-2  agent=forge  title='TEST-EXEC-2: create a fresh hello-world log file'  priority=low
+2026-06-18T02:32:23+04:00  kanban-auto-execute: dispatch  MC-AUTO-EXECUTE-1-E2E  agent=forge  title='E2E-AUTO-EXECUTE: verify the kanban-auto-execute cron actually spawns a subagent and writes a log'  priority=normal
+2026-06-18T02:35:54+04:00  kanban-auto-execute: dispatch  MC-AUTO-EXECUTE-1-ARGUS  agent=argus  title='ARGUS-VERIFY-AUTO-EXECUTE: Playwright + log inspection of the auto-execute cron'  priority=normal

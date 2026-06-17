@@ -48,7 +48,7 @@ DEDUP_WINDOW_SEC=120
 MAX_CONCURRENT_DISPATCHES=3
 RATE_LIMIT_WINDOW_SEC=3600       # 1 hour
 RATE_LIMIT_MAX_PER_AGENT=6
-HERMES_BIN="$(command -v hermes)"
+HERMES_BIN="${HERMES_BIN_OVERRIDE:-$(command -v hermes)}"
 
 mkdir -p "$LOG_DIR" 2>/dev/null || true
 
@@ -118,16 +118,28 @@ count_dispatches_recent() {
 
 # Check if any process is currently running this task. The pgrep pattern
 # matches our own `hermes -z` invocation (the prompt embeds the task_id)
-# and any "hermes chat" the user kicked off. We also strip self ($$)
-# defensively so the script's own pgrep line never matches itself.
+# and any "hermes chat" the user kicked off.
+#
+# IMPORTANT — what we filter OUT:
+#   * The current shell $$ — so the script's own short-lived bash process
+#     (whose argv contains the task_id as we scan) doesn't false-positive.
+#     The subagent process is a SEPARATE pid from this script's bash, so
+#     this is safe.
+#
+# What we DO NOT filter:
+#   * "kanban-auto-execute" — this string appears in the subagent's OWN
+#     prompt ("dispatched by kanban-auto-execute (Hermes cron) at …"), so
+#     filtering by it would mask the very process we want to detect. Earlier
+#     revisions did this wrong; fixing here.
+#   * The user's own `hermes chat` sessions — those legitimately matter too.
 is_agent_running_task() {
   local task_id="$1"
-  # bash regex test on a pgrep -af list. Quotes around the task_id prevent
-  # shell globbing against whatever the user named the card.
+  # Quotes around the task_id prevent shell globbing against whatever the
+  # user named the card. pgrep -af returns "PID cmdline" lines; the final
+  # grep -q . returns success iff at least one surviving match remains.
   pgrep -af "hermes" 2>/dev/null \
-    | grep -F "$task_id" 2>/dev/null \
-    | grep -v -F "$$" 2>/dev/null \
-    | grep -v -F "kanban-auto-execute" 2>/dev/null \
+    | grep -F " $task_id" 2>/dev/null \
+    | awk -v selfpid="$$" '$1 != selfpid' \
     | grep -q . && return 0
   return 1
 }
