@@ -1,6 +1,6 @@
 {
   "schema": "nofitech-agent-state/v1",
-  "updated": "2026-06-17T06:38:32+04:00",
+  "updated": "2026-06-17T11:05:00+04:00",
   "agents": {
     "thor": {
       "last_activity": "2026-06-17T10:36:00+04:00",
@@ -9,10 +9,10 @@
       "current_task": "MC-AUTO-PROCESS-1"
     },
     "forge": {
-      "last_activity": "2026-06-17T10:36:00+04:00",
-      "status": "in_progress",
-      "current_assignment": "MC-AUTO-PROCESS-1",
-      "current_task": "MC-AUTO-PROCESS-1"
+      "last_activity": "2026-06-17T11:05:00+04:00",
+      "status": "complete",
+      "current_assignment": "MC-KANBAN-CREATE-20260617062910-185AA8",
+      "current_task": "MC-KANBAN-CREATE-20260617062910-185AA8"
     },
     "argus": {
       "last_activity": "2026-06-17T10:36:00+04:00",
