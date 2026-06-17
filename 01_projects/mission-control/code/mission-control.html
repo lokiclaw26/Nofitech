@@ -588,7 +588,7 @@
 </header>
 
 <div class="topbar-meta" style="display:flex;justify-content:space-between;align-items:center;margin:-8px 0 12px 0;padding:0 4px">
-  <span class="last-refreshed" id="last-refreshed">Last refreshed: never · auto-refresh: 30s</span>
+  <span class="last-refreshed" id="last-refreshed">Last refreshed: never · auto-refresh: 5s</span>
   <span class="last-refreshed" id="version-subtitle" style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace">v—</span>
 </div>
 
@@ -896,7 +896,7 @@ function renderAgents(d) {
 
     return `
       <div class="agent-card ${cls}${stale ? ' stale' : ''}">
-        <div class="agent-name"><span class="emoji">${esc(a.emoji || "•")}</span>${esc(a.name)}</div>
+        <div class="agent-name"><span class="emoji">${esc(a.emoji || "•")}</span>${esc(a.name)}${a.status === "in_progress" ? ' <span class="live-pulse" title="active right now (heartbeat fresh or running task)">live</span>' : ''}</div>
         <div class="agent-role">${esc(a.role)} · ${badge(a.status || "—", pill)}</div>
         <div class="agent-row">
           <span class="lbl">Current assignment</span>
@@ -1568,7 +1568,7 @@ async function loadAll() {
   if (lr) {
     const now = new Date();
     const pad = (n) => String(n).padStart(2, "0");
-    lr.textContent = `Last refreshed: ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} · auto-refresh: 30s`;
+    lr.textContent = `Last refreshed: ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} · auto-refresh: 5s`;
   }
 }
 
@@ -1588,6 +1588,16 @@ async function loadAll() {
 })();
 
 loadAll();
+// MC-LIVE-REFRESH-1 (2026-06-18): auto-refresh every 5s. The footer text
+// used to say "auto-refresh: 30s" but there was no setInterval — the page
+// only refreshed on manual click. Fix: poll /api/data/* every 5s so the
+// agents panel + every other panel updates without page reload. The
+// heartbeat endpoint (POST /api/heartbeat) is pinged once per poll so a
+// viewer keeps the agent's "live" status fresh while looking at the page.
+setInterval(async () => {
+  try { await fetch("/api/heartbeat", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({agent: "thor"}) }); } catch {}
+  loadAll();
+}, 5000);
 </script>
 
 </main>

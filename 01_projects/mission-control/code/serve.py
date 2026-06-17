@@ -17,6 +17,14 @@ Stage 17: Provider/Model panel retired from the HTML; new Warnings panel
 Stage 20 (2026-06-16): added Section 9 "GitHub Connection" — new endpoint
           /api/data/github reads git remote, GitHub API, last cron run, and
           last_run.json. Additive only — no changes to existing endpoints.
+MC-LIVE-REFRESH-1 (2026-06-18): POST /api/heartbeat writes a
+          .heartbeat-<oid> file to the same logs_root that data_agents()
+          already scans. GET /api/heartbeat returns the most-recent
+          heartbeat per agent. data_agents() now also reads heartbeat
+          mtime — if <120s old, the agent is treated as "live"
+          (status=in_progress, last_activity="live"), regardless of
+          kanban running_now or log mtime. Additive: a new
+          `heartbeat_mtime_iso` field is exposed in each agent row.
 MC-KANBAN-1 (2026-06-16): added Section 10 "Kanban — Multi-Agent Board" —
           3 endpoints serve the Hermes Agent Kanban tab (NOFI's 3-agent team:
           Thor/Forge/Argus). Reads the same project task files already on
@@ -45,6 +53,8 @@ Endpoints:
   PATCH /api/data/kanban/task/:id     → update task status on disk (MC-KANBAN-1)
   POST  /api/data/kanban/task         → create a new task file from the UI (MC-KANBAN-1)
   PATCH /api/data/kanban/task/:id/assign → update task assignee on disk (MC-KANBAN-ASSIGN-1)
+  POST  /api/heartbeat                  → write .heartbeat-<oid> file (MC-LIVE-REFRESH-1)
+  GET   /api/heartbeat                  → most-recent heartbeat per agent (MC-LIVE-REFRESH-1)
 """
 import http.server
 import socketserver
@@ -124,6 +134,15 @@ AGENT_META = {
     "forge": {"name": "Forge", "role": "Builder / Engineer / DevOps", "emoji": "🔨"},
     "argus": {"name": "Argus", "role": "QA / Tester / Security",       "emoji": "👁️"},
 }
+
+# MC-LIVE-REFRESH-1 (2026-06-18): heartbeat freshness window. If a
+# .heartbeat-<oid> file's mtime is within this many seconds, the agent is
+# considered "live" (responding to chat right now). 120s = 2 minutes — long
+# enough that a once-per-turn heartbeat from the chat UI never drops out
+# between user keystrokes, short enough that a crashed/abandoned agent
+# flips back to idle within a couple of polls (5s polling cadence).
+HEARTBEAT_TTL_SEC = 120
+HEARTBEAT_FILENAME = ".heartbeat"   # full path: <logs_root>/.heartbeat-<oid>
 
 
 # ---- MC-MEMORY-GRAPH-1 (2026-06-17): Memory Graph page integration ----
@@ -480,14 +499,24 @@ def data_agents():
     every PATCH updates it; state.json is only written on rare explicit
     transitions.
 
+    MC-LIVE-REFRESH-1 (2026-06-18): heartbeat precedence — if a
+    .heartbeat-<oid> file in logs_root has an mtime within HEARTBEAT_TTL_SEC
+    (120s), the agent is considered "live" (responding to chat right now)
+    and is reported with status="in_progress" and last_activity="live",
+    regardless of kanban running_now or log mtime. Heartbeat wins over
+    running_now because heartbeat = "agent is active right this second",
+    which is strictly fresher than "task assigned to this agent on the
+    board". A new additive field `heartbeat_mtime_iso` is exposed so the
+    frontend can render the freshness independently.
+
     Source-of-truth precedence (per spec):
       current_assignment = the most-recently-running_now task for this agent
                           (fallback: empty string — NOT stale state.json).
-      status             = "in_progress" if has running_now task assigned
+      status             = "in_progress" if heartbeat fresh OR running_now
                           "idle"          if has no running task but log
                                            mtime in last 24h
                           "never-active"  if no logs at all
-      last_activity      = "live" if in_progress (agent is reading board now)
+      last_activity      = "live" if status == in_progress
                           else rel_time(last_log_mtime)
       stale              = unchanged: true if running_now > 0 but no log
                            mtime in 30 min
@@ -559,8 +588,28 @@ def data_agents():
                 last_mtime = state_updated_mtime
                 last_file = sp
 
-        # ---- status (derived from kanban + log mtime) ----
-        if live_task:
+        # ---- MC-LIVE-REFRESH-1: heartbeat freshness ----
+        # Check the .heartbeat-<oid> file in logs_root. If its mtime is
+        # within HEARTBEAT_TTL_SEC, the agent is responding to chat right
+        # now → heartbeat_mtime is set and heartbeat_fresh=True.
+        heartbeat_mtime = None
+        heartbeat_path = None
+        if logs_root.is_dir():
+            hb = logs_root / f"{HEARTBEAT_FILENAME}-{oid}"
+            if hb.is_file():
+                heartbeat_path = hb
+                heartbeat_mtime = hb.stat().st_mtime
+        heartbeat_fresh = bool(
+            heartbeat_mtime is not None
+            and (time.time() - heartbeat_mtime) < HEARTBEAT_TTL_SEC
+        )
+        if heartbeat_fresh:
+            # Override mtime_age_seconds — heartbeat is the freshest signal.
+            last_mtime = heartbeat_mtime
+            last_file = heartbeat_path
+
+        # ---- status (derived from heartbeat > kanban > log mtime) ----
+        if heartbeat_fresh or live_task:
             status = "in_progress"
         elif last_mtime and (time.time() - last_mtime) < 86400:
             status = "idle"
@@ -611,6 +660,18 @@ def data_agents():
         else:
             mtime_iso = None
             mtime_age_seconds = None
+        # MC-LIVE-REFRESH-1: expose the heartbeat-specific mtime separately
+        # so the frontend can render its own freshness indicator without
+        # relying on the (now-overridden) generic mtime_iso. None when no
+        # heartbeat file exists for this agent.
+        if heartbeat_mtime is not None:
+            heartbeat_mtime_iso = datetime.fromtimestamp(
+                heartbeat_mtime, tz=timezone.utc
+            ).isoformat()
+            heartbeat_age_seconds = int(time.time() - heartbeat_mtime)
+        else:
+            heartbeat_mtime_iso = None
+            heartbeat_age_seconds = None
         STUCK_STATUSES = {"spawning", "in_progress", "in-progress"}
         # An agent is "stale" if it has NO live task but state.json claims
         # it was actively working AND we have no log mtime in 30+ min.
@@ -630,6 +691,9 @@ def data_agents():
             "last_activity_iso": mtime_iso,
             "mtime_iso": mtime_iso,
             "mtime_age_seconds": mtime_age_seconds,
+            "heartbeat_mtime_iso": heartbeat_mtime_iso,
+            "heartbeat_age_seconds": heartbeat_age_seconds,
+            "heartbeat_fresh": heartbeat_fresh,
             "stale": stale,
             "last_log": str(last_file.relative_to(COMPANY_ROOT)) if last_file else None,
             "current_assignment": current_assignment,
@@ -643,6 +707,103 @@ def data_agents():
     return {
         "agents": rows,
         "count": len(rows),
+        "polled_at_iso": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+# ---- MC-LIVE-REFRESH-1 (2026-06-18): heartbeat endpoint + writers ----------
+
+def _heartbeat_path(agent_id):
+    """Return the on-disk path for agent_id's heartbeat file.
+
+    Uses the SAME logs_root that data_agents() scans (so the file is found
+    on the next /api/data/agents request without extra plumbing). The
+    leading dot makes the file hidden in normal `ls` listings — these are
+    signal files, not user-facing logs.
+    """
+    logs_root = COMPANY_ROOT / "00_company_os" / "04_agents" / "logs"
+    return logs_root / f"{HEARTBEAT_FILENAME}-{agent_id}"
+
+
+def write_heartbeat(agent_id):
+    """Write a fresh .heartbeat-<oid> file. Default agent = "thor".
+
+    Body: {"agent": "<oid>", "ts": "<iso>"}. The "ts" field is the
+    server-side wall clock at write time — the frontend does not supply
+    its own timestamp (would let a buggy client fake an agent that
+    crashed hours ago). The file is written atomically: write to a
+    sibling .tmp then os.replace, so a concurrent reader never sees a
+    half-written file.
+    """
+    agent = (agent_id or "").strip().lower() or "thor"
+    if agent not in AGENTS:
+        raise ValueError(f"unknown agent: {agent!r}; must be one of {AGENTS}")
+    path = _heartbeat_path(agent)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "agent": agent,
+        "ts": datetime.now(timezone.utc).isoformat(),
+    }
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(payload, ensure_ascii=False) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
+    return {
+        "ok": True,
+        "agent": agent,
+        "ts": payload["ts"],
+        "path": str(path.relative_to(COMPANY_ROOT)),
+    }
+
+
+def read_heartbeats():
+    """Return the most-recent heartbeat per agent, oldest-first.
+
+    Reads every .heartbeat-<oid> file under logs_root and groups by agent.
+    If multiple files exist for the same agent (shouldn't, but possible
+    if logs_root ever races), the newest mtime wins. Each entry has the
+    parsed JSON payload plus an mtime_iso + age_seconds field so the
+    frontend can render without doing date math.
+    """
+    logs_root = COMPANY_ROOT / "00_company_os" / "04_agents" / "logs"
+    by_agent: dict[str, dict] = {}
+    if logs_root.is_dir():
+        for f in logs_root.glob(f"{HEARTBEAT_FILENAME}-*"):
+            oid = f.name[len(HEARTBEAT_FILENAME) + 1:]
+            if oid not in AGENTS:
+                continue
+            try:
+                mtime = f.stat().st_mtime
+            except OSError:
+                continue
+            try:
+                payload = json.loads(f.read_text(encoding="utf-8") or "{}")
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                payload = {}
+            entry = {
+                "agent": payload.get("agent") or oid,
+                "ts": payload.get("ts"),
+                "mtime_iso": datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat(),
+                "age_seconds": int(time.time() - mtime),
+                "fresh": (time.time() - mtime) < HEARTBEAT_TTL_SEC,
+                "path": str(f.relative_to(COMPANY_ROOT)),
+            }
+            existing = by_agent.get(oid)
+            if existing is None or mtime > existing["_mtime"]:
+                entry["_mtime"] = mtime
+                by_agent[oid] = entry
+    # Strip the internal _mtime helper key and order: thor, forge, argus.
+    out = []
+    for oid in AGENTS:
+        e = by_agent.get(oid)
+        if e is None:
+            out.append({"agent": oid, "ts": None, "fresh": False})
+            continue
+        e.pop("_mtime", None)
+        out.append(e)
+    return {
+        "heartbeats": out,
+        "count": len(out),
+        "ttl_sec": HEARTBEAT_TTL_SEC,
         "polled_at_iso": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -1943,6 +2104,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self._json(data_overview())
             if path == "/api/data/agents":
                 return self._json(data_agents())
+            if path == "/api/heartbeat":
+                # MC-LIVE-REFRESH-1 (2026-06-18): GET /api/heartbeat returns
+                # the most-recent heartbeat per agent. Independent from
+                # /api/data/agents so a frontend can poll just for liveness
+                # cheaply (this endpoint reads at most 3 small files).
+                return self._json(read_heartbeats())
             if path == "/api/data/tasks":
                 # Stage 12: demo hidden by default. Use ?include=demo to opt in.
                 # Backward compat: legacy ?filter=demo|real still respected.
@@ -2052,6 +2219,33 @@ class Handler(http.server.BaseHTTPRequestHandler):
         """
         try:
             p = urllib.parse.urlparse(self.path)
+
+            # ---- MC-LIVE-REFRESH-1 (2026-06-18): heartbeat writer ----
+            # POST /api/heartbeat with body {"agent": "thor|forge|argus"}.
+            # Default agent = "thor" if missing/blank. NO AUTH (LAN write,
+            # not sensitive — the file just bumps mtime on a dotfile). The
+            # 4 KiB body cap is more than enough for {"agent":"..."} and
+            # guards against accidental large payloads.
+            if p.path == "/api/heartbeat":
+                try:
+                    length = int(self.headers.get("Content-Length") or "0")
+                except (TypeError, ValueError):
+                    length = 0
+                if length < 0 or length > 4 * 1024:
+                    return self._json({"error": "missing or oversized body"}, 400)
+                raw = self.rfile.read(length) if length > 0 else b"{}"
+                try:
+                    payload = json.loads(raw.decode("utf-8") or "{}")
+                except (UnicodeDecodeError, json.JSONDecodeError) as e:
+                    return self._json({"error": "invalid JSON", "detail": str(e)}, 400)
+                if not isinstance(payload, dict):
+                    return self._json({"error": "body must be a JSON object"}, 400)
+                agent_id = payload.get("agent") or "thor"
+                try:
+                    result = write_heartbeat(agent_id)
+                except ValueError as e:
+                    return self._json({"error": str(e)}, 400)
+                return self._json(result, 200)
 
             # ---- MC-MEMORY-GRAPH-3A-BACKEND: events ingest (auth + module) ----
             if p.path == "/api/memory-graph/events":
