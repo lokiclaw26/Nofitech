@@ -14,6 +14,7 @@ data_source: real
 description: "Add R key restart. resetGame() resets everything to starting state. R only works in 'win' or 'lose' state (no-op during 'playing'). 'Press R to restart' hint on win/lose overlays. NO menu, NO new enemies, NO new rooms, NO scoring, NO sound, NO polish, NO save/load. Game server must still run at http://192.168.0.29:8770/. Mission Control stays frozen at v1.15.0."
 acceptance: "(1) resetGame() function exists. (2) R key handler added to keydown; if (state === 'win' || state === 'lose') { e.preventDefault(); resetGame(); } — R during 'playing' is a no-op. (3) resetGame() sets: state = 'playing', player.hp = 5, player.col = 2, player.row = 2, player.facing = 'right', slime.hp = 3, slime.col = 17, slime.row = 12, lastAttackTime = 0, attackFlash = {col:-1,row:-1,until:0}, playerFlash = {col:-1,row:-1,until:0}. (4) Calls render() at the end so the new state is visible. (5) 'Press R to restart' hint added to both YOU WIN and YOU DIED overlays. (6) Existing keydown handler still works for WASD/Arrows/Space. (7) NO new gameplay, NO new enemies, NO menu, NO scoring, NO sound, NO save/load, NO new polish. (8) NO external deps. (9) Game still serves on :8770. (10) Mission Control still frozen, still healthy."
 argus_result: pass
+kanban_status: done
 ---
 
 ## Brief
