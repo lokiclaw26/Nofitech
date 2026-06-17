@@ -126,6 +126,27 @@ AGENT_META = {
 }
 
 
+# ---- MC-MEMORY-GRAPH-1 (2026-06-17): Memory Graph page integration ----
+# Locked decisions: Python stdlib only, JSON on disk, polling for realtime.
+# Event contract: {type, ...payload} where type ∈ {node.upsert, edge.upsert,
+# memory.snapshot, node.delete, edge.delete}. Nodes keyed by stable id; edges
+# get stable id `edge-<source>-target-<kind>` for idempotent upsert. The
+# append-only event log lives next to the snapshot file.
+MG_DATA_DIR = PROJECT_ROOT / "data"
+MG_GRAPH_PATH = MG_DATA_DIR / "memory-graph.json"
+MG_EVENTS_PATH = MG_DATA_DIR / "memory-graph-events.jsonl"
+MG_SAMPLE_PATH = MG_DATA_DIR / "sample-graph.json"
+MG_EVENT_LOG_MAX_LINES = 10_000
+MG_NODE_KINDS = {
+    "goal", "task", "memory", "decision", "tool", "file",
+    "error", "concept", "entity", "session", "message",
+}
+MG_VALID_EVENT_TYPES = {
+    "node.upsert", "edge.upsert", "memory.snapshot",
+    "node.delete", "edge.delete",
+}
+
+
 # ---------- helpers ----------
 
 def _detect_lan_ip():
@@ -1409,6 +1430,13 @@ def patch_kanban_task(task_id: str, new_status: str) -> tuple[int, dict]:
             return 404, {"error": reason, "ok": False, "task_id": task_id}
         return 400, {"error": reason, "ok": False}
     board = data_kanban(include_archived=False)
+    # MC-MEMORY-GRAPH-1 (2026-06-17): event bridge — emit node.upsert and a
+    # derived `task->status` edge for every status change. Best-effort.
+    emit_kanban_memory_event(
+        task_id, new_status,
+        extra_edge={"source": f"task-{task_id}", "target": f"status-{new_status}",
+                    "kind": "kanban_status", "weight": 0.6},
+    )
     return 200, {
         "ok": True,
         "task_id": task_id,
@@ -1641,6 +1669,18 @@ def create_kanban_task(payload: dict) -> tuple[int, dict]:
                 break
         if new_card:
             break
+    # MC-MEMORY-GRAPH-1 (2026-06-17): event bridge — emit node.upsert + a
+    # `task -> assignee` edge when a new task is created.
+    try:
+        assignee = (new_card or {}).get("assignee") or (new_card or {}).get("assigned_to") or "unassigned"
+        emit_kanban_memory_event(
+            task_id, "triage",
+            extra_node={"importance": 0.6, "status": "triage"},
+            extra_edge={"source": f"task-{task_id}", "target": f"agent-{assignee}",
+                        "kind": "assigned_to", "weight": 0.7},
+        )
+    except Exception:
+        pass
     return 201, {
         "ok": True,
         "task_id": task_id,
@@ -1648,6 +1688,440 @@ def create_kanban_task(payload: dict) -> tuple[int, dict]:
         "card": new_card,
         "board": board,
     }
+
+
+# ---------- MC-MEMORY-GRAPH-1 (2026-06-17): Memory Graph page integration ----------
+# Locked stack: Python stdlib only (no pip deps), JSON on disk (no SQLite for v1),
+# 5s polling on the frontend (no SSE/WebSocket). This block adds the
+# redactor, snapshot persistence, event-log append, and the ingest helper
+# that turns an event dict into a mutated graph + log line. Routes are
+# wired in the Handler class below (do_GET, do_POST, do_DELETE).
+
+# --- Redactor (Phase C) ---
+# Recursively walks dicts / lists / strings. Strips known secret patterns and
+# truncates long strings. Does NOT mutate the input; returns a new structure.
+_SECRET_PATTERNS = [
+    # OpenAI / Anthropic style
+    re.compile(r"sk-[A-Za-z0-9_\-]{16,}"),
+    re.compile(r"sk-ant-[A-Za-z0-9_\-]{16,}"),
+    # GitHub
+    re.compile(r"ghp_[A-Za-z0-9]{16,}"),
+    re.compile(r"gho_[A-Za-z0-9]{16,}"),
+    re.compile(r"ghu_[A-Za-z0-9]{16,}"),
+    re.compile(r"ghs_[A-Za-z0-9]{16,}"),
+    re.compile(r"ghr_[A-Za-z0-9]{16,}"),
+    # Slack
+    re.compile(r"xox[bp]-[A-Za-z0-9\-]{10,}"),
+    # AWS
+    re.compile(r"AKIA[0-9A-Z]{12,}"),
+    # Generic "password=..." and "Bearer ..." and "Authorization: ..."
+    re.compile(r"(?i)(password\s*=\s*)([^\s,'\"}\]\)]{3,})"),
+    re.compile(r"(?i)(api[_-]?key\s*[=:]\s*)([A-Za-z0-9_\-]{8,})"),
+    re.compile(r"(?i)(token\s*[=:]\s*)([A-Za-z0-9_\-\.]{8,})"),
+    re.compile(r"(?i)(Bearer\s+)([A-Za-z0-9_\-\.=]{8,})"),
+    re.compile(r"(?i)(Authorization\s*:\s*)([^\n\r]{6,})"),
+    # JWT
+    re.compile(r"eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}"),
+]
+_REDACTED = "[REDACTED]"
+
+
+def _redact_string(s: str) -> str:
+    if not isinstance(s, str):
+        return s
+    out = s
+    for pat in _SECRET_PATTERNS:
+        out = pat.sub(_REDACTED, out)
+    if len(out) > 500:
+        out = out[:500] + "...[truncated]"
+    return out
+
+
+def redact_secrets(obj):
+    """Recursively walk obj and redact secret-shaped strings. Returns a new
+    structure; the input is not mutated. Tolerates non-JSON-native values
+    (datetime, etc.) by stringifying first."""
+    if obj is None or isinstance(obj, (bool, int, float)):
+        return obj
+    if isinstance(obj, str):
+        return _redact_string(obj)
+    if isinstance(obj, dict):
+        return {k: redact_secrets(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [redact_secrets(v) for v in obj]
+    # Fallback: stringify, redact, keep as string.
+    try:
+        return _redact_string(str(obj))
+    except Exception:
+        return obj
+
+
+# --- Snapshot persistence (Phase A) ---
+def _mg_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _mg_ensure_data_dir() -> None:
+    MG_DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _mg_atomic_write(path: Path, data: str) -> None:
+    """Write to <path>.tmp then rename. Survives partial writes / crashes."""
+    _mg_ensure_data_dir()
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(data)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
+
+
+def _mg_empty_graph() -> dict:
+    return {
+        "metadata": {
+            "name": "Mission Control Memory Graph",
+            "schema_version": "1.0.0",
+            "created": _mg_now_iso(),
+            "source": "fresh",
+        },
+        "nodes": [],
+        "edges": [],
+        "last_updated": _mg_now_iso(),
+    }
+
+
+def _mg_load_graph() -> dict:
+    """Load the graph from disk. On first run, seed from sample-graph.json.
+    Returns the in-memory graph (always nodes=list, edges=list)."""
+    if not MG_GRAPH_PATH.is_file():
+        seed = _mg_empty_graph()
+        # Seed from sample if present.
+        if MG_SAMPLE_PATH.is_file():
+            try:
+                sample = json.loads(MG_SAMPLE_PATH.read_text(encoding="utf-8"))
+                if isinstance(sample, dict):
+                    if isinstance(sample.get("nodes"), list):
+                        seed["nodes"] = list(sample["nodes"])
+                    if isinstance(sample.get("edges"), list):
+                        seed["edges"] = list(sample["edges"])
+                    if isinstance(sample.get("metadata"), dict):
+                        seed["metadata"] = {**seed["metadata"], **sample["metadata"]}
+                        seed["metadata"]["source"] = "sample-seed"
+            except Exception:
+                pass  # bad sample → start empty
+        return seed
+    try:
+        g = json.loads(MG_GRAPH_PATH.read_text(encoding="utf-8"))
+        if not isinstance(g, dict):
+            return _mg_empty_graph()
+        g.setdefault("metadata", {})
+        g.setdefault("nodes", [])
+        g.setdefault("edges", [])
+        g.setdefault("last_updated", _mg_now_iso())
+        # Normalize: nodes can be a list OR a dict. We accept both; the API
+        # always returns a list for the frontend.
+        if isinstance(g["nodes"], dict):
+            g["nodes"] = [v for v in g["nodes"].values() if isinstance(v, dict)]
+        if not isinstance(g["nodes"], list):
+            g["nodes"] = []
+        if not isinstance(g["edges"], list):
+            g["edges"] = []
+        return g
+    except Exception:
+        return _mg_empty_graph()
+
+
+def _mg_save_graph(graph: dict) -> None:
+    graph["last_updated"] = _mg_now_iso()
+    _mg_atomic_write(MG_GRAPH_PATH, json.dumps(graph, ensure_ascii=False, indent=2))
+
+
+def _mg_append_event(event: dict) -> None:
+    """Append one event to the JSONL log. Trim to MG_EVENT_LOG_MAX_LINES."""
+    _mg_ensure_data_dir()
+    line = json.dumps(event, ensure_ascii=False)
+    # Read existing lines (cap read size for safety — 1MB is fine here).
+    lines: list[str] = []
+    if MG_EVENTS_PATH.is_file():
+        try:
+            txt = MG_EVENTS_PATH.read_text(encoding="utf-8", errors="replace")
+            lines = [ln for ln in txt.splitlines() if ln.strip()]
+        except Exception:
+            lines = []
+    lines.append(line)
+    if len(lines) > MG_EVENT_LOG_MAX_LINES:
+        lines = lines[-MG_EVENT_LOG_MAX_LINES:]
+    _mg_atomic_write(MG_EVENTS_PATH, "\n".join(lines) + "\n")
+
+
+def _mg_recent_events(n: int = 20) -> list[dict]:
+    """Return the last n events from the JSONL log, oldest-first stripped of
+    malformed lines. Newest at the end."""
+    n = max(1, min(int(n), 200))
+    if not MG_EVENTS_PATH.is_file():
+        return []
+    try:
+        txt = MG_EVENTS_PATH.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return []
+    raw = [ln for ln in txt.splitlines() if ln.strip()]
+    tail = raw[-n:]
+    out: list[dict] = []
+    for ln in tail:
+        try:
+            obj = json.loads(ln)
+            if isinstance(obj, dict):
+                out.append(obj)
+        except Exception:
+            continue
+    return out
+
+
+# --- Event ingestion helper (Phase B) ---
+def ingest_memory_event(event: dict, *, admin: bool = False) -> dict:
+    """Apply one event to the on-disk graph + event log. Returns a result
+    dict {ok, type, applied, error}. Admin-gated events raise ValueError
+    when admin=False.
+
+    Event contract (from MC-MEMORY-GRAPH-1 spec section 4):
+      { "type": "node.upsert",  "node":  {id, kind, label, summary, ...} }
+      { "type": "edge.upsert",  "edge":  {source, target, kind, ...} }
+      { "type": "memory.snapshot", "graph": {nodes, edges, metadata} }  # admin
+      { "type": "node.delete",  "id":    "<node_id>" }
+      { "type": "edge.delete",  "id":    "<edge_id>" }
+    All payloads are passed through `redact_secrets` before being persisted.
+    """
+    if not isinstance(event, dict):
+        raise ValueError("event must be a JSON object")
+    etype = (event.get("type") or "").strip()
+    if etype not in MG_VALID_EVENT_TYPES:
+        raise ValueError(f"unknown event type: {etype!r}")
+    if etype == "memory.snapshot" and not admin:
+        raise ValueError("memory.snapshot requires admin confirmation")
+
+    redacted = redact_secrets(event)
+    graph = _mg_load_graph()
+    applied = False
+
+    if etype == "node.upsert":
+        node = redacted.get("node")
+        if not isinstance(node, dict):
+            raise ValueError("node.upsert requires 'node' object")
+        nid = (node.get("id") or "").strip()
+        if not nid:
+            raise ValueError("node.upsert requires non-empty 'id'")
+        nkind = (node.get("kind") or "concept").strip()
+        if nkind not in MG_NODE_KINDS:
+            nkind = "concept"
+        # Find existing by id; merge instead of duplicate.
+        existing = None
+        for i, n in enumerate(graph["nodes"]):
+            if isinstance(n, dict) and n.get("id") == nid:
+                existing = i
+                break
+        merged = {
+            "id": nid,
+            "kind": nkind,
+            "label": str(node.get("label") or nid),
+            "summary": str(node.get("summary") or ""),
+            "importance": float(node.get("importance", 0.5) or 0.0),
+            "confidence": float(node.get("confidence", 0.8) or 0.0),
+            "status": str(node.get("status") or "active"),
+            "tags": list(node.get("tags") or []) if isinstance(node.get("tags"), list) else [],
+            "updated": _mg_now_iso(),
+        }
+        # Carry over assignee / extra fields if present.
+        for opt_key in ("assignee", "owner", "project", "path", "url"):
+            if opt_key in node:
+                merged[opt_key] = node[opt_key]
+        if existing is not None:
+            prev = graph["nodes"][existing]
+            if isinstance(prev, dict):
+                prev_tags = prev.get("tags") or []
+                new_tags = merged["tags"] or []
+                merged["tags"] = list(dict.fromkeys(list(prev_tags) + list(new_tags)))
+                merged["created"] = prev.get("created") or merged["updated"]
+            else:
+                merged["created"] = merged["updated"]
+            graph["nodes"][existing] = merged
+        else:
+            merged["created"] = merged["updated"]
+            graph["nodes"].append(merged)
+        applied = True
+
+    elif etype == "edge.upsert":
+        edge = redacted.get("edge")
+        if not isinstance(edge, dict):
+            raise ValueError("edge.upsert requires 'edge' object")
+        source = (edge.get("source") or "").strip()
+        target = (edge.get("target") or "").strip()
+        kind = (edge.get("kind") or "relates_to").strip()
+        if not source or not target:
+            raise ValueError("edge.upsert requires 'source' and 'target'")
+        # Stable id: edge-<source>-<target>-<kind>
+        eid = (edge.get("id") or "").strip() or f"edge-{source}-{target}-{kind}"
+        merged_e = {
+            "id": eid,
+            "source": source,
+            "target": target,
+            "kind": kind,
+            "weight": float(edge.get("weight", 0.5) or 0.0),
+            "updated": _mg_now_iso(),
+        }
+        existing = None
+        for i, e in enumerate(graph["edges"]):
+            if isinstance(e, dict) and e.get("id") == eid:
+                existing = i
+                break
+        if existing is not None:
+            prev = graph["edges"][existing]
+            if isinstance(prev, dict):
+                merged_e["created"] = prev.get("created") or merged_e["updated"]
+            else:
+                merged_e["created"] = merged_e["updated"]
+            graph["edges"][existing] = merged_e
+        else:
+            merged_e["created"] = merged_e["updated"]
+            graph["edges"].append(merged_e)
+        applied = True
+
+    elif etype == "memory.snapshot":
+        snap = redacted.get("graph")
+        if not isinstance(snap, dict):
+            raise ValueError("memory.snapshot requires 'graph' object")
+        new_nodes = snap.get("nodes") or []
+        new_edges = snap.get("edges") or []
+        if not isinstance(new_nodes, list) or not isinstance(new_edges, list):
+            raise ValueError("memory.snapshot: nodes/edges must be lists")
+        new_meta = snap.get("metadata") or {}
+        if not isinstance(new_meta, dict):
+            new_meta = {}
+        graph = {
+            "metadata": {**graph.get("metadata", {}), **new_meta},
+            "nodes": [n for n in new_nodes if isinstance(n, dict)],
+            "edges": [e for e in new_edges if isinstance(e, dict)],
+            "last_updated": _mg_now_iso(),
+            "snapshot_at": _mg_now_iso(),
+        }
+        applied = True
+
+    elif etype == "node.delete":
+        nid = (redacted.get("id") or "").strip()
+        if not nid:
+            raise ValueError("node.delete requires 'id'")
+        before = len(graph["nodes"])
+        graph["nodes"] = [n for n in graph["nodes"] if not (isinstance(n, dict) and n.get("id") == nid)]
+        # Cascade-delete any edges that touched the removed node.
+        graph["edges"] = [
+            e for e in graph["edges"]
+            if not (isinstance(e, dict) and (e.get("source") == nid or e.get("target") == nid))
+        ]
+        applied = len(graph["nodes"]) < before
+
+    elif etype == "edge.delete":
+        eid = (redacted.get("id") or "").strip()
+        if not eid:
+            raise ValueError("edge.delete requires 'id'")
+        before = len(graph["edges"])
+        graph["edges"] = [e for e in graph["edges"] if not (isinstance(e, dict) and e.get("id") == eid)]
+        applied = len(graph["edges"]) < before
+
+    if applied:
+        _mg_save_graph(graph)
+        # Always log the redacted event (never the raw input — safety).
+        _mg_append_event({
+            "ts": _mg_now_iso(),
+            "type": etype,
+            "payload": redacted,
+        })
+
+    return {"ok": applied, "type": etype, "applied": applied}
+
+
+def mg_reset() -> dict:
+    """Wipe the graph + log back to the sample seed (or empty if no sample)."""
+    _mg_ensure_data_dir()
+    if MG_GRAPH_PATH.is_file():
+        try:
+            MG_GRAPH_PATH.unlink()
+        except Exception:
+            pass
+    if MG_EVENTS_PATH.is_file():
+        try:
+            MG_EVENTS_PATH.unlink()
+        except Exception:
+            pass
+    # Reload will re-seed from sample.
+    g = _mg_load_graph()
+    _mg_save_graph(g)
+    return {
+        "ok": True,
+        "reset_at": _mg_now_iso(),
+        "node_count": len(g.get("nodes", [])),
+        "edge_count": len(g.get("edges", [])),
+    }
+
+
+# --- Event bridge (Phase D) ---
+# Emit a single node.upsert (and optionally an edge.upsert) when a kanban
+# task changes. Best-effort: if the memory graph layer is broken, the
+# kanban operation must still succeed.
+def emit_kanban_memory_event(task_id: str, new_status: str, *,
+                             extra_node: dict | None = None,
+                             extra_edge: dict | None = None) -> None:
+    try:
+        # Find the task to get its label / project.
+        label = task_id
+        project = None
+        kind = "task"
+        importance = 0.7
+        for root in (COMPANY_ROOT / "01_projects", COMPANY_ROOT / "00_company_os"):
+            if not root.is_dir():
+                continue
+            for td in root.glob("*/tasks"):
+                if not td.is_dir():
+                    continue
+                for tf in sorted(td.glob("*.md")):
+                    if tf.stem == task_id or tf.name == f"{task_id}.md":
+                        project = td.parent.name
+                        try:
+                            txt = tf.read_text(encoding="utf-8")
+                        except Exception:
+                            continue
+                        meta, _ = kanban_parser.parse_frontmatter(txt)
+                        label = meta.get("title") or meta.get("label") or tf.stem
+                        kind = "task"
+                        break
+                if project:
+                    break
+            if project:
+                break
+        node_payload = {
+            "id": f"task-{task_id}",
+            "kind": kind,
+            "label": str(label),
+            "summary": f"Kanban task {task_id} → {new_status}",
+            "importance": importance,
+            "confidence": 0.9,
+            "status": str(new_status or "active"),
+            "tags": ["kanban", "task"],
+        }
+        if project:
+            node_payload["project"] = project
+        if isinstance(extra_node, dict):
+            node_payload.update(extra_node)
+        try:
+            ingest_memory_event({"type": "node.upsert", "node": node_payload})
+        except Exception:
+            pass
+        if isinstance(extra_edge, dict):
+            try:
+                ingest_memory_event({"type": "edge.upsert", "edge": extra_edge})
+            except Exception:
+                pass
+    except Exception:
+        # Memory graph is a side effect — never let it break the kanban op.
+        pass
 
 
 # ---------- HTTP ----------
@@ -1783,6 +2257,60 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     "path": path,
                 }, 405)
 
+            # ---- MC-MEMORY-GRAPH-1 (2026-06-17): Memory Graph page + API ----
+            if path == "/memory-graph":
+                # Serve the new vanilla-JS page (same pattern as /kanban).
+                return self._static("memory-graph.html")
+
+            if path == "/api/memory-graph" or path == "/api/memory-graph/":
+                g = _mg_load_graph()
+                return self._json({
+                    "nodes": g.get("nodes", []),
+                    "edges": g.get("edges", []),
+                    "metadata": g.get("metadata", {}),
+                    "last_updated": g.get("last_updated"),
+                    "node_count": len(g.get("nodes", [])),
+                    "edge_count": len(g.get("edges", [])),
+                })
+
+            if path.startswith("/api/memory-graph/events/recent"):
+                # GET /api/memory-graph/events/recent?n=20
+                qs_mg = urllib.parse.parse_qs(p.query)
+                try:
+                    n = int((qs_mg.get("n", [20])[0] or "20"))
+                except (TypeError, ValueError):
+                    n = 20
+                n = max(1, min(n, 200))
+                return self._json({"events": _mg_recent_events(n), "count": n})
+
+            if path == "/api/memory-graph/stream":
+                # Server-Sent Events low-priority enhancement. The primary UI
+                # polls /api/memory-graph every 5s. We send a snapshot now
+                # and a heartbeat every 15s, then close on client disconnect
+                # (the http.server BaseHTTPRequestHandler's wfile raises on
+                # broken pipe — we just let that propagate).
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("X-Accel-Buffering", "no")
+                self.end_headers()
+                try:
+                    g = _mg_load_graph()
+                    payload = json.dumps({
+                        "nodes": g.get("nodes", []),
+                        "edges": g.get("edges", []),
+                        "last_updated": g.get("last_updated"),
+                    }, ensure_ascii=False)
+                    self.wfile.write(b"event: snapshot\ndata: " + payload.encode("utf-8") + b"\n\n")
+                    self.wfile.flush()
+                    for i in range(2):  # up to 2 heartbeats (~30s)
+                        time.sleep(15)
+                        self.wfile.write(b": heartbeat\n\n")
+                        self.wfile.flush()
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
+                return
+
             return self._json({"error": "not found", "path": path}, 404)
 
         except Exception as e:
@@ -1798,9 +2326,71 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         MC-KANBAN-1: POST /api/data/kanban/task — create a new task file
         from the UI. Returns 201 on success, 400 on bad input.
+
+        MC-MEMORY-GRAPH-1 (2026-06-17): POST /api/memory-graph/events —
+        ingest one event object OR an array of events. Body caps at 64 KiB.
+        All payloads are redacted server-side before persistence.
+        POST /api/memory-graph/reset — admin reset; requires header
+        X-MC-Admin: yes OR a body of {confirm: true}.
         """
         try:
             p = urllib.parse.urlparse(self.path)
+
+            # ---- MC-MEMORY-GRAPH-1: events ingest ----
+            if p.path == "/api/memory-graph/events":
+                try:
+                    length = int(self.headers.get("Content-Length") or "0")
+                except (TypeError, ValueError):
+                    length = 0
+                if length < 0 or length > 64 * 1024:
+                    return self._json({"error": "missing or oversized body"}, 400)
+                raw = self.rfile.read(length) if length > 0 else b""
+                if not raw:
+                    return self._json({"error": "empty body"}, 400)
+                try:
+                    payload = json.loads(raw.decode("utf-8"))
+                except (UnicodeDecodeError, json.JSONDecodeError) as e:
+                    return self._json({"error": "invalid JSON", "detail": str(e)}, 400)
+                # Accept single object or list of objects.
+                events = payload if isinstance(payload, list) else [payload]
+                if not events:
+                    return self._json({"error": "no events in payload"}, 400)
+                results = []
+                for ev in events:
+                    if not isinstance(ev, dict):
+                        results.append({"ok": False, "error": "event must be a JSON object"})
+                        continue
+                    try:
+                        results.append(ingest_memory_event(ev))
+                    except ValueError as e:
+                        results.append({"ok": False, "error": str(e), "type": ev.get("type")})
+                ok = all(r.get("ok") for r in results)
+                return self._json({"ok": ok, "results": results, "count": len(results)}, 200 if ok else 400)
+
+            # ---- MC-MEMORY-GRAPH-1: admin reset ----
+            if p.path == "/api/memory-graph/reset":
+                # Authorization: either X-MC-Admin: yes header OR {confirm: true} body.
+                try:
+                    length = int(self.headers.get("Content-Length") or "0")
+                except (TypeError, ValueError):
+                    length = 0
+                body_ok = False
+                if length > 0 and length <= 4 * 1024:
+                    raw = self.rfile.read(length)
+                    try:
+                        body = json.loads(raw.decode("utf-8") or "{}")
+                        if isinstance(body, dict) and body.get("confirm") is True:
+                            body_ok = True
+                    except Exception:
+                        body_ok = False
+                header_ok = (self.headers.get("X-MC-Admin", "").strip().lower() == "yes")
+                if not (body_ok or header_ok):
+                    return self._json({
+                        "error": "admin confirmation required",
+                        "how": "POST {confirm: true} OR header X-MC-Admin: yes",
+                    }, 403)
+                return self._json(mg_reset(), 200)
+
             if p.path == "/api/data/kanban/task":
                 # Read the body (Content-Length, capped to 16 KiB to be safe)
                 try:

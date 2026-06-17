@@ -1,0 +1,803 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memory Graph — Mission Control</title>
+<!--
+  MC-MEMORY-GRAPH-1 (2026-06-17): Memory Graph page.
+  Vanilla JS + HTML5 Canvas. Force-directed layout, no libraries.
+  Dark theme + gold accents matching kanban.html.
+  Layout: sidebar 180px | left controls 300px | canvas | right panel 350px.
+  Realtime: 5s polling of /api/memory-graph + /api/memory-graph/events/recent.
+-->
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #161b22;
+    --panel-2: #1c232c;
+    --line: #30363d;
+    --line-soft: #21262d;
+    --text: #e6edf3;
+    --text2: #8b949e;
+    --text3: #6e7681;
+    --green: #3fb950;
+    --amber: #d29922;
+    --gold:  #d4af37;
+    --red:   #f85149;
+    --cyan:  #58a6ff;
+    --pink:  #f778ba;
+    --blue:  #58a6ff;
+    --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  body {
+    display: flex;
+    min-height: 100vh;
+    font-family: var(--font-mono, monospace);
+    overflow: hidden;
+  }
+
+  /* Sidebar (matches kanban.html) */
+  .sidebar {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: 180px;
+    background: var(--panel);
+    border-right: 1px solid var(--line);
+    padding: 16px 0;
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+  }
+  .sidebar-header {
+    padding: 8px 16px;
+    font-weight: bold;
+    font-size: 16px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 12px;
+    color: var(--gold);
+  }
+  .sidebar nav { flex: 1; }
+  .nav-tab {
+    display: block;
+    padding: 10px 16px;
+    color: var(--text2);
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: all 0.15s;
+  }
+  .nav-tab:hover {
+    background: rgba(255,255,255,0.04);
+    color: var(--text);
+  }
+  .nav-tab.active {
+    color: var(--text);
+    background: rgba(212,175,55,0.10);
+    border-left-color: var(--gold);
+  }
+  .sidebar-footer {
+    padding: 8px 16px;
+    font-size: 11px;
+    color: var(--text3);
+    border-top: 1px solid var(--line);
+  }
+
+  /* Main content */
+  .main {
+    margin-left: 180px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    height: 100vh;
+  }
+  header.page-header {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--panel);
+  }
+  header.page-header h1 {
+    font-size: 18px;
+    margin: 0;
+    font-weight: 600;
+  }
+  header.page-header h1 .sub {
+    color: var(--text2);
+    font-weight: 400;
+    font-size: 13px;
+    margin-left: 6px;
+  }
+  .connection-status {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--text3);
+    display: inline-block;
+  }
+  .connection-status.ok    { background: var(--green); box-shadow: 0 0 6px rgba(63,185,80,0.6); }
+  .connection-status.error { background: var(--red);   box-shadow: 0 0 6px rgba(248,81,73,0.6); }
+  .spacer { flex: 1; }
+  .header-tag {
+    color: var(--text2);
+    font-size: 12px;
+    padding: 2px 8px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--panel-2);
+  }
+
+  /* 3-column layout: left controls | canvas | right panel */
+  .layout {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 300px 1fr 350px;
+    min-height: 0;
+  }
+  aside.controls,
+  aside.right-panel {
+    background: var(--panel);
+    border-right: 1px solid var(--line);
+    padding: 14px;
+    overflow-y: auto;
+  }
+  aside.right-panel {
+    border-right: none;
+    border-left: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .graph-container {
+    position: relative;
+    background: var(--bg);
+    overflow: hidden;
+    min-width: 0;
+  }
+  canvas#graph {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+  }
+
+  /* Controls */
+  aside.controls h3,
+  aside.right-panel h3 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--gold);
+    margin: 0 0 8px 0;
+    font-weight: 600;
+  }
+  aside.controls h3:not(:first-child) {
+    margin-top: 18px;
+  }
+  .control-row { margin-bottom: 10px; }
+  .control-row label {
+    display: block;
+    color: var(--text2);
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+  input[type="text"], input[type="search"] {
+    width: 100%;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 6px 8px;
+    font: inherit;
+    font-family: var(--font-mono);
+  }
+  input[type="text"]:focus, input[type="search"]:focus {
+    outline: none;
+    border-color: var(--gold);
+  }
+  input[type="range"] { width: 100%; }
+  fieldset {
+    border: 1px solid var(--line-soft);
+    border-radius: 4px;
+    padding: 8px 10px 8px 10px;
+    margin: 0 0 10px 0;
+  }
+  fieldset legend {
+    color: var(--text2);
+    font-size: 11px;
+    text-transform: uppercase;
+    padding: 0 4px;
+  }
+  fieldset label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    padding: 2px 0;
+    cursor: pointer;
+  }
+  fieldset label .swatch {
+    width: 10px; height: 10px; border-radius: 50%;
+    display: inline-block;
+  }
+  button {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 6px 10px;
+    font: inherit;
+    font-family: var(--font-mono);
+    cursor: pointer;
+    width: 100%;
+  }
+  button:hover { background: var(--line); }
+  button.danger {
+    border-color: var(--red);
+    color: var(--red);
+  }
+  button.danger:hover {
+    background: rgba(248,81,73,0.1);
+  }
+
+  /* Right panel */
+  .event-feed {
+    flex: 0 0 auto;
+    max-height: 40%;
+    display: flex;
+    flex-direction: column;
+  }
+  .event-feed ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    overflow-y: auto;
+    flex: 1;
+    border: 1px solid var(--line-soft);
+    border-radius: 4px;
+    background: var(--bg);
+  }
+  .event-feed li {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--line-soft);
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .event-feed li:last-child { border-bottom: none; }
+  .event-feed li .ev-type {
+    color: var(--gold);
+    font-weight: 600;
+  }
+  .event-feed li .ev-id {
+    color: var(--text);
+  }
+  .inspector {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  #node-details {
+    flex: 1;
+    overflow: auto;
+    background: var(--bg);
+    border: 1px solid var(--line-soft);
+    border-radius: 4px;
+    padding: 10px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  #node-details .empty { color: var(--text3); font-style: italic; }
+  #node-details pre {
+    margin: 0;
+    color: var(--text);
+  }
+
+  /* Footer */
+  footer.metrics {
+    border-top: 1px solid var(--line);
+    background: var(--panel);
+    padding: 6px 16px;
+    display: flex;
+    gap: 24px;
+    font-size: 12px;
+    color: var(--text2);
+  }
+  footer.metrics .val { color: var(--gold); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-header">⚡ NofiTech</div>
+  <nav>
+    <a href="/" class="nav-tab">⚡ Main</a>
+    <a href="/kanban" class="nav-tab">🗂 Kanban</a>
+    <a href="/memory-graph" class="nav-tab active">🧠 Memory Graph</a>
+  </nav>
+  <div class="sidebar-footer">v1.16.0+memory</div>
+</aside>
+
+<main class="main">
+  <header class="page-header">
+    <h1>🧠 Memory Graph <span class="sub">— Hermes working memory</span></h1>
+    <span class="header-tag" id="poll-tag">polling 5s</span>
+    <span class="spacer"></span>
+    <span class="header-tag">status</span>
+    <span class="connection-status" id="conn" title="connection status"></span>
+  </header>
+
+  <div class="layout">
+    <!-- Left controls -->
+    <aside class="controls">
+      <h3>Search</h3>
+      <div class="control-row">
+        <input type="search" id="search" placeholder="Filter by id / label..." />
+      </div>
+
+      <h3>Filter by kind</h3>
+      <fieldset id="kind-filters">
+        <label><input type="checkbox" value="goal" checked /> <span class="swatch" style="background:#d4af37"></span> Goal</label>
+        <label><input type="checkbox" value="task" checked /> <span class="swatch" style="background:#4a9eff"></span> Task</label>
+        <label><input type="checkbox" value="memory" checked /> <span class="swatch" style="background:#b8b8b8"></span> Memory</label>
+        <label><input type="checkbox" value="decision" checked /> <span class="swatch" style="background:#ff9f43"></span> Decision</label>
+        <label><input type="checkbox" value="tool" checked /> <span class="swatch" style="background:#9b59b6"></span> Tool</label>
+        <label><input type="checkbox" value="file" checked /> <span class="swatch" style="background:#3498db"></span> File</label>
+        <label><input type="checkbox" value="error" checked /> <span class="swatch" style="background:#e74c3c"></span> Error</label>
+        <label><input type="checkbox" value="concept" checked /> <span class="swatch" style="background:#2ecc71"></span> Concept</label>
+        <label><input type="checkbox" value="entity" checked /> <span class="swatch" style="background:#1abc9c"></span> Entity</label>
+        <label><input type="checkbox" value="session" checked /> <span class="swatch" style="background:#95a5a6"></span> Session</label>
+        <label><input type="checkbox" value="message" checked /> <span class="swatch" style="background:#34495e"></span> Message</label>
+      </fieldset>
+
+      <h3>Importance</h3>
+      <div class="control-row">
+        <label>Min: <span id="imp-val">0.00</span></label>
+        <input type="range" id="importance" min="0" max="1" step="0.05" value="0" />
+      </div>
+
+      <h3>Admin</h3>
+      <div class="control-row">
+        <button id="reset" class="danger">Reset Graph</button>
+      </div>
+    </aside>
+
+    <!-- Canvas -->
+    <div class="graph-container">
+      <canvas id="graph"></canvas>
+    </div>
+
+    <!-- Right panel -->
+    <aside class="right-panel">
+      <section class="event-feed">
+        <h3>Recent Events</h3>
+        <ul id="events"><li>Loading...</li></ul>
+      </section>
+      <section class="inspector">
+        <h3>Selected Node</h3>
+        <div id="node-details"><span class="empty">Click a node to see details</span></div>
+      </section>
+    </aside>
+  </div>
+
+  <footer class="metrics">
+    <span>Nodes: <span class="val" id="node-count">0</span></span>
+    <span>Edges: <span class="val" id="edge-count">0</span></span>
+    <span>Last updated: <span class="val" id="last-updated">—</span></span>
+  </footer>
+</main>
+
+<script>
+'use strict';
+
+// MC-MEMORY-GRAPH-1: state
+let nodes = [];
+let edges = [];
+let selectedNodeId = null;
+let positions = {};   // id -> {x, y, vx, vy}
+let visibleSet = new Set();
+let lastUpdated = null;
+
+// Force-directed constants
+const REPULSION = 9000;
+const SPRING = 0.012;
+const DAMPING = 0.85;
+const CENTER_PULL = 0.0015;
+const IDEAL_LEN = 110;
+
+const KIND_COLORS = {
+  goal:     '#d4af37',
+  task:     '#4a9eff',
+  memory:   '#b8b8b8',
+  decision: '#ff9f43',
+  tool:     '#9b59b6',
+  file:     '#3498db',
+  error:    '#e74c3c',
+  concept:  '#2ecc71',
+  entity:   '#1abc9c',
+  session:  '#95a5a6',
+  message:  '#34495e',
+};
+
+// ---------- DOM refs ----------
+const canvas = document.getElementById('graph');
+const ctx = canvas.getContext('2d');
+const connDot = document.getElementById('conn');
+const nodeCountEl = document.getElementById('node-count');
+const edgeCountEl = document.getElementById('edge-count');
+const lastUpdatedEl = document.getElementById('last-updated');
+const eventsUl = document.getElementById('events');
+const nodeDetails = document.getElementById('node-details');
+const searchInput = document.getElementById('search');
+const importanceInput = document.getElementById('importance');
+const impVal = document.getElementById('imp-val');
+
+function resize() {
+  const r = canvas.parentNode.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.max(100, Math.floor(r.width * dpr));
+  canvas.height = Math.max(100, Math.floor(r.height * dpr));
+  canvas.style.width = r.width + 'px';
+  canvas.style.height = r.height + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ---------- Filters ----------
+function getFilters() {
+  const kinds = Array.from(document.querySelectorAll('#kind-filters input[type=checkbox]:checked'))
+    .map(c => c.value);
+  const minImportance = parseFloat(importanceInput.value) || 0;
+  const q = (searchInput.value || '').trim().toLowerCase();
+  return { kinds, minImportance, q };
+}
+
+importanceInput.addEventListener('input', () => {
+  impVal.textContent = parseFloat(importanceInput.value).toFixed(2);
+});
+
+// ---------- Fetch ----------
+async function fetchGraph() {
+  try {
+    const resp = await fetch('/api/memory-graph', { cache: 'no-store' });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    nodes = Array.isArray(data.nodes) ? data.nodes : [];
+    edges = Array.isArray(data.edges) ? data.edges : [];
+    lastUpdated = data.last_updated || null;
+
+    // Initialize positions for new nodes
+    const w = canvas.parentNode.clientWidth || 800;
+    const h = canvas.parentNode.clientHeight || 500;
+    for (const n of nodes) {
+      if (!n || !n.id) continue;
+      if (!positions[n.id]) {
+        positions[n.id] = {
+          x: 100 + Math.random() * (w - 200),
+          y: 80 + Math.random() * (h - 160),
+          vx: 0, vy: 0,
+        };
+      }
+    }
+    // Drop positions for removed nodes
+    const ids = new Set(nodes.map(n => n.id));
+    for (const id of Object.keys(positions)) {
+      if (!ids.has(id)) delete positions[id];
+    }
+    if (selectedNodeId && !ids.has(selectedNodeId)) {
+      selectedNodeId = null;
+      renderInspector(null);
+    }
+
+    nodeCountEl.textContent = String(data.node_count != null ? data.node_count : nodes.length);
+    edgeCountEl.textContent = String(data.edge_count != null ? data.edge_count : edges.length);
+    lastUpdatedEl.textContent = lastUpdated ? formatTime(lastUpdated) : '—';
+    connDot.classList.remove('error');
+    connDot.classList.add('ok');
+    return true;
+  } catch (e) {
+    connDot.classList.remove('ok');
+    connDot.classList.add('error');
+    return false;
+  }
+}
+
+async function fetchEvents() {
+  try {
+    const resp = await fetch('/api/memory-graph/events/recent?n=20', { cache: 'no-store' });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    const list = Array.isArray(data.events) ? data.events : [];
+    eventsUl.innerHTML = '';
+    if (list.length === 0) {
+      const li = document.createElement('li');
+      li.textContent = 'No events yet';
+      eventsUl.appendChild(li);
+      return;
+    }
+    // Most recent first
+    const ordered = list.slice().reverse().slice(0, 20);
+    for (const ev of ordered) {
+      const li = document.createElement('li');
+      const t = (ev && ev.type) || '?';
+      let idLabel = '';
+      if (ev.node && ev.node.id) idLabel = ev.node.id;
+      else if (ev.edge && (ev.edge.source || ev.edge.target)) {
+        idLabel = (ev.edge.source || '') + '→' + (ev.edge.target || '');
+      } else if (ev.id) idLabel = ev.id;
+      const ts = ev.ts || ev.created || ev.timestamp || '';
+      li.innerHTML = '<span class="ev-type">' + escapeHtml(t) + '</span> ' +
+                     (idLabel ? '<span class="ev-id">' + escapeHtml(idLabel) + '</span> ' : '') +
+                     '<span style="color:var(--text3)">' + escapeHtml(formatTime(ts)) + '</span>';
+      eventsUl.appendChild(li);
+    }
+  } catch (e) {
+    eventsUl.innerHTML = '<li style="color:var(--red)">Failed to load events</li>';
+  }
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function formatTime(ts) {
+  if (!ts) return '—';
+  try {
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return String(ts);
+    const now = new Date();
+    const diff = (now - d) / 1000;
+    if (diff < 60) return Math.max(1, Math.floor(diff)) + 's ago';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    return d.toISOString().slice(0, 16).replace('T', ' ');
+  } catch (e) {
+    return String(ts);
+  }
+}
+
+// ---------- Force-directed step ----------
+function step() {
+  const f = getFilters();
+  // Determine which nodes are visible right now
+  const visibleNodes = nodes.filter(n => {
+    if (!n) return false;
+    if (!f.kinds.includes(n.kind || 'concept')) return false;
+    if ((n.importance == null ? 0 : n.importance) < f.minImportance) return false;
+    if (f.q) {
+      const hay = ((n.id || '') + ' ' + (n.label || '') + ' ' + (n.summary || '')).toLowerCase();
+      if (hay.indexOf(f.q) < 0) return false;
+    }
+    return true;
+  });
+  visibleSet = new Set(visibleNodes.map(n => n.id));
+
+  // Pairwise repulsion (only among visible nodes for perf)
+  for (let i = 0; i < visibleNodes.length; i++) {
+    const a = positions[visibleNodes[i].id];
+    if (!a) continue;
+    for (let j = i + 1; j < visibleNodes.length; j++) {
+      const b = positions[visibleNodes[j].id];
+      if (!b) continue;
+      let dx = b.x - a.x;
+      let dy = b.y - a.y;
+      let dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 0.01) {
+        dx = (Math.random() - 0.5) * 0.5;
+        dy = (Math.random() - 0.5) * 0.5;
+        dist = 0.01;
+      }
+      const force = REPULSION / (dist * dist);
+      const fx = (dx / dist) * force;
+      const fy = (dy / dist) * force;
+      a.vx -= fx; a.vy -= fy;
+      b.vx += fx; b.vy += fy;
+    }
+  }
+  // Spring along visible edges
+  for (const e of edges) {
+    if (!e || !visibleSet.has(e.source) || !visibleSet.has(e.target)) continue;
+    const a = positions[e.source];
+    const b = positions[e.target];
+    if (!a || !b) continue;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    let dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 0.01) dist = 0.01;
+    const force = (dist - IDEAL_LEN) * SPRING;
+    const fx = (dx / dist) * force;
+    const fy = (dy / dist) * force;
+    a.vx += fx; a.vy += fy;
+    b.vx -= fx; b.vy -= fy;
+  }
+  // Center pull + apply velocity (only on visible nodes — invisible ones
+  // keep their last position for when filters change back).
+  const r = canvas.parentNode.getBoundingClientRect();
+  const cx = r.width / 2;
+  const cy = r.height / 2;
+  for (const n of visibleNodes) {
+    const p = positions[n.id];
+    if (!p) continue;
+    p.vx += (cx - p.x) * CENTER_PULL;
+    p.vy += (cy - p.y) * CENTER_PULL;
+    p.vx *= DAMPING;
+    p.vy *= DAMPING;
+    p.x += p.vx;
+    p.y += p.vy;
+    // Soft bounds
+    if (p.x < 20)  { p.x = 20;  p.vx *= -0.4; }
+    if (p.y < 20)  { p.y = 20;  p.vy *= -0.4; }
+    if (p.x > r.width - 20)  { p.x = r.width - 20;  p.vx *= -0.4; }
+    if (p.y > r.height - 20) { p.y = r.height - 20; p.vy *= -0.4; }
+  }
+}
+
+// ---------- Render ----------
+function render() {
+  const r = canvas.parentNode.getBoundingClientRect();
+  ctx.clearRect(0, 0, r.width, r.height);
+  // Subtle grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.025)';
+  ctx.lineWidth = 1;
+  const step = 40;
+  for (let x = 0; x < r.width; x += step) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, r.height); ctx.stroke();
+  }
+  for (let y = 0; y < r.height; y += step) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(r.width, y); ctx.stroke();
+  }
+
+  const f = getFilters();
+  // Edges first
+  for (const e of edges) {
+    if (!e || !visibleSet.has(e.source) || !visibleSet.has(e.target)) continue;
+    const a = positions[e.source];
+    const b = positions[e.target];
+    if (!a || !b) continue;
+    const isHi = (e.source === selectedNodeId || e.target === selectedNodeId);
+    ctx.strokeStyle = isHi ? 'rgba(212,175,55,0.7)' : 'rgba(212,175,55,0.18)';
+    ctx.lineWidth = isHi ? 1.5 : 1;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+    // Edge kind label near midpoint
+    if (isHi && e.kind) {
+      const mx = (a.x + b.x) / 2;
+      const my = (a.y + b.y) / 2;
+      ctx.fillStyle = 'rgba(212,175,55,0.7)';
+      ctx.font = '10px ' + getMono();
+      ctx.fillText(e.kind, mx + 3, my - 3);
+    }
+  }
+  // Nodes
+  for (const n of nodes) {
+    if (!n || !visibleSet.has(n.id)) continue;
+    const p = positions[n.id];
+    if (!p) continue;
+    const imp = (n.importance == null ? 0 : n.importance);
+    const radius = 6 + imp * 8;
+    const color = KIND_COLORS[n.kind || 'concept'] || '#888';
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    if (n.id === selectedNodeId) {
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    } else {
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+    // Label
+    const lbl = n.label || n.id;
+    ctx.fillStyle = '#e6edf3';
+    ctx.font = '11px ' + getMono();
+    ctx.fillText(lbl, p.x + radius + 4, p.y + 4);
+  }
+}
+
+function getMono() {
+  return 'ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace';
+}
+
+// ---------- Inspector ----------
+function renderInspector(node) {
+  if (!node) {
+    nodeDetails.innerHTML = '<span class="empty">Click a node to see details</span>';
+    return;
+  }
+  const replacer = (k, v) => (v === undefined ? null : v);
+  const json = JSON.stringify(node, replacer, 2);
+  nodeDetails.innerHTML = '<pre>' + escapeHtml(json) + '</pre>';
+}
+
+// ---------- Click to inspect ----------
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  let best = null;
+  let bestDist = Infinity;
+  for (const n of nodes) {
+    if (!n || !visibleSet.has(n.id)) continue;
+    const p = positions[n.id];
+    if (!p) continue;
+    const imp = (n.importance == null ? 0 : n.importance);
+    const radius = 6 + imp * 8;
+    const dx = mx - p.x;
+    const dy = my - p.y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < radius * radius && d2 < bestDist) {
+      best = n;
+      bestDist = d2;
+    }
+  }
+  if (best) {
+    selectedNodeId = best.id;
+    renderInspector(best);
+  } else {
+    selectedNodeId = null;
+    renderInspector(null);
+  }
+});
+
+// ---------- Reset ----------
+document.getElementById('reset').addEventListener('click', async () => {
+  if (!confirm('Reset the entire graph? This will clear nodes and edges (re-seeded from sample).')) return;
+  try {
+    const resp = await fetch('/api/memory-graph/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm: true }),
+    });
+    if (!resp.ok) {
+      alert('Reset failed: HTTP ' + resp.status);
+      return;
+    }
+    positions = {};
+    await fetchGraph();
+    await fetchEvents();
+  } catch (e) {
+    alert('Reset error: ' + e.message);
+  }
+});
+
+// ---------- Animation loop ----------
+function loop() {
+  step();
+  render();
+  requestAnimationFrame(loop);
+}
+
+// ---------- Polling ----------
+setInterval(fetchGraph, 5000);
+setInterval(fetchEvents, 5000);
+
+// ---------- Init ----------
+(async function init() {
+  await fetchGraph();
+  await fetchEvents();
+  loop();
+})();
+</script>
+</body>
+</html>
