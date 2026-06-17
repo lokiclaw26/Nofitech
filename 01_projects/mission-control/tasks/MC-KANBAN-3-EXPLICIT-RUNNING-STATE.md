@@ -15,6 +15,7 @@ argus_passed: false
 depends_on: [MC-KANBAN-RUNNING-NOW-1]
 blocks: [MC-KANBAN-FREEZE-ACCEPTANCE]
 tags: [mission-control, kanban, delegation, explicit-state, no-cron, option-a]
+kanban_status: done
 ---
 
 # MC-KANBAN-3-EXPLICIT-RUNNING-STATE — Thor owns delegation state transitions

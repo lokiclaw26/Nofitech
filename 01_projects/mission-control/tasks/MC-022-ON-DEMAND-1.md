@@ -22,6 +22,7 @@ acceptance:
   - End-to-end test: trigger via the panel button OR via a CLI test (e.g. `python3 -c "import ondemand; print(ondemand.dispatch('test topic'))"`), confirm task file appears, events appended, no crashes.
   - Backward-compat: existing serve.py endpoints unchanged. New endpoint is additive.
   - Idempotency: dispatching the same topic twice in 60s creates 1 task, not 2 (deduplication).
+kanban_status: done
 ---
 
 # MC-022 — On-Demand Command Interpreter

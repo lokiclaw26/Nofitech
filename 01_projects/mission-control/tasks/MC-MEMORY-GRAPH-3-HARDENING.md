@@ -4,7 +4,7 @@ title: Backend + frontend hardening: auth, redaction, validation, SQLite, layout
 type: refactor
 priority: critical
 status: in_progress
-kanban_status: ready
+kanban_status: done
 assignee: forge
 created: 2026-06-17T18:00:00+04:00
 created_by: thor

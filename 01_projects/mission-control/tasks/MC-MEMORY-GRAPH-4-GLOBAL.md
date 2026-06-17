@@ -7,7 +7,7 @@ project: mission-control
 created: 2026-06-17
 created_by: nofi
 assigned_to: forge
-kanban_status: running_now
+kanban_status: done
 depends_on: []
 tags: [memory-graph, global, importer, scope, hermes, hardening]
 ---

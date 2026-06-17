@@ -12,7 +12,7 @@ evidence: pending — this task
 blockers: ""
 argus_result: pending
 data_source: local-demo
-kanban_status: running
+kanban_status: done
 assigned_to: thor
 ---
 
