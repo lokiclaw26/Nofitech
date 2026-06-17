@@ -3,9 +3,11 @@ task_id: MC-KANBAN-3A-CLEANUP-READY
 title: Cleanup Ready column — move 7 stale tasks to Done
 type: chore
 priority: high
-status: in_progress
-kanban_status: ready
+status: complete
+kanban_status: done
 assignee: forge
+argus_passed: true
+completed: 2026-06-17T12:45:00+04:00
 created: 2026-06-17T12:30:00+04:00
 created_by: thor
 approval_required: false

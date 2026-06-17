@@ -426,3 +426,6 @@
 {"ts": "2026-06-17T12:35:15.470662+04:00", "event_type": "task_completed", "actor": "thor", "project": "mission-control", "task_id": "MC-AUTO-PROCESS-1", "note": "Sub-agent completed task"}
 {"ts": "2026-06-17T12:35:15.730034+04:00", "event_type": "task_completed", "actor": "thor", "project": "mission-control", "task_id": "MC-KANBAN-BUGFIX-2", "note": "Sub-agent completed task"}
 {"ts": "2026-06-17T12:35:15.991501+04:00", "event_type": "task_completed", "actor": "thor", "project": "mission-control", "task_id": "MC-KANBAN-BUGFIX-1", "note": "Sub-agent completed task"}
+{"event_type":"forge_reported","task_id":"MC-KANBAN-3A-CLEANUP-READY","actor":"forge","timestamp":"2026-06-17T12:35:00+04:00","note":"Forge moved 7 stale tasks to Done"}
+{"event_type":"argus_passed","task_id":"MC-KANBAN-3A-CLEANUP-READY","actor":"argus","timestamp":"2026-06-17T12:42:00+04:00","note":"10/10 PASS"}
+{"ts": "2026-06-17T14:48:38.072991+04:00", "event_type": "task_completed", "actor": "thor", "project": "mission-control", "task_id": "MC-KANBAN-3A-CLEANUP-READY", "note": "Sub-agent completed task"}
