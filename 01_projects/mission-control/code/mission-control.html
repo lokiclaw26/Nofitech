@@ -230,6 +230,49 @@
     margin-top: 6px;
   }
 
+  /* ---------- MC-LIVE-DASHBOARD-1: live pulse + relative time ---------- */
+  .live-pulse {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.55em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--green);
+    vertical-align: middle;
+    padding: 2px 6px;
+    border: 1px solid var(--green);
+    border-radius: 999px;
+    background: rgba(0, 200, 100, 0.08);
+    animation: live-pulse-blink 1.6s ease-in-out infinite;
+  }
+  .live-pulse::before {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 0 0 rgba(0, 200, 100, 0.6);
+    animation: live-pulse-dot 1.6s ease-in-out infinite;
+  }
+  .last-check-rel {
+    margin-left: 6px;
+    font-size: 0.55em;
+    color: var(--text2);
+    text-transform: lowercase;
+    vertical-align: middle;
+  }
+  @keyframes live-pulse-blink {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.55; }
+  }
+  @keyframes live-pulse-dot {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0, 200, 100, 0.6); }
+    50%      { box-shadow: 0 0 0 6px rgba(0, 200, 100, 0); }
+  }
+
   /* ---------- Agent cards ---------- */
   .agent-grid {
     display: grid;
@@ -742,8 +785,13 @@ function renderOverview(d) {
   const wColor = (w > 0) ? "yellow" : "gray";
   // Current project
   const pv = d.current_project?.value;
-  // Last check
+  // Last check + polled_at_iso — MC-LIVE-DASHBOARD-1: now reflects actual
+  // poll time, not memory-log entries. Rendered as "live" pulse + relative
+  // time.
   const lc = d.last_check;
+  const polledAt = d.polled_at_iso || lc?.value;
+  const isLive = !!polledAt;
+  const livePulse = `<span class="live-pulse" title="Live: polled ${esc(polledAt || '')}">● live</span>`;
 
   const card = (label, valueHtml, valueClass, reason) => `
     <div class="summary-card">
@@ -751,6 +799,12 @@ function renderOverview(d) {
       <div class="summary-value ${valueClass}">${valueHtml}</div>
       ${reason ? `<div class="summary-reason">${esc(reason)}</div>` : ''}
     </div>`;
+
+  // Last-check value: live pulse + relative time from polled_at_iso.
+  // Falls back to lc.value/rel for any old payload that lacks polled_at_iso.
+  const lastCheckHtml = isLive
+    ? `${livePulse} <span class="last-check-rel" title="${esc(polledAt)}">${esc(relTime(polledAt))}</span>`
+    : `<span class="muted" title="${esc(lc?.reason || 'no source')}">—</span>`;
 
   const html = [
     card("Hermes / System",
@@ -787,11 +841,9 @@ function renderOverview(d) {
          (!pv && d.current_project?.reason) ? d.current_project.reason : null),
 
     card("Last check",
-         lc?.value
-           ? `${esc(lc.rel || lc.value)}`
-           : `<span class="muted" title="${esc(lc?.reason || 'no source')}">—</span>`,
+         lastCheckHtml,
          "gray",
-         lc?.value ? lc.value : null),
+         polledAt ? `polled ${esc(polledAt)}` : null),
   ].join("");
 
   $("#overview").innerHTML = html;

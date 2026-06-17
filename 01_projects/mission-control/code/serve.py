@@ -272,8 +272,31 @@ def rel_time(iso_or_mtime):
 # ---------- data endpoints ----------
 
 def data_overview():
-    """6 fields, each real or null+reason. Stage 4 added warnings."""
+    """6 fields, each real or null+reason.
+
+    MC-LIVE-DASHBOARD-1 (2026-06-18): rewritten to derive EVERYTHING from
+    `data_kanban()` — the live source of truth — instead of stale task-file
+    status + memory-log entries. The kanban is updated on every PATCH and
+    is the most-recent state; the frontmatter status + memory-log are
+    historical and lag behind.
+
+    Derivation rules (locked in spec):
+      current_project  = project of any running_now task; fallback to project
+                         of the most-recent task-file mtime in last 24h; else
+                         "—" (NOT alphabetical first subdir).
+      active_tasks     = count of kanban tasks with kanban_status=running_now
+      failed_tasks     = count of kanban tasks with kanban_status=blocked AND
+                         no blocker_reason on disk
+      warnings         = blocked count + log warns count
+      last_check       = now (every poll = "just polled")
+      polled_at_iso    = current UTC ISO timestamp (used by the JS pulse)
+    """
     out = {}
+
+    # Always-true polled-at timestamp — used by the JS to render the
+    # "live" pulse + relative-time freshness indicator.
+    now_dt = datetime.now(timezone.utc)
+    out["polled_at_iso"] = now_dt.isoformat()
 
     # 1. Hermes status: probe the gateway (best-effort) + report uptime
     try:
@@ -286,63 +309,87 @@ def data_overview():
     except Exception as e:
         out["hermes_status"] = {"value": None, "reason": str(e)}
 
-    # 2. Current project: first subdir of 01_projects/ (or null)
-    projects = list_subdirs(COMPANY_ROOT / "01_projects")
-    if projects:
-        out["current_project"] = {
-            "value": projects[0],
-            "reason": None,
-        }
+    # 2. Current project: DERIVE FROM KANBAN (most live source).
+    # Get the live board; fall back to "—" if anything goes wrong.
+    try:
+        board = data_kanban()
+    except Exception as e:
+        board = {"columns": [], "summary": {"by_status": {}, "by_assignee": {}}}
+    running_now_tasks = []
+    for col in (board.get("columns") or []):
+        if col.get("id") == "running_now":
+            running_now_tasks = list(col.get("tasks") or [])
+            break
+    # Flatten the by_status for convenience
+    by_status = (board.get("summary") or {}).get("by_status") or {}
+
+    current_project_value = None
+    current_project_reason = None
+    if running_now_tasks:
+        # Use the project of the first running_now task (kanban is sorted
+        # by created desc so this is the most recently started).
+        current_project_value = running_now_tasks[0].get("project") or None
+        if current_project_value is None:
+            current_project_reason = "running task has no project field"
     else:
-        out["current_project"] = {
-            "value": None,
-            "reason": "no projects yet — 01_projects/ is empty",
-        }
+        # Fallback: most-recent task-file mtime in last 24h
+        try:
+            most_recent = None
+            for root in (COMPANY_ROOT / "01_projects", COMPANY_ROOT / "00_company_os"):
+                if not root.is_dir():
+                    continue
+                for tf in root.glob("*/tasks/*.md"):
+                    try:
+                        mt = tf.stat().st_mtime
+                    except Exception:
+                        continue
+                    if (now_dt.timestamp() - mt) > 86400:
+                        continue  # older than 24h — skip
+                    if most_recent is None or mt > most_recent[0]:
+                        most_recent = (mt, tf)
+            if most_recent:
+                # The project is the directory two levels up from the task file
+                # (e.g. .../01_projects/<project>/tasks/<task>.md)
+                project_dir = most_recent[1].parent.parent
+                current_project_value = project_dir.name
+            else:
+                current_project_reason = "no kanban activity in last 24h and no recent task files"
+        except Exception as e:
+            current_project_reason = f"project lookup failed: {e}"
 
-    # 3. Active tasks count: tasks with status in the active set across all
-    #    REAL projects (data_source=real). Stage 14 schema: assigned,
-    #    in_progress, verification. We also keep the legacy 'in-progress'
-    #    mapping for backward compatibility with any older real tasks.
-    active = 0
-    failed = 0
-    blocked = 0
-    total = 0
-    active_statuses = {"assigned", "in_progress", "in-progress", "verification", "triage"}
-    failed_statuses = {"failed"}
-    blocked_statuses = {"blocked"}
-    tasks_dirs = list((COMPANY_ROOT / "01_projects").glob("*/tasks"))
-    for td in tasks_dirs:
-        for tf in td.glob("*.md"):
-            txt = safe_read(tf)
-            if not txt:
-                continue
-            meta, _ = parse_frontmatter(txt)
-            # Stage 14: only count REAL tasks toward active/failed/blocked.
-            # Demo tasks (data_source: local-demo) are excluded from these
-            # top-level counters — they were authored for the Stage 6 demo
-            # and the Stage 12 lock hides them from the main dashboard.
-            ds = (meta.get("data_source") or "").strip().lower()
-            if ds != "real":
-                continue
-            total += 1
-            st = (meta.get("status") or "").lower()
-            if st in active_statuses:
-                active += 1
-            if st in failed_statuses:
-                failed += 1
-            if st in blocked_statuses:
-                blocked += 1
+    out["current_project"] = {
+        "value": current_project_value,
+        "reason": current_project_reason,
+    }
+
+    # 3. Active tasks: kanban running_now count
+    active = by_status.get("running_now", 0)
     out["active_tasks"] = {
-        "value": active if total else None,
-        "reason": None if total else "no real tasks yet",
-    }
-    out["failed_tasks"] = {
-        "value": failed if total else None,
-        "reason": None if total else "no real tasks yet",
+        "value": active,
+        "reason": None if active else "no tasks in running_now",
     }
 
-    # 3b. Warnings: count tasks with status=blocked (UI badge uses WARN color)
-    #     and log files containing level=warn. Two sources, same semantic.
+    # 4. Failed tasks: blocked count with empty blocker reason
+    # We must read blocker reason from the source file because the kanban
+    # card dict doesn't expose it. Skip if the file is unreadable.
+    blocked_count = by_status.get("blocked", 0)
+    failed = 0
+    if blocked_count:
+        blocked_col = None
+        for col in (board.get("columns") or []):
+            if col.get("id") == "blocked":
+                blocked_col = col
+                break
+        if blocked_col:
+            for t in (blocked_col.get("tasks") or []):
+                if not _task_has_blocker_reason(t):
+                    failed += 1
+    out["failed_tasks"] = {
+        "value": failed,
+        "reason": None if (active or failed or blocked_count) else "no blocked tasks",
+    }
+
+    # 5. Warnings: blocked count + log warns count
     log_warnings = 0
     logs_root = COMPANY_ROOT / "00_company_os" / "04_agents" / "logs"
     if logs_root.is_dir():
@@ -353,42 +400,59 @@ def data_overview():
             meta, _ = parse_frontmatter(txt)
             if (meta.get("level") or "").lower() == "warn":
                 log_warnings += 1
-    warnings = blocked + log_warnings
-    have_any_source = bool(tasks_dirs) or logs_root.is_dir()
+    warnings = blocked_count + log_warnings
+    have_any_source = bool((board.get("columns") or [])) or logs_root.is_dir()
     out["warnings"] = {
         "value": warnings if have_any_source else None,
         "reason": None if have_any_source else "no tasks or log files yet",
-        "breakdown": {"blocked_tasks": blocked, "log_warns": log_warnings},
+        "breakdown": {"blocked_tasks": blocked_count, "log_warns": log_warnings},
     }
 
-    # 4. Last check time: most recent memory-log entry, else last agent log, else null
-    last_iso = None
-    mem_log = safe_read(COMPANY_ROOT / "00_company_os" / "memory-log.md")
-    if mem_log:
-        # Find most recent ### entry
-        m = re.findall(r"### \d+\..*?- \*\*When:\*\* (\S+ \S+)", mem_log)
-        if m:
-            try:
-                last_iso = datetime.strptime(m[0], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc).isoformat()
-            except Exception:
-                pass
-    if not last_iso:
-        # fallback: most recent agent log mtime
-        logs_root = COMPANY_ROOT / "00_company_os" / "04_agents" / "logs"
-        if logs_root.is_dir():
-            latest = None
-            for f in logs_root.rglob("*.md"):
-                mt = f.stat().st_mtime
-                if latest is None or mt > latest[0]:
-                    latest = (mt, f)
-            if latest:
-                last_iso = datetime.fromtimestamp(latest[0], tz=timezone.utc).isoformat()
-    if last_iso:
-        out["last_check"] = {"value": last_iso, "reason": None, "rel": rel_time(last_iso)}
-    else:
-        out["last_check"] = {"value": None, "reason": "no log entries yet"}
+    # 6. Last check = now (every poll = "just polled"). The frontend uses
+    # `polled_at_iso` for the live pulse + relative time display.
+    last_iso = now_dt.isoformat()
+    out["last_check"] = {
+        "value": last_iso,
+        "reason": None,
+        "rel": "live",
+    }
 
     return out
+
+
+def _task_has_blocker_reason(task_card):
+    """Return True if the underlying task file on disk has a non-empty
+    blocker reason. Reads the source_file referenced by the kanban card.
+    Tolerant of missing/unreadable files (returns False)."""
+    try:
+        rel = task_card.get("source_file") or ""
+        if not rel:
+            return False
+        path = COMPANY_ROOT / rel
+        if not path.is_file():
+            return False
+        txt = path.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return False
+    # Try Format A (YAML frontmatter `blocker:` or `blockers:`)
+    meta, _ = parse_frontmatter(txt)
+    for key in ("blocker", "blockers"):
+        v = meta.get(key)
+        if v is None:
+            continue
+        s = str(v).strip()
+        if s and s.lower() not in ("none", "null", "n/a", "-"):
+            return True
+    # Try Format B (markdown table with `| **blocker** | ... |`)
+    table, _body = kanban_parser.parse_markdown_table(txt)
+    for key in ("blocker", "blockers"):
+        v = table.get(key)
+        if v is None:
+            continue
+        s = str(v).strip()
+        if s and s.lower() not in ("none", "null", "n/a", "-"):
+            return True
+    return False
 
 
 def _read_agent_state():
@@ -408,11 +472,50 @@ def _read_agent_state():
 
 def data_agents():
     """3 rows: thor, forge, argus.
-    Sources of truth (in priority order):
-      1. state.json → status, current_assignment, blocker
-      2. 04_agents/logs/<oid>-*.md mtime → last activity (real log file)
-      3. state.json 'updated' timestamp → last activity fallback (e.g. for thor who has no log file)
+
+    MC-LIVE-DASHBOARD-1 (2026-06-18): rewritten to derive each agent's
+    `current_assignment`, `status`, and `last_activity` from the live
+    kanban board (via `data_kanban()`), not from the stale state.json.
+    The kanban reflects "what each agent is working on RIGHT NOW" because
+    every PATCH updates it; state.json is only written on rare explicit
+    transitions.
+
+    Source-of-truth precedence (per spec):
+      current_assignment = the most-recently-running_now task for this agent
+                          (fallback: empty string — NOT stale state.json).
+      status             = "in_progress" if has running_now task assigned
+                          "idle"          if has no running task but log
+                                           mtime in last 24h
+                          "never-active"  if no logs at all
+      last_activity      = "live" if in_progress (agent is reading board now)
+                          else rel_time(last_log_mtime)
+      stale              = unchanged: true if running_now > 0 but no log
+                           mtime in 30 min
     """
+    # ---- live board snapshot ----
+    try:
+        board = data_kanban()
+    except Exception:
+        board = {"columns": [], "summary": {"by_status": {}, "by_assignee": {}}}
+
+    # Build a per-agent index: running_now tasks grouped by assignee.
+    # The kanban already sorts each column by created desc, so the first
+    # match for an agent is the most-recently-running one.
+    running_by_agent: dict[str, dict] = {}
+    running_total = 0
+    for col in (board.get("columns") or []):
+        if col.get("id") != "running_now":
+            continue
+        running_total = col.get("count", 0) or 0
+        for card in (col.get("tasks") or []):
+            assignee = (card.get("assigned_to") or "").strip().lower()
+            if not assignee:
+                continue
+            # First-seen for this agent wins (already most-recent by created).
+            if assignee not in running_by_agent:
+                running_by_agent[assignee] = card
+        break
+
     state = _read_agent_state()
     agent_state = state.get("agents", {}) if isinstance(state.get("agents"), dict) else {}
     state_updated_mtime = None
@@ -426,7 +529,11 @@ def data_agents():
         meta = AGENT_META[oid]
         ast = agent_state.get(oid, {}) if isinstance(agent_state.get(oid), dict) else {}
 
-        # ---- last activity (real file mtime) ----
+        # ---- running_now task (live source of truth) ----
+        live_task = running_by_agent.get(oid)
+        live_task_id = (live_task or {}).get("task_id") or ""
+
+        # ---- last activity (real log file mtime) ----
         last_mtime = None
         last_file = None
         if logs_root.is_dir():
@@ -452,26 +559,44 @@ def data_agents():
                 last_mtime = state_updated_mtime
                 last_file = sp
 
-        # ---- status ----
-        status = ast.get("status") or ("active" if last_mtime and (time.time() - last_mtime) < 86400 else ("idle" if last_mtime else "never-active"))
-        # Auto-derive: if status is 'active' but last activity is > 24h, demote to 'idle'.
-        if status == "active" and last_mtime and (time.time() - last_mtime) >= 86400:
+        # ---- status (derived from kanban + log mtime) ----
+        if live_task:
+            status = "in_progress"
+        elif last_mtime and (time.time() - last_mtime) < 86400:
             status = "idle"
+        elif last_mtime:
+            # logs exist but all older than 24h → idle
+            status = "idle"
+        else:
+            status = "never-active"
 
         # ---- current assignment + blocker ----
-        current_assignment = ast.get("current_assignment") or None
-        blocker = ast.get("blocker") or None
+        # LIVE source: the kanban running_now task. NO state.json fallback
+        # — state.json is stale by definition (only written on rare explicit
+        # transitions). If the agent has no running task, current_assignment
+        # is None so the UI shows "no current assignment" honestly.
+        if live_task:
+            current_assignment = live_task.get("task_id") or None
+        else:
+            current_assignment = None
         # If current_assignment is empty string, treat as None
         if current_assignment == "":
             current_assignment = None
+        blocker = ast.get("blocker") or None
         if blocker == "":
             blocker = None
+
+        # ---- last_activity: "live" for active, relative time for idle ----
+        if status == "in_progress":
+            last_activity_label = "live"
+        else:
+            last_activity_label = rel_time(last_mtime) if last_mtime else "—"
 
         # ---- reason for unavailable fields ----
         reasons = []
         if not last_mtime and status == "never-active":
             reasons.append("no log files yet for this agent")
-        if current_assignment is None:
+        if not current_assignment:
             reasons.append("no current assignment")
         if blocker is None:
             reasons.append("no blocker")
@@ -487,6 +612,8 @@ def data_agents():
             mtime_iso = None
             mtime_age_seconds = None
         STUCK_STATUSES = {"spawning", "in_progress", "in-progress"}
+        # An agent is "stale" if it has NO live task but state.json claims
+        # it was actively working AND we have no log mtime in 30+ min.
         stale = bool(
             mtime_age_seconds is not None
             and mtime_age_seconds > 30 * 60
@@ -499,7 +626,7 @@ def data_agents():
             "role": meta["role"],
             "emoji": meta["emoji"],
             "status": status,
-            "last_activity": rel_time(last_mtime) if last_mtime else "—",
+            "last_activity": last_activity_label,
             "last_activity_iso": mtime_iso,
             "mtime_iso": mtime_iso,
             "mtime_age_seconds": mtime_age_seconds,
@@ -509,7 +636,15 @@ def data_agents():
             "blocker": blocker,
             "reasons": reasons,
         })
-    return {"agents": rows, "count": len(rows)}
+
+    # MC-LIVE-DASHBOARD-1: also surface the polled_at timestamp so the
+    # frontend can render the live pulse + relative time consistently
+    # across all panels.
+    return {
+        "agents": rows,
+        "count": len(rows),
+        "polled_at_iso": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 def data_tasks(include_demo=False):
