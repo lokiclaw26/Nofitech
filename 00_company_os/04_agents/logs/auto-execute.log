@@ -1,0 +1,4 @@
+2026-06-18T02:17:31+04:00  kanban-auto-execute: dispatch  MC-AUTO-20260618020808-E67940  agent=forge  title='MC-AUTO-EXECUTE-1: cron that calls delegate_task for every running_now MC-AUTO-* child (full hands-off execution)'  priority=urgent
+2026-06-18T02:17:31+04:00  kanban-auto-execute: dispatch  MC-AUTO-TEST-EXEC-1  agent=forge  title='TEST-EXEC-1: create a hello-world log file at a known path'  priority=low
+2026-06-18T02:19:44+04:00  kanban-auto-execute: dispatch  MC-AUTO-20260618020808-E67940  agent=forge  title='MC-AUTO-EXECUTE-1: cron that calls delegate_task for every running_now MC-AUTO-* child (full hands-off execution)'  priority=urgent
+2026-06-18T02:20:15+04:00  kanban-auto-execute: dispatch  MC-AUTO-TEST-EXEC-2  agent=forge  title='TEST-EXEC-2: create a fresh hello-world log file'  priority=low

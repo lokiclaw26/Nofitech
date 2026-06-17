@@ -8,3 +8,4 @@
 2026-06-18T01:50:58+04:00  TEST-UI-AUTO-DISPATCH  ->  MC-AUTO-20260618015100-141C42  assignee=forge priority=low  title='SMOKE-TEST-AUTO-DISPATCH-NOFI-E2E'
 2026-06-18T01:51:11+04:00  MC-AUTO-20260618014250-9DCFCB  ->  MC-AUTO-20260618015112-9DCFCB  assignee=forge priority=urgent  title='MC-AUTO-DISPATCH-1: make ready/UI-created tasks auto-dispatch an agent (fix the running_now lie)'
 2026-06-18T01:51:11+04:00  TEST-NOFI-DEMO  ->  MC-AUTO-20260618015112-C8F87A  assignee=forge priority=low  title='NOFI-DEMO-AUTO-DISPATCH-WORKS'
+2026-06-18T01:52:59+04:00  NOFI-FINAL-DEMO  ->  MC-AUTO-20260618015300-8674EF  assignee=forge priority=low  title='NOFI-FINAL-DEMO-auto-dispatch-via-cron'
