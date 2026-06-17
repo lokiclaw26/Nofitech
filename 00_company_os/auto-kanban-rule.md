@@ -38,6 +38,38 @@ NOFI caught Thor shipping MC-LIVE-DASHBOARD-1 and MC-LIVE-REFRESH-1 with self-te
 (curl + unittest), no Argus Playwright verification. Argus's last log was 9 hours stale.
 That is a quality failure.
 
+## HONEST LANE SEMANTICS (locked 2026-06-18, addendum 2)
+
+NOFI also caught that "running_now" on the kanban did NOT mean "an agent is actively
+working" — it only meant the auto-process cron had moved the card into that lane. The
+card sat there with no dispatcher actually spawning an agent. This is misleading.
+
+The honest semantics of the kanban lanes are now:
+
+- **triage**     = needs review (untriaged, no assignee)
+- **todo**       = triaged, known to be needed, but not yet on the work queue
+- **ready**      = has an assignee and a clear spec; auto-kanban will dispatch on next turn
+- **running_now** = an agent (Thor/Forge/Argus) IS ACTIVELY EXECUTING right now (delegated
+  via delegate_task or ondemand.dispatch, not just sitting in a card)
+- **blocked**    = waiting on something external (paid LLM key, NOFI approval, etc.)
+- **done**       = completed and Argus-verified (post-2026-06-18 rule)
+
+**Operational consequence:** when Thor or a subagent moves a card to running_now,
+they MUST immediately either:
+  (a) call `ondemand.dispatch(...)` or `delegate_task(...)` to spawn the work, OR
+  (b) explicitly mark in chat: "card is in running_now but no agent dispatched — this
+      means X (e.g. waiting for NOFI, blocked on input, etc.)"
+
+If neither (a) nor (b) happens, the card is lying in running_now. NOFI was right
+to be furious.
+
+## Future improvement (deferred)
+The auto-process cron at `00_company_os/04_agents/state.json` (or similar) should
+either: (a) actually dispatch agents for cards in running_now, or (b) rename the
+lane to "queued" so the name is honest. Both are bigger changes that need a spec.
+For now, the rule above makes the human/subagent responsible for the actual
+dispatch.
+
 ### The rule
 Before claiming any task is "shipped ✓" in chat, Thor MUST have:
 
