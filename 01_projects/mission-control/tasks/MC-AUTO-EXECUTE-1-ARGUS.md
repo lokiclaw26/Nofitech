@@ -4,16 +4,16 @@ title: ARGUS-VERIFY-AUTO-EXECUTE: Playwright + log inspection of the auto-execut
 project: mission-control
 created_by: forge
 assigned_to: argus
-status: in_progress
+status: done
 priority: normal
 created_at: 2026-06-18T02:34:00+04:00
-updated_at: 2026-06-18T02:34:00+04:00
+updated_at: 2026-06-18T02:48:00+04:00
 current_stage: verify
 blocker: ""
 data_source: manual
 description: "Argus verify with Playwright + log file inspection. Argus runs the e2e test, confirms the log file appears with the expected content, and writes a verdict."
 source: manual.argus
-kanban_status: running_now
+kanban_status: done
 ---
 
 # ARGUS-VERIFY-AUTO-EXECUTE: verify the auto-execute cron end-to-end

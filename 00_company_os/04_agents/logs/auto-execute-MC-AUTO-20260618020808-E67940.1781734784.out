@@ -1,0 +1,14 @@
+STATUS: shipped ✓
+CHANGED:
+- kanban-auto-execute.sh — fixed `is_agent_running_task` pgrep filter (bug was filtering out the subagent's own argv because the prompt embeds "kanban-auto-execute"; replaced `grep -v -F "kanban-auto-execute"` with `awk '$1 != selfpid'` PID-based filter; added `HERMES_BIN_OVERRIDE` env hook for testability)
+- test_auto_execute.sh — new 9413-byte sandboxed harness with 7 isolated tests, 15 assertions
+- Task file — appended ## Verification output section with full evidence
+- Task frontmatter PATCHed to status=done, kanban_status=done
+TESTED:
+- 15/15 sandboxed assertions PASS (kill switch, 120s dedup, whitelist, cap-3, rate-limit, pgrep-skip, happy path)
+- E2E: dropped MC-AUTO-EXECUTE-1-E2E → cron dispatched subagent at 02:32:23 → log written with result: success at 02:33:00
+- Argus verify: MC-AUTO-EXECUTE-1-ARGUS dispatched at 02:35:54 → 11 min runtime → verdict: pass 11/11 checks → screenshot saved
+- Pre-fix bug reproduced with pgrep evidence: OLD filter missed PID 324139 (live subagent) because argv contains "kanban-auto-execute"
+ARGUS: verdict: pass, 11/11 checks (filesystem 7/7, cron 1/1, playwright 3/3); screenshot at 00_company_os/04_agents/logs/2026-06-18/argus-MC-AUTO-EXECUTE-1-ARGUS-screenshot.png; chrome workaround needed for Playwright on ubuntu26.04 (env, not defect)
+NEXT: NOFI awake — review auto-execute pipeline + Argus verdict screenshot; drop a card in kanban and watch it run within 2 min to confirm "hands-off" promise
+🛑 Standing by. Want me to drop one more e2e card end-to-end (no manual trigger, just wait for cron to find it) so you can watch the loop close in real time?
