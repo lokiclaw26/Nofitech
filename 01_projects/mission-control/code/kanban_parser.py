@@ -48,24 +48,32 @@ from pathlib import Path
 from typing import Any
 
 # Allowed kanban column ids (also used by the PATCH endpoint to validate input)
-ALLOWED_STATUSES = ("triage", "todo", "ready", "running", "blocked", "done", "archived")
+# MC-KANBAN-RUNNING-NOW-1 (2026-06-17): renamed column 'running' -> 'running_now'.
+# 'ready' is the new home for tasks that were 'in_progress' (claimed/waiting).
+# 'running_now' is strictly for tasks actively being worked on by an agent.
+ALLOWED_STATUSES = ("triage", "todo", "ready", "running_now", "blocked", "done", "archived")
 
 # Map project-file status strings → kanban status
 STATUS_MAP = {
     "triage": "triage",
-    "in_progress": "running",
-    "in-progress": "running",
+    "todo": "todo",
+    "ready": "ready",
+    "in_progress": "ready",         # CHANGED from "running" — claimed/waiting, not actively running
+    "in-progress": "ready",         # CHANGED from "running" — same as in_progress
+    "running": "ready",             # Legacy alias — old "running" status now means "ready"
+    "running_now": "running_now",   # NEW — strictly for tasks actively being worked on
+    "in_work": "running_now",       # NEW alias
+    "active": "running_now",        # NEW alias
+    "blocked": "blocked",
+    "pending": "ready",             # unchanged
+    "approved": "ready",            # unchanged
     "complete": "done",
     "done": "done",
-    "blocked": "blocked",
-    "pending": "ready",
-    "approved": "ready",
     "archived": "archived",
-    "todo": "todo",
-    "assigned": "ready",       # legacy
-    "open": "todo",            # legacy
-    "verification": "running",  # in-verification == running
-    "failed": "blocked",        # fail visually reads as blocked
+    "assigned": "ready",            # legacy
+    "open": "todo",                 # legacy
+    "verification": "running_now",  # CHANGED from "running" — in-verification == actively running
+    "failed": "blocked",            # fail visually reads as blocked
 }
 
 # 3-agent team (locked charter v3.0, 2026-06-10)
@@ -315,6 +323,10 @@ def _task_from_format_a(tf: Path, company_root: Path) -> dict | None:
     status_raw = (meta.get("status") or "").strip().lower()
     kanban_status_raw = (meta.get("kanban_status") or "").strip().lower()
     kanban_status = kanban_status_raw or _normalize_status(status_raw)
+    # MC-KANBAN-RUNNING-NOW-1: legacy `kanban_status: running` now means "ready"
+    # (the old "running" column id is gone — use "ready" for claimed/waiting).
+    if kanban_status == "running":
+        kanban_status = "ready"
     priority = _as_str(meta.get("priority") or "normal").strip().lower()
     created = _as_str(meta.get("created") or meta.get("created_at") or "").strip() or None
     assignee = _normalize_assignee(meta.get("assigned_to"))
@@ -388,6 +400,9 @@ def _task_from_format_b(tf: Path, company_root: Path) -> dict | None:
     status_raw = (table.get("status") or "").strip().lower()
     kanban_status_raw = (table.get("kanban_status") or "").strip().lower()
     kanban_status = kanban_status_raw or _normalize_status(status_raw)
+    # MC-KANBAN-RUNNING-NOW-1: legacy `kanban_status: running` now means "ready"
+    if kanban_status == "running":
+        kanban_status = "ready"
     priority = (table.get("priority") or "normal").strip().lower()
     created = (table.get("created_at") or "").strip() or None
     owner_raw = table.get("owner")
@@ -462,7 +477,7 @@ def _card_from_task_file(tf: Path, company_root: Path) -> dict | None:
 def build_board(company_root: Path, include_archived: bool = False) -> dict:
     """Build the full kanban board dict. Filters archived unless include_archived
     is True. Always returns all 6 columns (some may be empty)."""
-    columns = ["triage", "todo", "ready", "running", "blocked", "done", "archived"]
+    columns = ["triage", "todo", "ready", "running_now", "blocked", "done", "archived"]
     cols = {c: [] for c in columns}
 
     # Per-status counts (BEFORE archived filter — caller decides visibility)
@@ -490,7 +505,7 @@ def build_board(company_root: Path, include_archived: bool = False) -> dict:
         # use kanban_status for column assignment (per Part 3 spec)
         col_id = card.get("kanban_status") or _normalize_status(card.get("status") or "")
         if col_id not in cols:
-            col_id = "running"  # unknown → running
+            col_id = "running_now"  # unknown → running_now (MC-KANBAN-RUNNING-NOW-1)
         cols[col_id].append(card)
 
     # Counts
@@ -515,7 +530,7 @@ def build_board(company_root: Path, include_archived: bool = False) -> dict:
         "triage":  {"id": "triage",  "label": "Triage"},
         "todo":    {"id": "todo",    "label": "Todo"},
         "ready":   {"id": "ready",   "label": "Ready"},
-        "running": {"id": "running", "label": "In Progress"},
+        "running_now": {"id": "running_now", "label": "Running Now"},  # NEW (MC-KANBAN-RUNNING-NOW-1)
         "blocked": {"id": "blocked", "label": "Blocked"},
         "done":    {"id": "done",    "label": "Done"},
         "archived":{"id": "archived","label": "Archived"},
@@ -528,10 +543,10 @@ def build_board(company_root: Path, include_archived: bool = False) -> dict:
             "count": by_status[c],
             "tasks": cols[c],
         }
-        if c == "running":
+        if c == "running_now":
             lanes = []
             for a in AGENTS:
-                lane_tasks = [card for card in cols["running"] if card.get("assigned_to") == a["id"]]
+                lane_tasks = [card for card in cols["running_now"] if card.get("assigned_to") == a["id"]]
                 lanes.append({
                     "assignee": a["id"],
                     "name": a["name"],
@@ -539,9 +554,9 @@ def build_board(company_root: Path, include_archived: bool = False) -> dict:
                     "count": len(lane_tasks),
                     "tasks": lane_tasks,
                 })
-            # also catch any running tasks that don't match the 3-agent team
+            # also catch any running_now tasks that don't match the 3-agent team
             assigned_ids = set(AGENT_IDS)
-            orphan = [card for card in cols["running"] if card.get("assigned_to") not in assigned_ids]
+            orphan = [card for card in cols["running_now"] if card.get("assigned_to") not in assigned_ids]
             if orphan:
                 lanes.append({
                     "assignee": "unassigned",

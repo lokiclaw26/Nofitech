@@ -1752,8 +1752,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_PATCH(self):
         """MC-KANBAN-1+2: PATCH /api/data/kanban/task/:id — update task's
         `kanban_status` on disk (separate from project-native `status`).
-        Body: { "status": "running" }. Returns 200 on success with the full
+        Body: { "status": "<kanban_status>" }. Returns 200 on success with the full
         updated board, 400 on bad status, 404 on unknown task_id.
+
+        MC-KANBAN-RUNNING-NOW-1 (2026-06-17): allowed statuses are now
+            ("triage", "todo", "ready", "running_now", "blocked", "done", "archived")
+        The old "running" status is no longer accepted (use "ready" for claimed/waiting
+        or "running_now" for actively being worked on).
 
         MC-KANBAN-ASSIGN-1 (2026-06-17): PATCH /api/data/kanban/task/:id/assign
         — update task's `assigned_to` (Format A) or `owner` row (Format B).

@@ -176,7 +176,7 @@
   .kanban-summary .chip.triage  { color: #bc8cff; border-color: #bc8cff; }
   .kanban-summary .chip.todo    { color: var(--text2); }
   .kanban-summary .chip.ready   { color: #58a6ff; border-color: #58a6ff; }
-  .kanban-summary .chip.running { color: var(--green); border-color: var(--green); }
+  .kanban-summary .chip.running_now { color: var(--green); border-color: var(--green); font-weight: 600; }
   .kanban-summary .chip.blocked { color: var(--red); border-color: var(--red); }
   .kanban-summary .chip.done    { color: var(--text3); }
   .kanban-summary .chip.archived{ color: var(--text3); border-style: dashed; }
@@ -280,7 +280,7 @@
   .kanban-card.status-triage  { border-left-color: #bc8cff; }
   .kanban-card.status-todo    { border-left-color: var(--text3); }
   .kanban-card.status-ready   { border-left-color: var(--blue); }
-  .kanban-card.status-running { border-left-color: var(--green); }
+  .kanban-card.status-running_now { border-left-color: var(--green); }
   .kanban-card.status-blocked { border-left-color: var(--red); }
   .kanban-card.status-done    { border-left-color: var(--text3); opacity: 0.75; }
   .kanban-card.status-archived{ border-left-color: var(--text3); opacity: 0.5; border-style: dashed; }
@@ -326,7 +326,7 @@
     background: var(--text3); vertical-align: middle;
   }
   .kanban-card .card-status-dot.status-triage  { background: #bc8cff; }
-  .kanban-card .card-status-dot.status-running { background: var(--green); }
+  .kanban-card .card-status-dot.status-running_now { background: var(--green); }
   .kanban-card .card-status-dot.status-blocked { background: var(--red); }
   .kanban-card .card-status-dot.status-done    { background: var(--text3); }
   .kanban-card .card-status-dot.status-ready   { background: var(--blue); }
@@ -463,7 +463,7 @@
         <label class="toggle" title="Include archived (default hidden)">
           <input type="checkbox" id="kanban-show-archived" /> show archived
         </label>
-        <label class="toggle" title="Group the Running column by assignee">
+        <label class="toggle" title="Group the Running Now column by assignee">
           <input type="checkbox" id="kanban-lanes-by-profile" checked /> lanes by profile
         </label>
         <span class="refresh-stamp" id="kanban-refresh-stamp">last refresh: never</span>
@@ -506,12 +506,16 @@ function relTime(iso) {
 // ============================================================
 // Kanban — Multi-Agent Board (MC-KANBAN-1, 2026-06-16)
 //
-// Reads /api/data/kanban. Renders 6 columns (triage/todo/ready/running/
-// blocked/done) + optional 7th (archived). The Running column gets 3
+// Reads /api/data/kanban. Renders 6 columns (triage/todo/ready/running_now/
+// blocked/done) + optional 7th (archived). The Running Now column gets 3
 // swimlanes (Thor/Forge/Argus) when the toolbar toggle is ON. Cards are
 // draggable between columns — drop triggers PATCH /api/data/kanban/task/:id.
 // The + button in each column header opens an inline form that POSTs to
 // /api/data/kanban/task. The board polls every 5s (kanban-poll).
+//
+// MC-KANBAN-RUNNING-NOW-1 (2026-06-17): column 'running' renamed to
+// 'running_now'. Tasks with `kanban_status: running` (legacy) are
+// mapped server-side to 'ready'.
 // ============================================================
 
 // MC-KANBAN-BUGFIX-1: suppress browser default drag behavior (was causing page to scroll-to-top when user dragged anything)
@@ -583,9 +587,9 @@ function smartRenderKanban(d, forceRebuild) {
     chip("total", summary.visible ?? summary.total ?? 0, "total", "visible tasks"),
     chip("triage",  byStatus.triage  || 0, "triage"),
     chip("todo",    byStatus.todo    || 0, "todo"),
-    chip("ready",   byStatus.ready   || 0, "ready"),
-    chip("running", byStatus.running || 0, "running"),
-    chip("blocked", byStatus.blocked || 0, "blocked"),
+    chip("ready",        byStatus.ready        || 0, "ready"),
+    chip("running_now",  byStatus.running_now  || 0, "running_now"),
+    chip("blocked",      byStatus.blocked      || 0, "blocked"),
     chip("done",    byStatus.done    || 0, "done"),
   ];
   if (_kanbanIncludeArchived) statusChips.push(chip("archived", byStatus.archived || 0, "archived"));
@@ -619,7 +623,7 @@ function smartRenderKanban(d, forceRebuild) {
   const newCardData = new Map();  // task_id -> { task, columnId, laneAssignee }
   const columnBodyByCol = new Map();   // colId -> { body, useLanes, lanes: [{assignee, body}] }
   for (const col of columns) {
-    const useLanes = (col.id === "running" && _kanbanLanesByProfile && Array.isArray(col.lanes));
+    const useLanes = (col.id === "running_now" && _kanbanLanesByProfile && Array.isArray(col.lanes));
     const entry = { body: null, useLanes, lanes: [] };
     if (useLanes) {
       for (const lane of col.lanes) {
@@ -758,7 +762,7 @@ function smartRenderKanban(d, forceRebuild) {
   // We process in order so appendChild after a move produces the right sequence.
   const ordered = [];   // list of { task, columnId, laneAssignee }
   for (const col of columns) {
-    const useLanes = (col.id === "running" && _kanbanLanesByProfile && Array.isArray(col.lanes));
+    const useLanes = (col.id === "running_now" && _kanbanLanesByProfile && Array.isArray(col.lanes));
     if (useLanes) {
       for (const lane of col.lanes) {
         for (const t of (lane.tasks || [])) {
@@ -981,7 +985,7 @@ function renderKanbanColumn(col, agentById, search) {
         || (t.task_id || "").toLowerCase().includes(search);
   });
   let bodyHtml = "";
-  if (col.id === "running" && _kanbanLanesByProfile && Array.isArray(col.lanes)) {
+  if (col.id === "running_now" && _kanbanLanesByProfile && Array.isArray(col.lanes)) {
     // Render 3 swimlanes (Thor / Forge / Argus + unassigned if present)
     bodyHtml = col.lanes.map(lane => {
       const laneTasks = (lane.tasks || []).filter(t => {
