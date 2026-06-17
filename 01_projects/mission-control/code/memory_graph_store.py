@@ -662,13 +662,47 @@ class MemoryGraphStore:
             out.reverse()
             return out
 
-    def reset(self) -> dict:
-        """Wipe nodes + edges + events. Returns the new empty shape."""
+    def reset(self, *, reseed: bool = True) -> dict:
+        """Wipe nodes + edges + events, then re-seed from sample-graph.json.
+
+        Returns the new (post-reset) graph shape. If ``reseed`` is False
+        the database is left empty (used for tests). The reset operation
+        itself is recorded as a single 'graph_reset' event so the audit
+        trail shows when it happened (and by whom, if caller passes actor).
+        """
         with self._lock:
             self._conn.execute("DELETE FROM nodes")
             self._conn.execute("DELETE FROM edges")
             self._conn.execute("DELETE FROM events")
+            if reseed:
+                graph = self._load_sample_for_migration()
+                if graph is not None:
+                    for n in graph.get("nodes") or []:
+                        if isinstance(n, dict) and n.get("id"):
+                            self._upsert_node_row(n)
+                    for e in graph.get("edges") or []:
+                        if isinstance(e, dict) and e.get("id"):
+                            self._upsert_edge_row(e)
+                # Record the reset as a single event so the Recent Events
+                # panel shows "graph was reset at X" instead of going silent.
+                self.append_event_log({
+                    "type": "graph_reset",
+                    "actor": "thor",
+                    "note": "Reset to clean sample (17 nodes / 25 edges)",
+                    "node_count": self._node_count(),
+                    "edge_count": self._edge_count(),
+                })
         return self.load_graph()
+
+    def _node_count(self) -> int:
+        cur = self._conn.execute("SELECT COUNT(*) FROM nodes")
+        (n,) = cur.fetchone()
+        return n
+
+    def _edge_count(self) -> int:
+        cur = self._conn.execute("SELECT COUNT(*) FROM edges")
+        (n,) = cur.fetchone()
+        return n
 
     def close(self) -> None:
         try:
