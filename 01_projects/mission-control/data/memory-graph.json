@@ -289,6 +289,22 @@
       "tags": [],
       "updated": "2026-06-17T12:30:36.105546+00:00",
       "created": "2026-06-17T12:30:36.105546+00:00"
+    },
+    {
+      "id": "ta[REDACTED]",
+      "kind": "task",
+      "label": "Mission Control Memory Graph — integrate lokiclaw26/Obsidian-Hermes-Agent- as new page",
+      "summary": "Kanban task MC-MEMORY-GRAPH-1 → done",
+      "importance": 0.7,
+      "confidence": 0.9,
+      "status": "done",
+      "tags": [
+        "kanban",
+        "task"
+      ],
+      "updated": "2026-06-17T12:33:21.251906+00:00",
+      "project": "mission-control",
+      "created": "2026-06-17T12:33:21.251906+00:00"
     }
   ],
   "edges": [
@@ -491,7 +507,16 @@
       "kind": "contains",
       "weight": 0.5,
       "created": "2026-06-17T08:00:00+04:00"
+    },
+    {
+      "id": "edge-ta[REDACTED]-status-done-kanban_status",
+      "source": "ta[REDACTED]",
+      "target": "status-done",
+      "kind": "kanban_status",
+      "weight": 0.6,
+      "updated": "2026-06-17T12:33:21.256903+00:00",
+      "created": "2026-06-17T12:33:21.256903+00:00"
     }
   ],
-  "last_updated": "2026-06-17T12:30:36.105561+00:00"
+  "last_updated": "2026-06-17T12:33:21.256924+00:00"
 }

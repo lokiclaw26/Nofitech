@@ -492,3 +492,4 @@
 {"ts":"2026-06-17T16:07:34+04:00","event_type":"auto_process_completed","actor":"cron","project":"mission-control","task_id":"MC-FAKE-AUTOPROCESS-TEST","note":"moved to ready, assignee=thor"}
 {"ts": "2026-06-17T16:07:52.302287+04:00", "event_type": "task_completed", "actor": "thor", "project": "mission-control", "task_id": "MC-AUTO-PROCESS-2", "note": "Sub-agent completed task"}
 {"ts": "2026-06-17T16:07:53.869891+04:00", "event_type": "task_completed", "actor": "thor", "project": "mission-control", "task_id": "MC-PARSER-AGENT-FIELD-1", "note": "Sub-agent completed task"}
+{"ts": "2026-06-17T16:33:21.338693+04:00", "event_type": "task_completed", "actor": "thor", "project": "mission-control", "task_id": "MC-MEMORY-GRAPH-1", "note": "Sub-agent completed task"}
