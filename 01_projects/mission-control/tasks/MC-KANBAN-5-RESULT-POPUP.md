@@ -3,9 +3,11 @@ task_id: MC-KANBAN-5-RESULT-POPUP
 title: Add "View Result" button on Done cards + show inline result on cards with results
 type: feature
 priority: high
-status: in_progress
-kanban_status: running_now
+status: complete
+kanban_status: done
 assignee: forge
+argus_passed: true
+completed: 2026-06-17T15:58:00+04:00
 created: 2026-06-17T15:45:00+04:00
 created_by: thor
 approval_required: true
