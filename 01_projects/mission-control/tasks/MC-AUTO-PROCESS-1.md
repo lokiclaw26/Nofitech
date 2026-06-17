@@ -3,7 +3,7 @@ task_id: MC-AUTO-PROCESS-1
 title: Auto-process triage tasks — spawn research sub-agent when tasks are created in Triage via Kanban UI
 project: mission-control
 phase: live-monitor
-status: in_progress
+status: complete
 priority: high
 created: 2026-06-17T10:36:00+04:00
 created_by: thor
@@ -15,6 +15,7 @@ argus_passed: false
 depends_on: [MC-KANBAN-MOVE-1, MC-KANBAN-BUGFIX-2]
 blocks: [MC-KANBAN-FREEZE-ACCEPTANCE]
 tags: [mission-control, kanban, auto-process, triage, research, background-job]
+kanban_status: done
 ---
 
 # MC-AUTO-PROCESS-1 — Auto-process Triage Tasks

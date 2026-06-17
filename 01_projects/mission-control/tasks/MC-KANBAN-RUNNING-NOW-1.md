@@ -3,7 +3,7 @@ task_id: MC-KANBAN-RUNNING-NOW-1
 title: Add "Running Now" column — strictly for tasks actively being worked on by an agent
 project: mission-control
 phase: live-monitor
-status: in_progress
+status: complete
 priority: high
 created: 2026-06-17T11:30:00+04:00
 created_by: thor
@@ -15,6 +15,7 @@ argus_passed: false
 depends_on: [MC-KANBAN-ASSIGN-1, MC-KANBAN-UNLIMITED-TITLE-1]
 blocks: [MC-KANBAN-FREEZE-ACCEPTANCE]
 tags: [mission-control, kanban, running-now, semantic-split, agent-activity, column-rename]
+kanban_status: done
 ---
 
 # MC-KANBAN-RUNNING-NOW-1 — Strict Agent-Activity Column

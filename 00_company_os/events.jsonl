@@ -419,3 +419,10 @@
 {"ts":"2026-06-17T12:15:15+04:00","event_type":"argus_started","actor":"thor","project":"mission-control","task_id":"MC-KANBAN-3-EXPLICIT-RUNNING-STATE","actor_orig":"argus","status":"in_progress"}
 {"ts":"2026-06-17T12:15:30+04:00","event_type":"argus_passed","actor":"thor","project":"mission-control","task_id":"MC-KANBAN-3-EXPLICIT-RUNNING-STATE","actor_orig":"argus","status":"pass","result":"10/10 checks PASS. No cron, no new UX, no regressions, lifecycle status preserved.","commit":"d5d5fd0"}
 {"ts":"2026-06-17T12:15:45+04:00","event_type":"task_completed","actor":"thor","project":"mission-control","task_id":"MC-KANBAN-3-EXPLICIT-RUNNING-STATE","status":"complete","argus_passed":true,"commits":["e518ea7","d5d5fd0"],"feature":"explicit delegation state","cron_added":false,"new_ux":false}
+{"ts": "2026-06-17T12:35:14.432517+04:00", "event_type": "task_completed", "actor": "thor", "project": "mission-control", "task_id": "MC-KANBAN-RUNNING-NOW-1", "note": "Sub-agent completed task"}
+{"ts": "2026-06-17T12:35:14.694478+04:00", "event_type": "task_completed", "actor": "thor", "project": "mission-control", "task_id": "MC-KANBAN-UNLIMITED-TITLE-1", "note": "Sub-agent completed task"}
+{"ts": "2026-06-17T12:35:14.954073+04:00", "event_type": "task_completed", "actor": "thor", "project": "mission-control", "task_id": "MC-KANBAN-ASSIGN-1", "note": "Sub-agent completed task"}
+{"ts": "2026-06-17T12:35:15.214463+04:00", "event_type": "task_completed", "actor": "thor", "project": "mission-control", "task_id": "MC-KANBAN-BUGFIX-3", "note": "Sub-agent completed task"}
+{"ts": "2026-06-17T12:35:15.470662+04:00", "event_type": "task_completed", "actor": "thor", "project": "mission-control", "task_id": "MC-AUTO-PROCESS-1", "note": "Sub-agent completed task"}
+{"ts": "2026-06-17T12:35:15.730034+04:00", "event_type": "task_completed", "actor": "thor", "project": "mission-control", "task_id": "MC-KANBAN-BUGFIX-2", "note": "Sub-agent completed task"}
+{"ts": "2026-06-17T12:35:15.991501+04:00", "event_type": "task_completed", "actor": "thor", "project": "mission-control", "task_id": "MC-KANBAN-BUGFIX-1", "note": "Sub-agent completed task"}

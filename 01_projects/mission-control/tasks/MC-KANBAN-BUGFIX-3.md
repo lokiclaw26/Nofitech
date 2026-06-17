@@ -3,7 +3,7 @@ task_id: MC-KANBAN-BUGFIX-3
 title: Fix lane duplication bug + clarify "running" state semantics
 project: mission-control
 phase: live-monitor
-status: in_progress
+status: complete
 priority: high
 created: 2026-06-17T10:50:00+04:00
 created_by: thor
@@ -15,6 +15,7 @@ argus_passed: false
 depends_on: [MC-AUTO-PROCESS-1]
 blocks: [MC-KANBAN-FREEZE-ACCEPTANCE]
 tags: [mission-control, kanban, bugfix, swimlanes, dom-selector, status-semantics]
+kanban_status: done
 ---
 
 # MC-KANBAN-BUGFIX-3 — Lane Duplication + Running State Semantics

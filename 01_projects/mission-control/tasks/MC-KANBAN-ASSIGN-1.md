@@ -3,7 +3,7 @@ task_id: MC-KANBAN-ASSIGN-1
 title: Per-card assign action — click a card to assign it to Thor, Forge, or Argus
 project: mission-control
 phase: live-monitor
-status: in_progress
+status: complete
 priority: high
 created: 2026-06-17T10:58:00+04:00
 created_by: thor
@@ -15,6 +15,7 @@ argus_passed: false
 depends_on: [MC-KANBAN-BUGFIX-3]
 blocks: [MC-KANBAN-FREEZE-ACCEPTANCE]
 tags: [mission-control, kanban, assign, click, agent, new-feature]
+kanban_status: done
 ---
 
 # MC-KANBAN-ASSIGN-1 — Per-Card Assign Action

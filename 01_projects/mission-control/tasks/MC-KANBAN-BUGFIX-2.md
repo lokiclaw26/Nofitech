@@ -3,7 +3,7 @@ task_id: MC-KANBAN-BUGFIX-2
 title: Fix 2 remaining Kanban bugs — scroll reset on polling, and many tasks "in running" (browser cache)
 project: mission-control
 phase: live-monitor
-status: in_progress
+status: complete
 priority: high
 created: 2026-06-16T21:40:00+00:00
 created_by: thor
@@ -15,6 +15,7 @@ argus_passed: false
 depends_on: [MC-KANBAN-BUGFIX-1]
 blocks: [MC-KANBAN-FREEZE-ACCEPTANCE]
 tags: [mission-control, kanban, bugfix, scroll-jump, polling, browser-cache]
+kanban_status: done
 ---
 
 # MC-KANBAN-BUGFIX-2 — Real Root Cause of Scroll + Running
