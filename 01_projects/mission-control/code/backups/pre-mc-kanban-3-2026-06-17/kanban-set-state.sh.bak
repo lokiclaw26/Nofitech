@@ -1,0 +1,91 @@
+#!/bin/bash
+# kanban-set-state.sh — explicit state transitions for kanban tasks
+# Usage: kanban-set-state.sh <task_id> <new_kanban_status> [assignee] [blocker_reason]
+#
+# Examples:
+#   kanban-set-state.sh MC-XYZ running_now forge ""               # Thor delegating to Forge
+#   kanban-set-state.sh MC-XYZ done         ""   ""              # Sub-agent completing
+#   kanban-set-state.sh MC-XYZ blocked      ""   "waiting on X"  # Sub-agent blocked
+#
+# This script:
+# 1. Builds the PATCH payload
+# 2. PATCHes the running Mission Control server
+# 3. Appends an event to events.jsonl
+# 4. Returns exit code 0 on success, 1 on failure
+
+set -e
+
+TASK_ID="${1:-}"
+NEW_STATUS="${2:-}"
+ASSIGNEE="${3:-}"
+BLOCKER="${4:-}"
+SERVER="http://192.168.0.29:8767"
+COMPANY_ROOT="/home/nofidofi/NofiTech-Ind"
+EVENTS_FILE="$COMPANY_ROOT/00_company_os/events.jsonl"
+
+if [ -z "$TASK_ID" ] || [ -z "$NEW_STATUS" ]; then
+  echo "Usage: $0 <task_id> <new_status> [assignee] [blocker_reason]" >&2
+  echo "  new_status: triage | todo | ready | running_now | blocked | done | archived" >&2
+  exit 1
+fi
+
+# Build JSON payload
+if [ -n "$ASSIGNEE" ]; then
+  PAYLOAD=$(python3 -c "import json,sys; print(json.dumps({'status': sys.argv[1], 'assignee': sys.argv[2]}))" "$NEW_STATUS" "$ASSIGNEE")
+elif [ -n "$BLOCKER" ]; then
+  PAYLOAD=$(python3 -c "import json,sys; print(json.dumps({'status': sys.argv[1], 'blocker': sys.argv[2]}))" "$NEW_STATUS" "$BLOCKER")
+else
+  PAYLOAD=$(python3 -c "import json,sys; print(json.dumps({'status': sys.argv[1]}))" "$NEW_STATUS")
+fi
+
+# PATCH the server
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X PATCH "$SERVER/api/data/kanban/task/$TASK_ID" \
+  -H "Content-Type: application/json" \
+  -d "$PAYLOAD")
+
+if [ "$HTTP_CODE" != "200" ]; then
+  echo "kanban-set-state: PATCH failed for $TASK_ID (HTTP $HTTP_CODE)" >&2
+  echo "  payload: $PAYLOAD" >&2
+  exit 1
+fi
+
+# Determine event type and note
+case "$NEW_STATUS" in
+  running_now)
+    EVENT_TYPE="work_started"
+    NOTE="Thor delegated to ${ASSIGNEE:-unknown}"
+    ;;
+  done)
+    EVENT_TYPE="task_completed"
+    NOTE="Sub-agent completed task"
+    ;;
+  blocked)
+    EVENT_TYPE="task_blocked"
+    NOTE="Sub-agent blocked: ${BLOCKER:-no reason given}"
+    ;;
+  *)
+    EVENT_TYPE="state_changed"
+    NOTE="State changed to $NEW_STATUS"
+    ;;
+esac
+
+# Append event
+python3 -c "
+import json
+from datetime import datetime, timezone, timedelta
+dubai = timezone(timedelta(hours=4))
+now = datetime.now(dubai).isoformat()
+e = {
+    'ts': now,
+    'event_type': '$EVENT_TYPE',
+    'actor': 'thor',
+    'project': 'mission-control',
+    'task_id': '$TASK_ID',
+    'note': '$NOTE'
+}
+with open('$EVENTS_FILE', 'a') as f:
+    f.write(json.dumps(e) + '\n')
+"
+
+echo "kanban-set-state: $TASK_ID -> $NEW_STATUS (event: $EVENT_TYPE)" >&2
+exit 0
