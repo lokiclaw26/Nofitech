@@ -15,7 +15,7 @@ from unittest import mock
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "code"))
 
-from security import is_authorized, auth_required_error  # noqa: E402
+from security import is_authorized, auth_required_error, reset_admin_token_cache  # noqa: E402
 
 
 class _StubRequest:
@@ -27,13 +27,31 @@ class _StubRequest:
 class ResetRequiresAuthUnitTests(unittest.TestCase):
     """Reset must require the same auth as other writes."""
 
+    def setUp(self):
+        # Invalidate the cached MC_ADMIN_TOKEN so each test re-reads env.
+        reset_admin_token_cache()
+        # Patch the resolver so it does NOT fall back to start-mc.sh during
+        # tests — we want the test's mocked os.environ to be the only source
+        # of truth, otherwise the real token from start-mc.sh leaks in.
+        self._resolver_patcher = mock.patch(
+            "security._resolve_admin_token",
+            side_effect=lambda: os.environ.get("MC_ADMIN_TOKEN", "").strip(),
+        )
+        self._resolver_patcher.start()
+
+    def tearDown(self):
+        self._resolver_patcher.stop()
+        reset_admin_token_cache()
+
     def test_reset_denied_lan_without_token(self):
         with mock.patch.dict(os.environ, {}, clear=True):
             os.environ.pop("MC_ADMIN_TOKEN", None)
+            reset_admin_token_cache()
             self.assertFalse(is_authorized(_StubRequest(ip="192.168.0.29")))
 
     def test_reset_denied_lan_with_wrong_token(self):
         with mock.patch.dict(os.environ, {"MC_ADMIN_TOKEN": "secret"}):
+            reset_admin_token_cache()
             self.assertFalse(is_authorized(_StubRequest(
                 ip="192.168.0.29",
                 headers={"Authorization": "Bearer wrong"},
@@ -42,10 +60,12 @@ class ResetRequiresAuthUnitTests(unittest.TestCase):
     def test_reset_allowed_loopback_no_token(self):
         with mock.patch.dict(os.environ, {}, clear=True):
             os.environ.pop("MC_ADMIN_TOKEN", None)
+            reset_admin_token_cache()
             self.assertTrue(is_authorized(_StubRequest(ip="127.0.0.1")))
 
     def test_reset_allowed_with_correct_token(self):
         with mock.patch.dict(os.environ, {"MC_ADMIN_TOKEN": "secret"}):
+            reset_admin_token_cache()
             self.assertTrue(is_authorized(_StubRequest(
                 ip="192.168.0.29",
                 headers={"X-MC-Admin-Token": "secret"},
@@ -54,6 +74,7 @@ class ResetRequiresAuthUnitTests(unittest.TestCase):
     def test_reset_does_not_accept_confirm_true_as_auth(self):
         """The previous bug: {confirm: true} was treated as auth."""
         with mock.patch.dict(os.environ, {"MC_ADMIN_TOKEN": "secret"}):
+            reset_admin_token_cache()
             req = _StubRequest(ip="192.168.0.29", headers={
                 "Content-Type": "application/json",
                 # No Authorization or X-MC-Admin-Token header — just a body.

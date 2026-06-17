@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """
-security.py — Auth + field-aware redaction for Mission Control.
+security.py — authentication + secret redaction for Mission Control.
 
-MC-MEMORY-GRAPH-3A-BACKEND (2026-06-17). Stdlib-only.
-
-Provides:
-  - is_authorized(request): MC_ADMIN_TOKEN env var check, with loopback-only
-    fallback when the token is unset.
-  - redact_secrets(obj): field-aware redaction that preserves normal IDs
-    (e.g. `task-MC-MEMORY-GRAPH-3`) while stripping real secrets.
+MC-MEMORY-GRAPH-3A-BACKEND (2026-06-17):
+  - is_authorized(request): token-or-loopback gate for write endpoints.
+  - redact_secrets(value): field-aware redactor (preserves task IDs).
+  - _resolve_admin_token(): reads from env first, falls back to start-mc.sh
+    so the server can be started from any shell (not just one that has
+    MC_ADMIN_TOKEN pre-exported).
 
 Behaviour:
   - SECRET_KEYS → value becomes '[REDACTED]'.
@@ -22,29 +21,76 @@ path, task_id, created, updated, weight, importance, confidence, actor,
 assignee, assigned_to, kanban_status) are NEVER touched by the regex
 patterns unless their value happens to look like a secret on its own.
 """
-from __future__ import annotations
 
+import json
 import os
 import re
+import socket
+from pathlib import Path
 from typing import Any
 
-
-# --- Auth -----------------------------------------------------------------
-
-# Loopback IPs that are always allowed when MC_ADMIN_TOKEN is unset.
 _LOOPBACK_IPS = {"127.0.0.1", "::1", "localhost"}
+
+# Where start-mc.sh lives — used as a fallback source for MC_ADMIN_TOKEN
+# so the server doesn't have to be started from a shell that already
+# exported the variable. If start-mc.sh sets it, we honor that.
+_START_MC_PATH = Path("/home/nofidofi/NofiTech-Ind/start-mc.sh")
+
+_admin_token_cache: str | None = None
+
+
+def _resolve_admin_token() -> str:
+    """Return the effective MC_ADMIN_TOKEN, or '' if not configured.
+
+    Lookup order:
+      1. ``os.environ['MC_ADMIN_TOKEN']`` (set by start-mc.sh via ``export``)
+      2. Parsed value of ``MC_ADMIN_TOKEN="..."`` line in start-mc.sh
+         (so that ``python3 serve.py`` started from any shell still works)
+    """
+    global _admin_token_cache
+    if _admin_token_cache is not None:
+        return _admin_token_cache
+    tok = os.environ.get("MC_ADMIN_TOKEN", "").strip()
+    if tok:
+        _admin_token_cache = tok
+        return tok
+    # Fallback: parse start-mc.sh
+    try:
+        if _START_MC_PATH.is_file():
+            for line in _START_MC_PATH.read_text(encoding="utf-8").splitlines():
+                m = re.match(r'\s*export\s+MC_ADMIN_TOKEN\s*=\s*"([^"]+)"', line)
+                if m:
+                    tok = m.group(1).strip()
+                    if tok:
+                        _admin_token_cache = tok
+                        return tok
+    except Exception:
+        pass
+    _admin_token_cache = ""
+    return ""
+
+
+def reset_admin_token_cache() -> None:
+    """Clear the cached token so the next request re-reads from env/file.
+
+    Useful for tests and for when the operator edits start-mc.sh and wants
+    the change to take effect without restarting the server.
+    """
+    global _admin_token_cache
+    _admin_token_cache = None
 
 
 def is_authorized(request) -> bool:
     """Return True iff the request is authorized to perform writes.
 
     Rules (per MC-MEMORY-GRAPH-3A-BACKEND spec):
-      - If MC_ADMIN_TOKEN env var is set (non-empty): require a matching
-        Authorization: Bearer <token> OR X-MC-Admin-Token: <token> header.
+      - If MC_ADMIN_TOKEN is configured (env or start-mc.sh): require a
+        matching Authorization: Bearer *** OR X-MC-Admin-Token: <token>
+        header.
       - If MC_ADMIN_TOKEN is unset: allow only loopback clients.
-      - {confirm: true} body does NOT count as auth (previous bug).
+      - {confirm: true} body does NOT count as auth.
     """
-    token = os.environ.get("MC_ADMIN_TOKEN", "").strip()
+    token = _resolve_admin_token()
     if not token:
         # No token configured. Allow loopback only.
         try:
@@ -66,18 +112,18 @@ def is_authorized(request) -> bool:
 
 def auth_required_error() -> dict:
     """Return the canonical 403 payload when auth fails on a write endpoint."""
-    token = os.environ.get("MC_ADMIN_TOKEN", "").strip()
+    token = _resolve_admin_token()
     if not token:
         return {
             "error": (
-                "MC_ADMIN_TOKEN env var is not set. LAN writes are disabled. "
-                "Set MC_ADMIN_TOKEN or use loopback."
+                "MC_ADMIN_TOKEN is not configured. LAN writes are disabled. "
+                "Set MC_ADMIN_TOKEN in start-mc.sh or use loopback."
             ),
             "setup_required": True,
         }
     return {
         "error": "unauthorized: missing or invalid MC_ADMIN_TOKEN",
-        "how": "Provide Authorization: Bearer <token> or X-MC-Admin-Token: <token>",
+        "how": "Provide Authorization: Bearer *** or X-MC-Admin-Token: <token>",
     }
 
 

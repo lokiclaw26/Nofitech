@@ -22,7 +22,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "code"))
 
-from security import is_authorized, auth_required_error  # noqa: E402
+from security import is_authorized, auth_required_error, reset_admin_token_cache  # noqa: E402
 
 
 class _StubRequest:
@@ -34,9 +34,29 @@ class _StubRequest:
 
 
 class IsAuthorizedUnitTests(unittest.TestCase):
+    def setUp(self):
+        # security._resolve_admin_token() caches its result across calls.
+        # Tests that swap os.environ need to invalidate the cache so the
+        # next call actually re-reads from the (mocked) env, not the
+        # prior real value.
+        reset_admin_token_cache()
+        # Patch the resolver so it does NOT fall back to start-mc.sh during
+        # tests — the test's mocked os.environ should be the only source of
+        # truth, otherwise the real token from start-mc.sh leaks in.
+        self._resolver_patcher = mock.patch(
+            "security._resolve_admin_token",
+            side_effect=lambda: os.environ.get("MC_ADMIN_TOKEN", "").strip(),
+        )
+        self._resolver_patcher.start()
+
+    def tearDown(self):
+        self._resolver_patcher.stop()
+        reset_admin_token_cache()
+
     def test_loopback_allowed_when_token_unset(self):
         with mock.patch.dict(os.environ, {}, clear=True):
             os.environ.pop("MC_ADMIN_TOKEN", None)
+            reset_admin_token_cache()
             for ip in ("127.0.0.1", "::1", "localhost"):
                 self.assertTrue(is_authorized(_StubRequest(ip=ip)),
                                 f"loopback {ip} should be allowed")
@@ -44,10 +64,12 @@ class IsAuthorizedUnitTests(unittest.TestCase):
     def test_lan_denied_when_token_unset(self):
         with mock.patch.dict(os.environ, {}, clear=True):
             os.environ.pop("MC_ADMIN_TOKEN", None)
+            reset_admin_token_cache()
             self.assertFalse(is_authorized(_StubRequest(ip="192.168.0.29")))
 
     def test_token_required_when_set(self):
         with mock.patch.dict(os.environ, {"MC_ADMIN_TOKEN": "secret-xyz"}):
+            reset_admin_token_cache()
             # No header → denied
             self.assertFalse(is_authorized(_StubRequest(ip="127.0.0.1")))
             # Wrong bearer → denied
@@ -73,21 +95,36 @@ class IsAuthorizedUnitTests(unittest.TestCase):
 
     def test_token_whitespace_only_treated_as_unset(self):
         with mock.patch.dict(os.environ, {"MC_ADMIN_TOKEN": "   "}):
+            reset_admin_token_cache()
             # Token after strip is empty → loopback-only mode.
             self.assertTrue(is_authorized(_StubRequest(ip="127.0.0.1")))
             self.assertFalse(is_authorized(_StubRequest(ip="192.168.0.29")))
 
 
 class AuthRequiredErrorTests(unittest.TestCase):
+    def setUp(self):
+        reset_admin_token_cache()
+        self._resolver_patcher = mock.patch(
+            "security._resolve_admin_token",
+            side_effect=lambda: os.environ.get("MC_ADMIN_TOKEN", "").strip(),
+        )
+        self._resolver_patcher.start()
+
+    def tearDown(self):
+        self._resolver_patcher.stop()
+        reset_admin_token_cache()
+
     def test_unset_token_message_mentions_setup(self):
         with mock.patch.dict(os.environ, {}, clear=True):
             os.environ.pop("MC_ADMIN_TOKEN", None)
+            reset_admin_token_cache()
             err = auth_required_error()
             self.assertIn("MC_ADMIN_TOKEN", err["error"])
             self.assertTrue(err.get("setup_required"))
 
     def test_set_token_message_mentions_header(self):
         with mock.patch.dict(os.environ, {"MC_ADMIN_TOKEN": "secret"}):
+            reset_admin_token_cache()
             err = auth_required_error()
             self.assertIn("unauthorized", err["error"])
             self.assertIn("Bearer", err["how"])
