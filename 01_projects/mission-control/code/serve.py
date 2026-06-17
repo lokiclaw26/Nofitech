@@ -1290,6 +1290,96 @@ def data_kanban(include_archived: bool = False) -> dict:
     return board
 
 
+def get_kanban_task_result(task_id: str) -> tuple[int, dict]:
+    """MC-KANBAN-5 (2026-06-17): GET /api/data/kanban/task/:id/result — return
+    the full "## Result" section body for the kanban modal popup, plus the
+    parsed metadata (date/by/status). Returns 404 if the task or its Result
+    section is not found. The body is the raw markdown text AFTER the header
+    block (`**Date:**/By/Status` lines) and AFTER the `---` separator, so the
+    frontend can render it as markdown directly.
+    """
+    task_id = (task_id or "").strip()
+    if not task_id:
+        return 400, {"error": "task_id is required"}
+
+    # Locate the task file using the same logic as the parser
+    found_path = None
+    for proj_dir in (COMPANY_ROOT / "01_projects").iterdir():
+        if not proj_dir.is_dir():
+            continue
+        candidate = proj_dir / "tasks" / f"{task_id}.md"
+        if candidate.is_file():
+            found_path = candidate
+            break
+    if not found_path:
+        # also try 00_company_os
+        co = COMPANY_ROOT / "00_company_os"
+        if co.is_dir():
+            for sub in co.iterdir():
+                candidate = sub / "tasks" / f"{task_id}.md"
+                if candidate.is_file():
+                    found_path = candidate
+                    break
+    if not found_path:
+        return 404, {"error": f"task file not found: {task_id}"}
+
+    try:
+        text = found_path.read_text(encoding="utf-8", errors="replace")
+    except Exception as e:
+        return 500, {"error": f"read failed: {e}"}
+
+    # Extract the body and locate the ## Result section
+    if not text.startswith("---\n"):
+        return 404, {"error": f"task has no frontmatter: {task_id}"}
+    end = text.find("\n---\n", 4)
+    if end < 0:
+        return 404, {"error": f"task has malformed frontmatter: {task_id}"}
+    body = text[end + 5:]
+
+    # Use the parser's extractor for metadata
+    teaser, metadata = kanban_parser._extract_result_section(body)
+    if teaser is None and not metadata:
+        return 404, {"error": f"task has no Result section: {task_id}"}
+
+    # Slice the result body out (between the header block and the closing ---)
+    # so the modal can render the markdown verbatim.
+    import re as _re
+    header_re = _re.compile(r"^##\s+Result\s*$\n", _re.MULTILINE)
+    m = header_re.search(body)
+    if not m:
+        return 404, {"error": f"task has no Result section: {task_id}"}
+    rest = body[m.end():]
+    next_h = _re.search(r"^##\s+", rest, _re.MULTILINE)
+    section = rest if not next_h else rest[: next_h.start()]
+    # Strip the **Date:**/**By:**/**Status:** header lines + the closing ---
+    body_lines = []
+    for line in section.splitlines():
+        s = line.strip()
+        if s.startswith("**Date:**") or s.startswith("**By:**") or s.startswith("**Status:**"):
+            continue
+        body_lines.append(line)
+    # Drop trailing "---" line if present
+    while body_lines and body_lines[-1].strip() == "---":
+        body_lines.pop()
+    # Drop leading blank lines
+    while body_lines and not body_lines[0].strip():
+        body_lines.pop(0)
+    # Drop trailing blank lines
+    while body_lines and not body_lines[-1].strip():
+        body_lines.pop()
+    full_body = "\n".join(body_lines).strip()
+
+    return 200, {
+        "task_id": task_id,
+        "title": "",  # caller already has it from the kanban card
+        "metadata": metadata or {},
+        "teaser": teaser,
+        "body": full_body,
+    }
+
+
+
+
 def patch_kanban_task(task_id: str, new_status: str) -> tuple[int, dict]:
     """PATCH /api/data/kanban/task/:id — update task's `kanban_status` on disk.
 
@@ -1679,6 +1769,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 include_archived = "true" in (x.lower() for x in qs_k.get("include_archived", []))
                 return self._json(data_kanban(include_archived=include_archived))
             if path.startswith("/api/data/kanban/task/"):
+                # MC-KANBAN-5 (2026-06-17): GET /api/data/kanban/task/:id/result
+                # returns the full "## Result" section body for the modal popup.
+                # Other /api/data/kanban/task/:id* GETs return 405 (PATCH only).
+                if path.endswith("/result"):
+                    task_id = path[len("/api/data/kanban/task/"):-len("/result")]
+                    status, payload = get_kanban_task_result(task_id)
+                    return self._json(payload, status)
                 # PATCH only — GET returns 405
                 return self._json({
                     "error": "method not allowed; use PATCH",

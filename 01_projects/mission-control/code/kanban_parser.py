@@ -275,6 +275,75 @@ def _normalize_status(raw: str) -> str:
     return STATUS_MAP.get((raw or "").strip().lower(), "triage")
 
 
+# ---- MC-KANBAN-5: Result section extraction (2026-06-17) ----
+# Parses the structured "## Result" section from a task body. Returns
+# (teaser, metadata_dict) where teaser is the first ~150 chars of the
+# rendered result text (markdown stripped to a single line for the card
+# teaser) and metadata contains {date, by, status} extracted from the
+# "**Date:**", "**By:**", "**Status:**" header lines. Returns (None, None)
+# if the body has no Result section.
+_RESULT_HEADER_RE = re.compile(r"^##\s+Result\s*$\n", re.MULTILINE)
+_DATE_LINE_RE = re.compile(r"^\*\*Date:\*\*\s*(.+?)\s*$", re.MULTILINE)
+_BY_LINE_RE = re.compile(r"^\*\*By:\*\*\s*(.+?)\s*$", re.MULTILINE)
+_STATUS_LINE_RE = re.compile(r"^\*\*Status:\*\*\s*(.+?)\s*$", re.MULTILINE)
+
+
+def _extract_result_section(body: str) -> tuple[str | None, dict | None]:
+    """Extract the structured `## Result` section from a task body.
+
+    Returns (teaser, metadata). teaser is a single-line summary (<= 160 chars)
+    suitable for showing on the kanban card. metadata has keys {date, by, status}.
+    Returns (None, None) when there is no Result section.
+    """
+    if not body:
+        return None, None
+    m = _RESULT_HEADER_RE.search(body)
+    if not m:
+        return None, None
+    # Slice the result section: from the header line to the next "## " heading
+    # (or end of body). Append sub-entries (`### Result entry — ...`) to the
+    # slice so multiple entries show up in the teaser.
+    start = m.end()
+    rest = body[start:]
+    next_h = re.search(r"^##\s+", rest, re.MULTILINE)
+    section = rest if not next_h else rest[: next_h.start()]
+
+    # Pull metadata from the first `**Date:**/By/Status` block in the section.
+    date_m = _DATE_LINE_RE.search(section)
+    by_m = _BY_LINE_RE.search(section)
+    status_m = _STATUS_LINE_RE.search(section)
+    metadata = {
+        "date": (date_m.group(1).strip() if date_m else ""),
+        "by": (by_m.group(1).strip() if by_m else ""),
+        "status": (status_m.group(1).strip() if status_m else ""),
+    }
+
+    # Build a teaser: take the section text, drop the **Date/By/Status** lines,
+    # collapse newlines, trim to ~160 chars. This is the snippet shown on the
+    # card BEFORE the user clicks "View Result".
+    teaser_lines = []
+    for line in section.splitlines():
+        s = line.strip()
+        if not s:
+            continue
+        # skip the metadata header lines
+        if s.startswith("**Date:**") or s.startswith("**By:**") or s.startswith("**Status:**"):
+            continue
+        # skip sub-entries heading (e.g. "### Result entry — 2026-...")
+        if s.startswith("### Result entry"):
+            continue
+        # skip horizontal rules
+        if s == "---":
+            continue
+        teaser_lines.append(s)
+    teaser_raw = " ".join(teaser_lines).strip()
+    # Collapse multiple spaces and strip stray markdown punctuation
+    teaser_raw = re.sub(r"\s+", " ", teaser_raw)
+    if len(teaser_raw) > 160:
+        teaser_raw = teaser_raw[:157].rstrip() + "..."
+    return (teaser_raw or None), (metadata if (metadata["date"] or metadata["by"] or metadata["status"]) else None)
+
+
 def _read_text(path: Path) -> str | None:
     try:
         if not path.is_file():
@@ -346,6 +415,11 @@ def _task_from_format_a(tf: Path, company_root: Path) -> dict | None:
         if s and not s.startswith("#"):
             body_first_line = s[:120]
             break
+    # MC-KANBAN-5: extract structured `## Result` section (if any)
+    result_teaser, result_metadata = _extract_result_section(body or "")
+    has_result = bool(result_teaser) or (
+        _as_str(meta.get("has_result") or "").strip().lower() in ("true", "1", "yes")
+    )
     return {
         "task_id": task_id,
         "title": title,
@@ -364,6 +438,9 @@ def _task_from_format_a(tf: Path, company_root: Path) -> dict | None:
         "warnings": [],
         "extra": {},
         "preview": body_first_line,
+        "has_result": has_result,
+        "result_teaser": result_teaser,
+        "result_metadata": result_metadata,
     }
 
 
@@ -426,6 +503,11 @@ def _task_from_format_b(tf: Path, company_root: Path) -> dict | None:
         if s and not s.startswith("#"):
             body_first_line = s[:120]
             break
+    # MC-KANBAN-5: extract structured `## Result` section (if any)
+    result_teaser, result_metadata = _extract_result_section(body or "")
+    has_result = bool(result_teaser) or (
+        (table.get("has_result") or "").strip().lower() in ("true", "1", "yes")
+    )
     return {
         "task_id": task_id,
         "title": title,
@@ -444,6 +526,9 @@ def _task_from_format_b(tf: Path, company_root: Path) -> dict | None:
         "warnings": warnings,
         "extra": extra,
         "preview": body_first_line,
+        "has_result": has_result,
+        "result_teaser": result_teaser,
+        "result_metadata": result_metadata,
     }
 
 
