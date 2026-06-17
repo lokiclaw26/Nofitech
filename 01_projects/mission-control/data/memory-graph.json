@@ -269,8 +269,8 @@
     {
       "id": "ta[REDACTED]",
       "kind": "task",
-      "label": "Memory Graph 2 — upgrade 2D Canvas to true 3D WebGL force graph (3d-force-graph + Three.js)",
-      "summary": "Kanban task MC-MEMORY-GRAPH-2 → done",
+      "label": "Add Memory Graph tab to sidebar in mission-control.html and kanban.html",
+      "summary": "Kanban task MC-MEMORY-GRAPH-2B-SIDEBAR-FIX → done",
       "importance": 0.7,
       "confidence": 0.9,
       "status": "done",
@@ -278,9 +278,9 @@
         "kanban",
         "task"
       ],
-      "updated": "2026-06-17T13:27:56.125887+00:00",
+      "updated": "2026-06-17T15:14:25.896938+00:00",
       "project": "mission-control",
-      "created": "2026-06-17T13:27:56.125887+00:00"
+      "created": "2026-06-17T15:14:25.896938+00:00"
     }
   ],
   "edges": [
@@ -490,9 +490,9 @@
       "target": "status-done",
       "kind": "kanban_status",
       "weight": 0.6,
-      "updated": "2026-06-17T13:27:56.131173+00:00",
-      "created": "2026-06-17T13:27:56.131173+00:00"
+      "updated": "2026-06-17T15:14:25.901900+00:00",
+      "created": "2026-06-17T15:14:25.901900+00:00"
     }
   ],
-  "last_updated": "2026-06-17T13:27:56.131195+00:00"
+  "last_updated": "2026-06-17T15:14:25.901919+00:00"
 }
