@@ -4,10 +4,11 @@ assigned_to: forge
 title: Memory Graph 3B — fix canvas reset every 5s + node selection + responsive + clean inspector
 type: bugfix
 priority: high
-status: in_progress
-kanban_status: running_now
+status: complete
+kanban_status: done
 assignee: forge
-argus_passed: false
+argus_passed: true
+completed: 2026-06-17T19:45:00+04:00
 created: 2026-06-17T19:30:00+04:00
 created_by: thor
 approval_required: false
