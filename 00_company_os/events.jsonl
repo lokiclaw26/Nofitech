@@ -506,3 +506,7 @@
 {"ts":"2026-06-17T23:04:52+04:00","event_type":"auto_process_moved_to_ready","actor":"cron","project":"mission-control","task_id":"MC-KANBAN-CREATE-20260617190311-06887A","note":"assignee=forge format=A"}
 {"ts":"2026-06-17T23:04:52+04:00","event_type":"auto_process_completed","actor":"cron","project":"mission-control","task_id":"MC-KANBAN-CREATE-20260617190311-06887A","note":"moved to ready, assignee=forge"}
 {"ts": "2026-06-17T23:27:43.083322+04:00", "event_type": "task_completed", "actor": "thor", "project": "mission-control", "task_id": "RG-008-RESTART", "note": "Sub-agent completed task"}
+{"ts":"2026-06-17T23:28:52+04:00","event_type":"auto_process_started","actor":"cron","project":"mission-control","task_id":"MC-KANBAN-CREATE-20260617192729-EA1845"}
+{"ts": "2026-06-17T23:28:52.664929+04:00", "event_type": "state_changed", "actor": "cron", "project": "mission-control", "task_id": "MC-KANBAN-CREATE-20260617192729-EA1845", "note": "State changed to ready"}
+{"ts":"2026-06-17T23:28:52+04:00","event_type":"auto_process_moved_to_ready","actor":"cron","project":"mission-control","task_id":"MC-KANBAN-CREATE-20260617192729-EA1845","note":"assignee=forge format=A"}
+{"ts":"2026-06-17T23:28:52+04:00","event_type":"auto_process_completed","actor":"cron","project":"mission-control","task_id":"MC-KANBAN-CREATE-20260617192729-EA1845","note":"moved to ready, assignee=forge"}

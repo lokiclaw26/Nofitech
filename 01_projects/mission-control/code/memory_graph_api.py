@@ -2,7 +2,13 @@
 """
 memory_graph_api.py — HTTP endpoint handlers for the Memory Graph.
 
-MC-MEMORY-GRAPH-3A-BACKEND (2026-06-17). Stdlib-only.
+MC-MEMORY-GRAPH-3A-BACKEND (2026-06-17) — original version.
+MC-MEMORY-GRAPH-4-GLOBAL  (2026-06-17) — read path now hits the global
+                                        store at 00_company_os/memory/.
+                                        New query params: scope, project,
+                                        agent, kind, since, until,
+                                        importance. Response shape is
+                                        preserved (backwards-compatible).
 
 Each handler is a small function that takes a BaseHTTPRequestHandler and
 returns a (status_code, payload_dict) tuple. The HTTP layer in
@@ -12,11 +18,19 @@ runs before any write.
 from __future__ import annotations
 
 import json
+import logging
 import urllib.parse
 from typing import Any
 
 from security import is_authorized, auth_required_error, redact_secrets
-from memory_graph_store import get_store
+from memory_graph_store import get_store  # legacy (kanban-bridge)
+from memory_graph_global import (
+    init_global_store,
+    get_global_store,
+    load_scoped_from_request,
+)
+
+log = logging.getLogger("mc.mg_api")
 
 
 # Body limits (per spec). Keep tight; events should be small JSON objects.
@@ -42,11 +56,26 @@ def _read_json_body(handler, max_bytes: int) -> tuple[dict | list | None, str | 
 
 
 def get_graph(handler) -> tuple[int, dict]:
-    """GET /api/memory-graph — return the full graph."""
-    store = get_store()
-    # Cheap repair: ensure dangling edges have placeholders.
-    store.repair_graph()
-    g = store.load_graph()
+    """GET /api/memory-graph — return the (scoped) graph.
+
+    Query params (all optional):
+      scope      = all | project | agent | kind | session   (default: all)
+      project    = <id>  (used when scope=project)
+      agent      = <name> (used when scope=agent)
+      kind       = <kind> or comma-separated list (used when scope=kind or as a filter)
+      since      = ISO timestamp (created/updated >= since)
+      until      = ISO timestamp (created/updated <= until)
+      importance = float 0..1 (min importance floor)
+
+    Response shape (backwards-compatible):
+      {nodes, edges, metadata, last_updated, node_count, edge_count}
+    """
+    # Ensure the global store is initialised (idempotent).
+    try:
+        get_global_store()
+    except RuntimeError:
+        init_global_store()
+    g = load_scoped_from_request(handler.path)
     return 200, {
         "nodes": g.get("nodes", []),
         "edges": g.get("edges", []),
@@ -62,6 +91,11 @@ def post_events(handler) -> tuple[int, dict]:
 
     Requires auth (per MC-MEMORY-GRAPH-3A-BACKEND §1).
     Body is redacted before ingestion.
+
+    MC-MEMORY-GRAPH-4-GLOBAL: events are written to BOTH the global
+    store (canonical) and the legacy store (kanban-bridge compatibility).
+    The legacy store is the one wired into the kanban service; we keep
+    the dual write minimal so behaviour for kanban_service is unchanged.
     """
     if not is_authorized(handler):
         return 403, auth_required_error()
@@ -73,7 +107,17 @@ def post_events(handler) -> tuple[int, dict]:
     if not events:
         return 400, {"error": "no events in payload"}
 
-    store = get_store()
+    # Legacy store (kanban-bridge compatibility) — preserved unchanged.
+    try:
+        store = get_store()
+    except RuntimeError:
+        store = None
+    # Global store (canonical).
+    try:
+        global_store = get_global_store()
+    except RuntimeError:
+        global_store = init_global_store()
+
     results: list[dict] = []
     all_ok = True
     for ev in events:
@@ -83,14 +127,43 @@ def post_events(handler) -> tuple[int, dict]:
             continue
         # Redact FIRST, then ingest. Persisted data is always safe.
         redacted = redact_secrets(ev)
+        # Legacy ingest (unchanged for kanban).
+        legacy_ok = True
+        legacy_err = None
+        if store is not None:
+            try:
+                r = store.ingest_event(redacted)
+                if not r.get("ok"):
+                    legacy_ok = False
+                    legacy_err = r
+            except ValueError as e:
+                legacy_ok = False
+                legacy_err = str(e)
+        # Global ingest: write event into events table + mirror as node.
         try:
-            r = store.ingest_event(redacted)
-        except ValueError as e:
+            etype = (redacted.get("type") or "log")
+            global_store.append_event(
+                event_type=etype,
+                actor=redacted.get("actor"),
+                task_id=redacted.get("task_id"),
+                project=redacted.get("project"),
+                agent=redacted.get("actor") or redacted.get("agent"),
+                source=redacted.get("source"),
+                payload=redacted,
+            )
+        except Exception as e:
             all_ok = False
-            results.append({"ok": False, "error": str(e), "type": ev.get("type")})
+            results.append({"ok": False, "error": f"global store: {e}",
+                            "type": redacted.get("type")})
             continue
-        results.append(r)
-        if not r.get("ok"):
+        results.append({
+            "ok": legacy_ok,
+            "legacy": legacy_ok,
+            "global": True,
+            "legacy_error": legacy_err,
+            "type": redacted.get("type"),
+        })
+        if not legacy_ok:
             all_ok = False
     return (200 if all_ok else 400), {
         "ok": all_ok,
@@ -100,7 +173,12 @@ def post_events(handler) -> tuple[int, dict]:
 
 
 def post_reset(handler) -> tuple[int, dict]:
-    """POST /api/memory-graph/reset — admin reset; requires auth."""
+    """POST /api/memory-graph/reset — admin reset; requires auth.
+
+    Resets BOTH the legacy (kanban-bridge) and global stores. The global
+    store is reseeded from the legacy store's last data on the next
+    request (via the bootstrap path).
+    """
     if not is_authorized(handler):
         return 403, auth_required_error()
     # Body may be empty. Read for shape-validation only.
@@ -115,6 +193,13 @@ def post_reset(handler) -> tuple[int, dict]:
 
     store = get_store()
     g = store.reset()
+    # Also wipe the global store. It will re-seed from legacy on next open
+    # (see GlobalMemoryGraphStore._maybe_bootstrap_from_legacy).
+    try:
+        global_store = get_global_store()
+    except RuntimeError:
+        global_store = init_global_store()
+    global_store.reset()
     return 200, {
         "ok": True,
         "reset_at": g.get("last_updated"),
@@ -132,7 +217,12 @@ def get_events_recent(handler) -> tuple[int, dict]:
     except (TypeError, ValueError):
         n = 20
     n = max(1, min(n, 200))
-    store = get_store()
+    try:
+        store = get_store()
+    except RuntimeError:
+        store = None
+    if store is None:
+        return 200, {"events": [], "count": n}
     return 200, {"events": store.recent_events(n), "count": n}
 
 
@@ -156,11 +246,14 @@ def emit_kanban_memory_event(task_id: str, new_status: str,
 
     Called by kanban_service when a task's kanban_status changes. If the
     memory store is not initialised or anything fails, swallow silently —
-    the memory graph must never break a kanban op.
+
+    MC-MEMORY-GRAPH-4-GLOBAL: also write to the global store so the
+    kanban event is visible in the full Hermes graph. Failures are
+    swallowed silently — kanban must never break on a memory hiccup.
     """
     try:
         store = get_store()
-        nid = f"task-{task_id}"
+        nid = f"task:{task_id}"
         node = {
             "id": nid,
             "kind": "task",
@@ -177,5 +270,37 @@ def emit_kanban_memory_event(task_id: str, new_status: str,
             node["project"] = project
         store.ingest_event({"type": "node.upsert", "node": node,
                             "task_id": task_id, "actor": "kanban-bridge"})
+    except Exception:
+        pass
+    # Also write to the global store.
+    try:
+        global_store = get_global_store()
+    except RuntimeError:
+        try:
+            global_store = init_global_store()
+        except Exception:
+            return
+    try:
+        global_store.upsert_node({
+            "id": f"task:{task_id}",
+            "kind": "task",
+            "label": label or task_id,
+            "summary": f"Kanban task {task_id} → {new_status}",
+            "importance": 0.7,
+            "confidence": 0.9,
+            "status": str(new_status or "active"),
+            "tags": ["kanban", "task"],
+            "source": "kanban-bridge-global",
+            "project": project,
+        })
+        global_store.append_event(
+            event_type="kanban.status_change",
+            actor="kanban-bridge",
+            task_id=task_id,
+            project=project,
+            agent="kanban-bridge",
+            source="kanban_service",
+            payload={"new_status": str(new_status), "label": label},
+        )
     except Exception:
         pass

@@ -1699,12 +1699,33 @@ from security import redact_secrets, is_authorized, auth_required_error  # noqa:
 import memory_graph_store as _mg_store  # noqa: E402
 import memory_graph_api as _mg_api  # noqa: E402
 from memory_graph_store import init_store as _mg_init_store  # noqa: E402
+# MC-MEMORY-GRAPH-4-GLOBAL: global memory graph store + importer.
+from memory_graph_global import init_global_store  # noqa: E402
+from memory_graph_import import MemoryGraphImporter  # noqa: E402
 
 # Backwards-compat alias: kanban_service still calls this name.
 emit_kanban_memory_event = _mg_api.emit_kanban_memory_event
 
 # On import, open the SQLite store (and migrate from JSON if needed).
 _mg_init_store(MG_DATA_DIR)
+
+# MC-MEMORY-GRAPH-4-GLOBAL: open the GLOBAL store at the canonical
+# company path and run an incremental import on startup. We never
+# fail the boot on import errors — the legacy MC store is still
+# there as a fallback.
+try:
+    init_global_store()
+    try:
+        _imp = MemoryGraphImporter()
+        _imp_stats = _imp.incremental()
+        print(f"[mc] global memory graph import: { _imp_stats.get('nodes_upserted', 0) } nodes, "
+              f"{ _imp_stats.get('edges_upserted', 0) } edges "
+              f"({ _imp_stats.get('files_ingested', 0) } files ingested)",
+              flush=True)
+    except Exception as _e_imp:
+        print(f"[mc] global memory graph import skipped: { _e_imp }", flush=True)
+except Exception as _e_glob:
+    print(f"[mc] global memory store init failed: { _e_glob }", flush=True)
 
 # ---------- HTTP ----------
 

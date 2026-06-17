@@ -41,3 +41,12 @@ test_*.tmp
 *.swo
 .vscode/
 .idea/
+
+# Memory graph runtime (regenerable from importer)
+00_company_os/memory/*.sqlite3
+00_company_os/memory/*.sqlite3-wal
+00_company_os/memory/*.sqlite3-shm
+01_projects/mission-control/data/memory-graph.sqlite3
+01_projects/mission-control/data/memory-graph.sqlite3-wal
+01_projects/mission-control/data/memory-graph.sqlite3-shm
+mg-*/

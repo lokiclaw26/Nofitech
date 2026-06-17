@@ -62,6 +62,18 @@
   footer .metric strong { color: #d4af37; }
   footer .metric .total { color: #555; }
   .empty { color: #555; font-style: italic; font-size: 12px; }
+  /* MC-MEMORY-GRAPH-4-GLOBAL (2026-06-17): scope banner. */
+  .scope-banner { padding: 8px 20px; background: #1a1a0a; border-bottom: 1px solid #2a2a2a; color: #d4af37; font-size: 12px; letter-spacing: 0.5px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .scope-banner .scope-label { font-weight: 600; }
+  .scope-banner .scope-stats { color: #888; font-family: monospace; font-size: 11px; }
+  .scope-banner.scope-mission-control { background: #0f1a1a; color: #4a9eff; }
+  .scope-banner.scope-project { background: #0f1a0f; color: #2ecc71; }
+  .scope-banner.scope-agent { background: #1a0f1a; color: #9b59b6; }
+  .scope-banner.scope-kind { background: #1a140a; color: #ff9f43; }
+  .scope-banner.scope-session { background: #1a0f0f; color: #e74c3c; }
+  .controls select { width: 100%; padding: 6px 8px; background: #0a0a0a; border: 1px solid #2a2a2a; color: #e0e0e0; border-radius: 3px; font-size: 12px; margin-bottom: 8px; }
+  .controls .filter-row { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; font-size: 12px; }
+  .controls .filter-row label { display: block; font-size: 11px; color: #888; margin-bottom: 2px; }
 
   /* Responsive: tablet and below — collapse sidebar to top bar */
   @media (max-width: 900px) {
@@ -100,8 +112,50 @@
         <button class="hamburger" id="hamburger" aria-label="Toggle panels">☰</button>
       </div>
     </header>
+    <!-- MC-MEMORY-GRAPH-4-GLOBAL (2026-06-17): scope banner. -->
+    <div class="scope-banner scope-all" id="scope-banner">
+      <span class="scope-label">Full Hermes Memory</span>
+      <span class="scope-stats" id="scope-stats">—</span>
+    </div>
     <div class="layout">
       <aside class="controls">
+        <!-- MC-MEMORY-GRAPH-4-GLOBAL (2026-06-17): scope selector + filters. -->
+        <h3>Scope</h3>
+        <select id="scope">
+          <option value="all" selected>Full Hermes Memory</option>
+          <option value="mission-control">Mission Control (project)</option>
+          <option value="project">Project…</option>
+          <option value="agent">Agent…</option>
+          <option value="kind">Kind…</option>
+          <option value="session">Recent Session (24h)</option>
+        </select>
+        <div class="filter-row">
+          <div style="flex:1">
+            <label>Project</label>
+            <select id="filter-project">
+              <option value="">—</option>
+            </select>
+          </div>
+          <div style="flex:1">
+            <label>Agent</label>
+            <select id="filter-agent">
+              <option value="">—</option>
+              <option value="thor">thor</option>
+              <option value="forge">forge</option>
+              <option value="argus">argus</option>
+            </select>
+          </div>
+        </div>
+        <div class="filter-row">
+          <div style="flex:1">
+            <label>Since (ISO)</label>
+            <input type="text" id="filter-since" placeholder="2026-06-01T00:00:00" />
+          </div>
+          <div style="flex:1">
+            <label>Until (ISO)</label>
+            <input type="text" id="filter-until" placeholder="" />
+          </div>
+        </div>
         <h3>Search</h3>
         <input type="text" id="search" placeholder="Filter by id / label / summary..." />
         <fieldset>
@@ -428,9 +482,69 @@
       }
     }
 
+    // MC-MEMORY-GRAPH-4-GLOBAL (2026-06-17): scope/filter state.
+    const SCOPE_LABELS = {
+      'all': 'Full Hermes Memory',
+      'mission-control': 'Mission Control Memory',
+      'project': 'Project Memory',
+      'agent': 'Agent Memory',
+      'kind': 'Filter by Kind',
+      'session': 'Recent Session (24h)',
+    };
+    const SCOPE_CLASSES = {
+      'all': 'scope-all',
+      'mission-control': 'scope-mission-control',
+      'project': 'scope-project',
+      'agent': 'scope-agent',
+      'kind': 'scope-kind',
+      'session': 'scope-session',
+    };
+    function getScopeParams() {
+      const scopeEl = document.getElementById('scope');
+      const raw = scopeEl ? scopeEl.value : 'all';
+      const params = new URLSearchParams();
+      // "mission-control" is a convenience for scope=project&project=mission-control.
+      const scope = (raw === 'mission-control') ? 'project' : raw;
+      params.set('scope', scope || 'all');
+      const projectEl = document.getElementById('filter-project');
+      const projectVal = projectEl ? projectEl.value : '';
+      if (raw === 'mission-control') {
+        params.set('project', 'mission-control');
+      } else if (projectVal) {
+        params.set('project', projectVal);
+      }
+      const agentEl = document.getElementById('filter-agent');
+      const agentVal = agentEl ? agentEl.value : '';
+      if (agentVal) params.set('agent', agentVal);
+      const sinceEl = document.getElementById('filter-since');
+      const untilEl = document.getElementById('filter-until');
+      const sinceVal = sinceEl ? sinceEl.value.trim() : '';
+      const untilVal = untilEl ? untilEl.value.trim() : '';
+      if (sinceVal) params.set('since', sinceVal);
+      if (untilVal) params.set('until', untilVal);
+      return { raw, params };
+    }
+    function updateScopeBanner(rawScope, data) {
+      const banner = document.getElementById('scope-banner');
+      if (!banner) return;
+      const labelEl = banner.querySelector('.scope-label');
+      const statsEl = document.getElementById('scope-stats');
+      const label = SCOPE_LABELS[rawScope] || SCOPE_LABELS['all'];
+      if (labelEl) labelEl.textContent = label;
+      banner.className = 'scope-banner ' + (SCOPE_CLASSES[rawScope] || 'scope-all');
+      if (statsEl && data) {
+        const kind = data.metadata && data.metadata.scope_label ? data.metadata.scope_label : label;
+        const proj = data.metadata && data.metadata.project ? ` project=${data.metadata.project}` : '';
+        const agt = data.metadata && data.metadata.agent ? ` agent=${data.metadata.agent}` : '';
+        statsEl.textContent = `nodes=${data.node_count || 0} edges=${data.edge_count || 0} scope=${rawScope}${proj}${agt}`;
+      }
+    }
+
     async function fetchGraph() {
       try {
-        const resp = await fetch('/api/memory-graph');
+        const { raw, params } = getScopeParams();
+        const url = '/api/memory-graph' + (params.toString() ? '?' + params.toString() : '');
+        const resp = await fetch(url);
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const data = await resp.json();
         rawNodes = data.nodes || [];
@@ -440,6 +554,7 @@
         if (luEl) luEl.textContent = lu;
         document.getElementById('conn-dot').classList.remove('error');
         document.getElementById('conn-text').textContent = 'polling 5s';
+        updateScopeBanner(raw, data);
         applyFilters();
       } catch (err) {
         lastError = err.message;
@@ -447,6 +562,41 @@
         document.getElementById('conn-text').textContent = 'error: ' + err.message;
       }
     }
+    // Populate the project dropdown from the API metadata.
+    async function populateProjectFilter() {
+      try {
+        const resp = await fetch('/api/memory-graph?scope=all');
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const sel = document.getElementById('filter-project');
+        if (!sel) return;
+        // Discover project nodes from the response.
+        const projects = new Set();
+        for (const n of (data.nodes || [])) {
+          if (n.kind === 'project' && n.id && n.id.startsWith('project:')) {
+            projects.add(n.id.slice('project:'.length));
+          }
+        }
+        // Also keep the legacy default options.
+        const known = ['mission-control', 'diy-hub-v1', 'roguelike-v1'];
+        known.forEach(p => projects.add(p));
+        const sorted = Array.from(projects).sort();
+        for (const p of sorted) {
+          const opt = document.createElement('option');
+          opt.value = p; opt.textContent = p;
+          sel.appendChild(opt);
+        }
+      } catch (e) { /* best-effort */ }
+    }
+    // Wire scope + filter change events.
+    document.addEventListener('DOMContentLoaded', () => {
+      populateProjectFilter();
+      ['scope','filter-project','filter-agent','filter-since','filter-until']
+        .forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.addEventListener('change', () => fetchGraph());
+        });
+    });
 
     async function fetchEvents() {
       try {
