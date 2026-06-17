@@ -515,7 +515,7 @@ def build_board(company_root: Path, include_archived: bool = False) -> dict:
         "triage":  {"id": "triage",  "label": "Triage"},
         "todo":    {"id": "todo",    "label": "Todo"},
         "ready":   {"id": "ready",   "label": "Ready"},
-        "running": {"id": "running", "label": "Running"},
+        "running": {"id": "running", "label": "In Progress"},
         "blocked": {"id": "blocked", "label": "Blocked"},
         "done":    {"id": "done",    "label": "Done"},
         "archived":{"id": "archived","label": "Archived"},

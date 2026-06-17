@@ -642,7 +642,7 @@ function smartRenderKanban(d, forceRebuild) {
     if (entry.useLanes) {
       // Ensure each lane div exists. Reuse existing lane divs.
       const lanesByAssignee = new Map();
-      for (const laneEl of colEl.querySelectorAll(":scope > .kanban-lane")) {
+      for (const laneEl of body.querySelectorAll(":scope > .kanban-lane")) {
         lanesByAssignee.set(laneEl.dataset.lane, laneEl);
       }
       for (const laneInfo of entry.lanes) {
