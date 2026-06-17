@@ -305,6 +305,18 @@
       "updated": "2026-06-17T12:33:21.251906+00:00",
       "project": "mission-control",
       "created": "2026-06-17T12:33:21.251906+00:00"
+    },
+    {
+      "id": "test-cli-helper",
+      "kind": "concept",
+      "label": "CLI helper test",
+      "summary": "Verified memory-graph-emit.sh works",
+      "importance": 0.5,
+      "confidence": 0.8,
+      "status": "active",
+      "tags": [],
+      "updated": "2026-06-17T12:34:16.043635+00:00",
+      "created": "2026-06-17T12:34:16.043635+00:00"
     }
   ],
   "edges": [
@@ -518,5 +530,5 @@
       "created": "2026-06-17T12:33:21.256903+00:00"
     }
   ],
-  "last_updated": "2026-06-17T12:33:21.256924+00:00"
+  "last_updated": "2026-06-17T12:34:16.043649+00:00"
 }
