@@ -265,22 +265,6 @@
       ],
       "created": "2026-06-17T08:00:00+04:00",
       "updated": "2026-06-17T16:30:00+04:00"
-    },
-    {
-      "id": "ta[REDACTED]",
-      "kind": "task",
-      "label": "Add Memory Graph tab to sidebar in mission-control.html and kanban.html",
-      "summary": "Kanban task MC-MEMORY-GRAPH-2B-SIDEBAR-FIX → done",
-      "importance": 0.7,
-      "confidence": 0.9,
-      "status": "done",
-      "tags": [
-        "kanban",
-        "task"
-      ],
-      "updated": "2026-06-17T15:14:25.896938+00:00",
-      "project": "mission-control",
-      "created": "2026-06-17T15:14:25.896938+00:00"
     }
   ],
   "edges": [
@@ -483,16 +467,7 @@
       "kind": "contains",
       "weight": 0.5,
       "created": "2026-06-17T08:00:00+04:00"
-    },
-    {
-      "id": "edge-ta[REDACTED]-status-done-kanban_status",
-      "source": "ta[REDACTED]",
-      "target": "status-done",
-      "kind": "kanban_status",
-      "weight": 0.6,
-      "updated": "2026-06-17T15:14:25.901900+00:00",
-      "created": "2026-06-17T15:14:25.901900+00:00"
     }
   ],
-  "last_updated": "2026-06-17T15:14:25.901919+00:00"
+  "last_updated": "2026-06-17T18:07:26.742330+00:00"
 }
