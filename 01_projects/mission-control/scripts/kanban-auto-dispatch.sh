@@ -5,9 +5,12 @@
 # For each task with `kanban_status: ready`:
 #   1. Skip if assignee missing/blank, or .dispatched-<task_id> dotfile is <60s old.
 #   2. Call python ondemand.dispatch() to create a real MC-AUTO-* child task and
-#      PATCH the original task to running_now.
-#   3. Touch the dotfile for dedup.
-#   4. Append one line to 00_company_os/04_agents/logs/auto-dispatch.log.
+#      PATCH the child to running_now.
+#   3. Update the ORIGINAL (parent) task file's frontmatter to
+#      `kanban_status: running_now` so the next scan sees it as no longer ready
+#      (otherwise the cron re-dispatches the same card every minute).
+#   4. Touch the dotfile for dedup.
+#   5. Append one line to 00_company_os/04_agents/logs/auto-dispatch.log.
 #
 # Exit codes:
 #   0 = success (or no tasks to dispatch; same shape so the cron stays quiet on idle)
@@ -164,13 +167,72 @@ PYEOF
     NEW_TASK_ID=$(echo "$RESULT" | python3 -c "import sys, json; print(json.loads(sys.stdin.read()).get('task_id', ''))" 2>/dev/null || echo "")
     DISPATCHED_COUNT=$(( DISPATCHED_COUNT + 1 ))
 
+    # ---- MC-AUTO-DISPATCH-1 patch: update the parent task's frontmatter ----
+    # ondemand.dispatch() creates a NEW MC-AUTO-* child task and patches the
+    # CHILD to running_now, but the PARENT task file on disk still has
+    # kanban_status: ready. Without updating the parent, the NEXT cron run
+    # re-dispatches the same task every minute (and the 60s dotfile dedup is
+    # the only thing stopping a loop). Fix: write kanban_status: running_now
+    # directly into the parent task file's frontmatter so the next scan sees
+    # it as no longer ready. This is the same format the parser reads.
+    python3 - "$task_file" "$ASSIGNEE" "$NEW_TASK_ID" <<'PYEOF' || true
+import re, sys
+path, assignee, child_id = sys.argv[1], sys.argv[2], sys.argv[3]
+try:
+    with open(path) as f:
+        text = f.read()
+except Exception:
+    sys.exit(0)
+# Format A frontmatter: replace or insert kanban_status: running_now
+if text.lstrip().startswith("---"):
+    m = re.match(r"^(---\s*\n)(.*?)(\n---\s*\n)(.*)$", text, re.DOTALL)
+    if m:
+        head, fm, sep, body = m.group(1), m.group(2), m.group(3), m.group(4)
+        if re.search(r"^kanban_status\s*:", fm, flags=re.MULTILINE):
+            fm2 = re.sub(r"^kanban_status\s*:.*$", "kanban_status: running_now", fm, count=1, flags=re.MULTILINE)
+        else:
+            # Insert after status: line if present, else after task_id:, else append
+            if re.search(r"^status\s*:", fm, flags=re.MULTILINE):
+                fm2 = re.sub(r"^(status:.*)$", r"\1\nkanban_status: running_now", fm, count=1, flags=re.MULTILINE)
+            elif re.search(r"^task_id\s*:", fm, flags=re.MULTILINE):
+                fm2 = re.sub(r"^(task_id:.*)$", r"\1\nkanban_status: running_now", fm, count=1, flags=re.MULTILINE)
+            else:
+                fm2 = fm + "\nkanban_status: running_now"
+        text = head + fm2 + sep + body
+# Format B table: replace or insert the kanban_status row
+else:
+    lines = text.splitlines()
+    new_lines = []
+    found = False
+    status_idx = -1
+    for i, line in enumerate(lines):
+        if re.match(r"^\|\s*\*\*kanban_status\*\*\s*\|", line):
+            new_lines.append("| **kanban_status** | running_now |")
+            found = True
+        else:
+            new_lines.append(line)
+        if re.match(r"^\|\s*\*\*status\*\*\s*\|", line):
+            status_idx = len(new_lines) - 1
+    if not found and status_idx >= 0:
+        new_lines.insert(status_idx + 1, "| **kanban_status** | running_now |")
+    text = "\n".join(new_lines) + "\n"
+# Also: record which child task is the active work, in a body note (best-effort,
+# only if the body doesn't already mention the child).
+if child_id and f"## Active work ({child_id})" not in text:
+    note = f"\n## Active work ({child_id})\n\nThis task was auto-dispatched at dispatch time. The actual work is happening in the child task `{child_id}` (assignee `{assignee}`). Re-dispatch is suppressed for 60s via a dotfile; this file's `kanban_status` is `running_now` so subsequent cron runs skip it.\n"
+    # Append at end of body (after frontmatter close for format A, or anywhere for B)
+    text = text.rstrip() + "\n" + note
+with open(path, "w") as f:
+    f.write(text)
+PYEOF
+
     # Touch dotfile for dedup
     touch "$dotfile" 2>/dev/null || true
 
     # Append to log
     echo "$NOW_TS_ISO  $task_id  ->  $NEW_TASK_ID  assignee=$ASSIGNEE priority=$PRIORITY  title='$TITLE'" >> "$LOG_FILE" 2>/dev/null || true
 
-    log "dispatched $task_id → $NEW_TASK_ID"
+    log "dispatched $task_id → $NEW_TASK_ID (parent frontmatter updated to running_now)"
   else
     log "WARN dispatch FAILED for $task_id: $RESULT"
   fi
