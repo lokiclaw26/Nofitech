@@ -1,0 +1,3 @@
+# Forge Log — MC-KANBAN-UNLIMITED-TITLE-1
+
+2026-06-17 11:30 Dubai. Trivial 1-line fix delegated by CEO Thor: removed `maxlength="200"` from the title input at kanban.html line 1153 so NOFI can type unlimited-length task titles. Verification: `grep -c maxlength` on the local file returned 0, and `curl -s http://192.168.0.29:8767/kanban | grep -c maxlength` also returned 0 (no server restart needed; static file served immediately). No other files touched, no events.jsonl/state.json modified, no scope creep — strict 1-line change to `01_projects/mission-control/code/kanban.html` only, committed together with the pre-existing `01_projects/mission-control/tasks/MC-KANBAN-UNLIMITED-TITLE-1.md` task spec and pushed to main.

@@ -1150,7 +1150,7 @@ function toggleCreateForm(colId) {
     submitCreateTask(form, colId);
   });
   form.innerHTML = `
-    <input type="text" name="title" placeholder="Task title…" required maxlength="200" />
+    <input type="text" name="title" placeholder="Task title…" required />
     <div class="form-row">
       <select name="assignee" required>
         <option value="">— assignee —</option>
