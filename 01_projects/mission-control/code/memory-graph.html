@@ -167,6 +167,40 @@
     let currentGraphInitialized = false;
     let resizeDebounce = null;
 
+    // MC-MEMORY-GRAPH-3A (2026-06-17): LAN writes (e.g. /api/memory-graph/reset)
+    // require MC_ADMIN_TOKEN. The browser cannot read the server's env, so the
+    // user pastes the token here (matching the kanban page's flow). The token
+    // is stored in localStorage. All write fetches go through authFetch().
+    const MG_TOKEN_KEY = "mc_admin_token";
+    function getStoredToken() {
+      try { return localStorage.getItem(MG_TOKEN_KEY) || ""; } catch (e) { return ""; }
+    }
+    function setStoredToken(v) {
+      try { if (v) localStorage.setItem(MG_TOKEN_KEY, v); else localStorage.removeItem(MG_TOKEN_KEY); } catch (e) {}
+    }
+    function promptForToken() {
+      const cur = getStoredToken();
+      const v = prompt("Paste MC_ADMIN_TOKEN (the value from start-mc.sh):", cur || "");
+      if (v === null) return;
+      setStoredToken(v.trim());
+      if (v.trim()) alert("Token saved. Write actions will now include X-MC-Admin-Token.");
+      else alert("Token cleared. Write actions will fail until you set one.");
+    }
+    async function authFetch(url, opts) {
+      opts = opts || {};
+      opts.cache = "no-store";
+      opts.headers = Object.assign({}, opts.headers || {});
+      opts.headers["Content-Type"] = opts.headers["Content-Type"] || "application/json";
+      const t = getStoredToken();
+      if (t) opts.headers["X-MC-Admin-Token"] = t;
+      const r = await fetch(url, opts);
+      if (r.status === 401 || r.status === 403) {
+        if (t) { if (confirm(`Server rejected the stored token (HTTP ${r.status}). Re-paste?`)) promptForToken(); }
+        else { promptForToken(); }
+      }
+      return r;
+    }
+
     function getFilters() {
       const kinds = [...document.querySelectorAll('.controls input[type=checkbox]:checked')].map(c => c.value);
       const minImportance = parseFloat(document.getElementById('importance').value);
@@ -514,7 +548,11 @@
     document.getElementById('reset').addEventListener('click', async () => {
       if (!confirm('Reset graph to clean sample data?')) return;
       try {
-        await fetch('/api/memory-graph/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirm: true }) });
+        const r = await authFetch('/api/memory-graph/reset', { method: 'POST', body: JSON.stringify({ confirm: true }) });
+        if (!r.ok) {
+          const j = await r.json().catch(() => ({}));
+          throw new Error(j.error || `HTTP ${r.status}`);
+        }
         await fetchGraph();
         await fetchEvents();
       } catch (err) { alert('Reset failed: ' + err.message); }

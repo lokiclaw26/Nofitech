@@ -160,6 +160,21 @@
   .kanban-page-header .back-link:hover {
     border-color: var(--cyan);
   }
+  .kanban-page-header .token-btn {
+    font-size: 12px; color: var(--text2);
+    padding: 5px 10px;
+    border: 1px solid var(--line); border-radius: 4px;
+    background: var(--panel-2);
+    cursor: pointer;
+  }
+  .kanban-page-header .token-btn.has-token {
+    color: var(--green);
+    border-color: var(--green);
+  }
+  .kanban-page-header .token-btn:hover {
+    border-color: var(--cyan);
+    color: var(--cyan);
+  }
 
   /* ========== MC-KANBAN-1: Kanban tab styles ========== */
   .kanban-summary {
@@ -589,10 +604,13 @@
 
   <div class="kanban-page-header">
     <h1>🗂 Kanban <span style="color:var(--text2);font-weight:400">— Multi-Agent Board</span></h1>
-    <a href="/" class="back-link">← Back to Main</a>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button class="token-btn" id="token-btn" title="Set MC_ADMIN_TOKEN (required for write actions)">🔑 Token</button>
+      <a href="/" class="back-link">← Back to Main</a>
+    </div>
   </div>
 
-  <div class="lan-warning">⚠ <strong>Local/LAN use only.</strong> This dashboard has no authentication in v1. Do not expose to the public internet. Intended for trusted networks (home/lab).</div>
+  <div class="lan-warning">⚠ <strong>Local/LAN use only.</strong> Writes (create/move/assign) require an <code>MC_ADMIN_TOKEN</code>. Click <strong>🔑 Token</strong> above to paste the same token the server is using. <strong>Never expose to the public internet.</strong></div>
 
   <!-- ========== Kanban (extracted from mission-control.html Section 10) ========== -->
   <section id="section-kanban">
@@ -674,6 +692,54 @@ let _kanbanSearch = "";
 let _kanbanPollTimer = null;
 let _kanbanDragTaskId = null;
 let _kanbanOpenCards = new Set();  // task_ids currently expanded
+
+// MC-MEMORY-GRAPH-3A (2026-06-17): LAN writes require MC_ADMIN_TOKEN. The
+// browser cannot read the server's env, so the user pastes the token here
+// and we stash it in localStorage. All write fetches go through authFetch()
+// which adds the X-MC-Admin-Token header automatically. On a 401/403 it
+// offers to open the token prompt again so the user can re-paste.
+const MC_TOKEN_KEY = "mc_admin_token";
+function getStoredToken() {
+  try { return localStorage.getItem(MC_TOKEN_KEY) || ""; } catch (e) { return ""; }
+}
+function setStoredToken(v) {
+  try { if (v) localStorage.setItem(MC_TOKEN_KEY, v); else localStorage.removeItem(MC_TOKEN_KEY); } catch (e) {}
+}
+function updateTokenButton() {
+  const btn = document.getElementById("token-btn");
+  if (!btn) return;
+  if (getStoredToken()) { btn.classList.add("has-token"); btn.textContent = "🔑 Token ✓"; }
+  else { btn.classList.remove("has-token"); btn.textContent = "🔑 Token"; }
+}
+function promptForToken() {
+  const cur = getStoredToken();
+  const v = prompt("Paste MC_ADMIN_TOKEN (the value from start-mc.sh):", cur || "");
+  if (v === null) return;  // user cancelled
+  const trimmed = v.trim();
+  setStoredToken(trimmed);
+  updateTokenButton();
+  if (trimmed) alert("Token saved. Write actions will now include X-MC-Admin-Token.");
+  else alert("Token cleared. Write actions will fail until you set one.");
+}
+async function authFetch(url, opts) {
+  opts = opts || {};
+  opts.cache = "no-store";
+  opts.headers = Object.assign({}, opts.headers || {});
+  opts.headers["Content-Type"] = opts.headers["Content-Type"] || "application/json";
+  const t = getStoredToken();
+  if (t) opts.headers["X-MC-Admin-Token"] = t;
+  const r = await fetch(url, opts);
+  if ((r.status === 401 || r.status === 403) && t) {
+    // Token set but rejected — could be stale. Ask user to re-paste.
+    if (confirm(`Server rejected the stored token (HTTP ${r.status}). Re-paste a new one?`)) {
+      promptForToken();
+    }
+  } else if ((r.status === 401 || r.status === 403) && !t) {
+    // No token at all. Auto-prompt.
+    promptForToken();
+  }
+  return r;
+}
 
 // MC-KANBAN-BUGFIX-2 (2026-06-16): smart-diff polling.
 // Tracks every card DOM node we've rendered, keyed by task_id. The polling
@@ -1233,11 +1299,9 @@ function renderKanbanCard(t, agentById) {
 async function moveCardTo(taskId, newStatus) {
   // Optimistic UI: re-render will happen after the PATCH resolves (5s poll or now)
   try {
-    const r = await fetch(`/api/data/kanban/task/${encodeURIComponent(taskId)}`, {
+    const r = await authFetch(`/api/data/kanban/task/${encodeURIComponent(taskId)}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: newStatus }),
-      cache: "no-store",
     });
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
@@ -1261,11 +1325,9 @@ async function moveCardTo(taskId, newStatus) {
 // reflects the truth.
 async function assignTask(taskId, agent) {
   try {
-    const r = await fetch(`/api/data/kanban/task/${encodeURIComponent(taskId)}/assign`, {
+    const r = await authFetch(`/api/data/kanban/task/${encodeURIComponent(taskId)}/assign`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ assignee: agent }),
-      cache: "no-store",
     });
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
@@ -1346,11 +1408,9 @@ async function submitCreateTask(form, colId) {
   // Inline create always lands in the triage column, regardless of which
   // column the + button was clicked in (per spec: status: triage)
   try {
-    const r = await fetch("/api/data/kanban/task", {
+    const r = await authFetch("/api/data/kanban/task", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title, assignee, priority }),
-      cache: "no-store",
     });
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
@@ -1392,6 +1452,9 @@ function stopKanbanPolling() {
     _kanbanLanesByProfile = !!e.target.checked;
     if (_kanbanState) renderKanban(_kanbanState);
   });
+  const tokenBtn = document.getElementById("token-btn");
+  if (tokenBtn) tokenBtn.addEventListener("click", promptForToken);
+  updateTokenButton();
 })();
 
 // Initial board fetch + 5s polling

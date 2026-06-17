@@ -518,7 +518,10 @@
     <a href="/kanban" class="nav-tab">🗂 Kanban</a>
     <a href="/memory-graph" class="nav-tab">🧠 Memory Graph</a>
   </nav>
-  <div class="sidebar-footer">v1.17.0+memory</div>
+  <div class="sidebar-footer">
+    v1.17.0+memory<br>
+    <button class="token-btn" id="token-btn" style="margin-top:6px;width:100%;font-size:11px;padding:4px;background:transparent;color:var(--text2);border:1px solid var(--line);border-radius:3px;cursor:pointer;" title="Set MC_ADMIN_TOKEN (required for write actions)">🔑 Token</button>
+  </div>
 </aside>
 <main class="main-content">
 
@@ -638,6 +641,41 @@ const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "—").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 const dashOr = (v, reason) => v === null || v === undefined || v === "" ? `<span class="muted" title="${esc(reason || 'no source')}">—</span>` : esc(v);
 const badge = (label, cls) => `<span class="badge ${cls || 'gray'}">${esc(label)}</span>`;
+
+// MC-MEMORY-GRAPH-3A (2026-06-17): LAN writes (e.g. POST /api/data/order) need
+// MC_ADMIN_TOKEN. The browser can't read the server env, so the user pastes the
+// token here and we persist it in localStorage. All write fetches go through
+// authFetch() which auto-includes X-MC-Admin-Token. On 401/403 it offers a
+// re-paste prompt. This matches the kanban/memory-graph pages.
+const MC_TOKEN_KEY = "mc_admin_token";
+function getStoredToken() {
+  try { return localStorage.getItem(MC_TOKEN_KEY) || ""; } catch (e) { return ""; }
+}
+function setStoredToken(v) {
+  try { if (v) localStorage.setItem(MC_TOKEN_KEY, v); else localStorage.removeItem(MC_TOKEN_KEY); } catch (e) {}
+}
+function promptForToken() {
+  const cur = getStoredToken();
+  const v = prompt("Paste MC_ADMIN_TOKEN (the value from start-mc.sh):", cur || "");
+  if (v === null) return;
+  setStoredToken(v.trim());
+  if (v.trim()) alert("Token saved. Write actions will now include X-MC-Admin-Token.");
+  else alert("Token cleared. Write actions will fail until you set one.");
+}
+async function authFetch(url, opts) {
+  opts = opts || {};
+  opts.cache = "no-store";
+  opts.headers = Object.assign({}, opts.headers || {});
+  opts.headers["Content-Type"] = opts.headers["Content-Type"] || "application/json";
+  const t = getStoredToken();
+  if (t) opts.headers["X-MC-Admin-Token"] = t;
+  const r = await fetch(url, opts);
+  if (r.status === 401 || r.status === 403) {
+    if (t) { if (confirm(`Server rejected the stored token (HTTP ${r.status}). Re-paste?`)) promptForToken(); }
+    else { promptForToken(); }
+  }
+  return r;
+}
 
 async function fetchJSON(url) {
   const r = await fetch(url, { cache: "no-store" });
@@ -1288,11 +1326,9 @@ async function sendFixOrder(btn) {
   btn.disabled = true;
   btn.textContent = "Sending…";
   try {
-    const r = await fetch("/api/data/order", {
+    const r = await authFetch("/api/data/order", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      cache: "no-store",
     });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const j = await r.json().catch(() => ({}));
@@ -1486,6 +1522,18 @@ async function loadAll() {
 
 // 10. Kanban — Multi-Agent Board removed in MC-KANBAN-MOVE-1 (2026-06-16).
 // See kanban.html for the standalone page; this file now only renders the main view.
+
+// Wire up the Token button on the main page
+(function wireTokenBtn() {
+  const btn = document.getElementById("token-btn");
+  if (!btn) return;
+  function update() {
+    if (getStoredToken()) { btn.textContent = "🔑 Token ✓"; btn.style.color = "var(--green)"; btn.style.borderColor = "var(--green)"; }
+    else { btn.textContent = "🔑 Token"; btn.style.color = "var(--text2)"; btn.style.borderColor = "var(--line)"; }
+  }
+  btn.addEventListener("click", () => { promptForToken(); update(); });
+  update();
+})();
 
 loadAll();
 </script>
