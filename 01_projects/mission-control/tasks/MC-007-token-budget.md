@@ -12,6 +12,7 @@ evidence: see 00_company_os/token-budget-mode.md
 blockers: ""
 argus_result: pending
 data_source: local-demo
+kanban_status: triage
 ---
 
 Token Budget Mode active. 19 rules locked in token-budget-mode.md.

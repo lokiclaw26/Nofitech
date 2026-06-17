@@ -12,6 +12,7 @@ evidence: pending — this task
 blockers: ""
 argus_result: pending
 data_source: local-demo
+kanban_status: running
 ---
 
 Stage 6 — Tasks panel with Blocked Reason column.
