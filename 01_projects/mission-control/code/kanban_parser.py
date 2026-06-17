@@ -271,6 +271,28 @@ def _normalize_assignee(raw) -> str | None:
     return None
 
 
+def _pick_assignee(*candidates) -> str | None:
+    """MC-PARSER-AGENT-FIELD-1 (2026-06-17): try each candidate in order
+    (highest precedence first) and return the first normalized agent id.
+
+    Candidates are typically frontmatter keys like `("assigned_to", "assignee", "agent")`
+    for Format A or `("owner", "assignee", "agent")` for Format B. A candidate
+    is "present" if its meta value is non-None and non-empty (after str/strip).
+    If none yields a known agent id, returns None (→ card shows "unassigned").
+    """
+    for raw in candidates:
+        if raw is None:
+            continue
+        if isinstance(raw, str) and not raw.strip():
+            continue
+        if isinstance(raw, (list, tuple)) and not raw:
+            continue
+        result = _normalize_assignee(raw)
+        if result is not None:
+            return result
+    return None
+
+
 def _normalize_status(raw: str) -> str:
     return STATUS_MAP.get((raw or "").strip().lower(), "triage")
 
@@ -398,7 +420,14 @@ def _task_from_format_a(tf: Path, company_root: Path) -> dict | None:
         kanban_status = "ready"
     priority = _as_str(meta.get("priority") or "normal").strip().lower()
     created = _as_str(meta.get("created") or meta.get("created_at") or "").strip() or None
-    assignee = _normalize_assignee(meta.get("assigned_to"))
+    # MC-PARSER-AGENT-FIELD-1: precedence assigned_to > assignee > agent
+    # (assigned_to is canonical; assignee is what the wrapper currently writes;
+    # agent is the legacy field used by older task files like MC-007-token-budget).
+    assignee = _pick_assignee(
+        meta.get("assigned_to"),
+        meta.get("assignee"),
+        meta.get("agent"),
+    )
     current_assignment = _as_str(meta.get("current_assignment") or "").strip() or None
     if not current_assignment:
         # fallback: per spec — default to task_id itself
@@ -483,7 +512,19 @@ def _task_from_format_b(tf: Path, company_root: Path) -> dict | None:
     priority = (table.get("priority") or "normal").strip().lower()
     created = (table.get("created_at") or "").strip() or None
     owner_raw = table.get("owner")
-    assignee = _normalize_assignee_freeform(owner_raw)
+    # MC-PARSER-AGENT-FIELD-1: precedence owner > assignee > agent
+    # (owner is the canonical Format B field; assignee/agent are fallbacks
+    # for files that may use the same field names as Format A).
+    assignee = _pick_assignee(
+        owner_raw,
+        table.get("assignee"),
+        table.get("agent"),
+    )
+    if not assignee:
+        # Fall back to the freeform normalizer for owner only (handles
+        # parentheticals like "Thor (after NOFI direct bug report)" that the
+        # raw lookup would miss because the value isn't a clean agent id).
+        assignee = _normalize_assignee_freeform(owner_raw)
     title = (table.get("title") or tf.stem).strip()
     project = (table.get("project") or tf.parent.parent.name).strip()
     extra: dict = {}

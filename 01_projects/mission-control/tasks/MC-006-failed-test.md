@@ -3,6 +3,7 @@ id: MC-006
 title: Firefox headless screenshot test
 project: mission-control
 agent: forge
+assigned_to: forge
 status: failed
 priority: P2
 created: 2026-06-10

@@ -3,6 +3,7 @@ id: MC-005
 title: Connect paid LLM provider
 project: mission-control
 agent: forge
+assigned_to: forge
 status: blocked
 priority: P1
 created: 2026-06-10

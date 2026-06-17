@@ -437,3 +437,58 @@
 {"ts": "2026-06-17T15:34:35.547304+04:00", "event_type": "task_completed", "actor": "thor", "project": "mission-control", "task_id": "MC-TEST-RESULT-1", "note": "Sub-agent completed task"}
 {"ts": "2026-06-17T15:34:35.819973+04:00", "event_type": "state_changed", "actor": "thor", "project": "mission-control", "task_id": "MC-TEST-RESULT-1", "note": "State changed to ready"}
 {"ts": "2026-06-17T15:45:36.696945+04:00", "event_type": "task_completed", "actor": "thor", "project": "mission-control", "task_id": "MC-KANBAN-5-RESULT-POPUP", "note": "Sub-agent completed task"}
+{"ts":"2026-06-17T15:57:57+04:00","event_type":"auto_process_started","actor":"cron","project":"mission-control","task_id":"MC-FAKE-FORGE"}
+{"ts": "2026-06-17T15:57:58.155343+04:00", "event_type": "state_changed", "actor": "cron", "project": "mission-control", "task_id": "MC-FAKE-FORGE", "note": "State changed to ready"}
+{"ts":"2026-06-17T15:57:58+04:00","event_type":"auto_process_moved_to_ready","actor":"cron","project":"mission-control","task_id":"MC-FAKE-FORGE","note":"assignee=forge format=A"}
+{"ts":"2026-06-17T15:57:58+04:00","event_type":"auto_process_completed","actor":"cron","project":"mission-control","task_id":"MC-FAKE-FORGE","note":"moved to ready, assignee=forge"}
+{"ts":"2026-06-17T15:57:58+04:00","event_type":"auto_process_started","actor":"cron","project":"mission-control","task_id":"MC-FAKE-FORMATB"}
+{"ts":"2026-06-17T15:57:58+04:00","event_type":"auto_process_moved_to_ready","actor":"cron","project":"mission-control","task_id":"MC-FAKE-FORMATB","note":"assignee=argus format=B"}
+{"ts":"2026-06-17T15:57:58+04:00","event_type":"auto_process_completed","actor":"cron","project":"mission-control","task_id":"MC-FAKE-FORMATB","note":"moved to ready, assignee=argus"}
+{"ts":"2026-06-17T15:57:58+04:00","event_type":"auto_process_started","actor":"cron","project":"mission-control","task_id":"MC-FAKE-OVERRIDE"}
+{"ts": "2026-06-17T15:57:58.857276+04:00", "event_type": "state_changed", "actor": "cron", "project": "mission-control", "task_id": "MC-FAKE-OVERRIDE", "note": "State changed to ready"}
+{"ts":"2026-06-17T15:57:58+04:00","event_type":"auto_process_moved_to_ready","actor":"cron","project":"mission-control","task_id":"MC-FAKE-OVERRIDE","note":"assignee=forge format=A"}
+{"ts":"2026-06-17T15:57:58+04:00","event_type":"auto_process_completed","actor":"cron","project":"mission-control","task_id":"MC-FAKE-OVERRIDE","note":"moved to ready, assignee=forge"}
+{"ts":"2026-06-17T15:57:58+04:00","event_type":"auto_process_started","actor":"cron","project":"mission-control","task_id":"MC-FAKE-QA"}
+{"ts": "2026-06-17T15:57:59.276342+04:00", "event_type": "state_changed", "actor": "cron", "project": "mission-control", "task_id": "MC-FAKE-QA", "note": "State changed to ready"}
+{"ts":"2026-06-17T15:57:59+04:00","event_type":"auto_process_moved_to_ready","actor":"cron","project":"mission-control","task_id":"MC-FAKE-QA","note":"assignee=argus format=A"}
+{"ts":"2026-06-17T15:57:59+04:00","event_type":"auto_process_completed","actor":"cron","project":"mission-control","task_id":"MC-FAKE-QA","note":"moved to ready, assignee=argus"}
+{"ts":"2026-06-17T15:57:59+04:00","event_type":"auto_process_started","actor":"cron","project":"mission-control","task_id":"MC-FAKE-RESEARCH"}
+{"ts": "2026-06-17T15:57:59.695409+04:00", "event_type": "state_changed", "actor": "cron", "project": "mission-control", "task_id": "MC-FAKE-RESEARCH", "note": "State changed to ready"}
+{"ts":"2026-06-17T15:57:59+04:00","event_type":"auto_process_moved_to_ready","actor":"cron","project":"mission-control","task_id":"MC-FAKE-RESEARCH","note":"assignee=thor format=A"}
+{"ts":"2026-06-17T15:57:59+04:00","event_type":"auto_process_completed","actor":"cron","project":"mission-control","task_id":"MC-FAKE-RESEARCH","note":"moved to ready, assignee=thor"}
+{"ts":"2026-06-17T15:58:38+04:00","event_type":"auto_process_started","actor":"cron","project":"mission-control","task_id":"MC-FAKE-FORMATB"}
+{"ts":"2026-06-17T15:58:38+04:00","event_type":"auto_process_moved_to_ready","actor":"cron","project":"mission-control","task_id":"MC-FAKE-FORMATB","note":"assignee=argus format=B"}
+{"ts":"2026-06-17T15:58:38+04:00","event_type":"auto_process_completed","actor":"cron","project":"mission-control","task_id":"MC-FAKE-FORMATB","note":"moved to ready, assignee=argus"}
+{"ts":"2026-06-17T15:59:15+04:00","event_type":"auto_process_started","actor":"cron","project":"mission-control","task_id":"MC-FAKE-FORGE"}
+{"ts": "2026-06-17T15:59:16.250566+04:00", "event_type": "state_changed", "actor": "cron", "project": "mission-control", "task_id": "MC-FAKE-FORGE", "note": "State changed to ready"}
+{"ts":"2026-06-17T15:59:16+04:00","event_type":"auto_process_moved_to_ready","actor":"cron","project":"mission-control","task_id":"MC-FAKE-FORGE","note":"assignee=forge format=A"}
+{"ts":"2026-06-17T15:59:16+04:00","event_type":"auto_process_completed","actor":"cron","project":"mission-control","task_id":"MC-FAKE-FORGE","note":"moved to ready, assignee=forge"}
+{"ts":"2026-06-17T15:59:16+04:00","event_type":"auto_process_started","actor":"cron","project":"mission-control","task_id":"MC-FAKE-FORMATB"}
+{"ts":"2026-06-17T15:59:16+04:00","event_type":"auto_process_moved_to_ready","actor":"cron","project":"mission-control","task_id":"MC-FAKE-FORMATB","note":"assignee=argus format=B"}
+{"ts":"2026-06-17T15:59:16+04:00","event_type":"auto_process_completed","actor":"cron","project":"mission-control","task_id":"MC-FAKE-FORMATB","note":"moved to ready, assignee=argus"}
+{"ts":"2026-06-17T15:59:16+04:00","event_type":"auto_process_started","actor":"cron","project":"mission-control","task_id":"MC-FAKE-OVERRIDE"}
+{"ts": "2026-06-17T15:59:16.955034+04:00", "event_type": "state_changed", "actor": "cron", "project": "mission-control", "task_id": "MC-FAKE-OVERRIDE", "note": "State changed to ready"}
+{"ts":"2026-06-17T15:59:16+04:00","event_type":"auto_process_moved_to_ready","actor":"cron","project":"mission-control","task_id":"MC-FAKE-OVERRIDE","note":"assignee=forge format=A"}
+{"ts":"2026-06-17T15:59:16+04:00","event_type":"auto_process_completed","actor":"cron","project":"mission-control","task_id":"MC-FAKE-OVERRIDE","note":"moved to ready, assignee=forge"}
+{"ts":"2026-06-17T15:59:17+04:00","event_type":"auto_process_started","actor":"cron","project":"mission-control","task_id":"MC-FAKE-QA"}
+{"ts": "2026-06-17T15:59:17.425102+04:00", "event_type": "state_changed", "actor": "cron", "project": "mission-control", "task_id": "MC-FAKE-QA", "note": "State changed to ready"}
+{"ts":"2026-06-17T15:59:17+04:00","event_type":"auto_process_moved_to_ready","actor":"cron","project":"mission-control","task_id":"MC-FAKE-QA","note":"assignee=argus format=A"}
+{"ts":"2026-06-17T15:59:17+04:00","event_type":"auto_process_completed","actor":"cron","project":"mission-control","task_id":"MC-FAKE-QA","note":"moved to ready, assignee=argus"}
+{"ts":"2026-06-17T15:59:17+04:00","event_type":"auto_process_started","actor":"cron","project":"mission-control","task_id":"MC-FAKE-RESEARCH"}
+{"ts": "2026-06-17T15:59:17.845176+04:00", "event_type": "state_changed", "actor": "cron", "project": "mission-control", "task_id": "MC-FAKE-RESEARCH", "note": "State changed to ready"}
+{"ts":"2026-06-17T15:59:17+04:00","event_type":"auto_process_moved_to_ready","actor":"cron","project":"mission-control","task_id":"MC-FAKE-RESEARCH","note":"assignee=thor format=A"}
+{"ts":"2026-06-17T15:59:17+04:00","event_type":"auto_process_completed","actor":"cron","project":"mission-control","task_id":"MC-FAKE-RESEARCH","note":"moved to ready, assignee=thor"}
+{"ts":"2026-06-17T15:59:42+04:00","event_type":"auto_process_started","actor":"cron","project":"mission-control","task_id":"MC-FAKE-FORMATB"}
+{"ts":"2026-06-17T15:59:42+04:00","event_type":"auto_process_moved_to_ready","actor":"cron","project":"mission-control","task_id":"MC-FAKE-FORMATB","note":"assignee=argus format=B"}
+{"ts":"2026-06-17T15:59:42+04:00","event_type":"auto_process_completed","actor":"cron","project":"mission-control","task_id":"MC-FAKE-FORMATB","note":"moved to ready, assignee=argus"}
+{"ts": "2026-06-17T16:00:14.997676+04:00", "event_type": "state_changed", "actor": "thor", "project": "mission-control", "task_id": "MC-FAKE-FORGE", "note": "State changed to ready"}
+{"ts": "2026-06-17T16:00:15.235037+04:00", "event_type": "state_changed", "actor": "cron", "project": "mission-control", "task_id": "MC-FAKE-FORGE", "note": "State changed to ready"}
+{"ts": "2026-06-17T16:00:15.483424+04:00", "event_type": "state_changed", "actor": "thor", "project": "mission-control", "task_id": "MC-FAKE-FORGE", "note": "State changed to ready"}
+{"ts": "2026-06-17T16:00:15.759645+04:00", "event_type": "state_changed", "actor": "thor", "project": "mission-control", "task_id": "MC-FAKE-FORGE", "note": "State changed to ready"}
+{"ts": "2026-06-17T16:00:16.030604+04:00", "event_type": "task_completed", "actor": "thor", "project": "mission-control", "task_id": "MC-FAKE-FORGE", "note": "Sub-agent completed task"}
+{"ts":"2026-06-17T16:07:34+04:00","event_type":"auto_process_started","actor":"cron","project":"mission-control","task_id":"MC-FAKE-AUTOPROCESS-TEST"}
+{"ts": "2026-06-17T16:07:34.376215+04:00", "event_type": "state_changed", "actor": "cron", "project": "mission-control", "task_id": "MC-FAKE-AUTOPROCESS-TEST", "note": "State changed to ready"}
+{"ts":"2026-06-17T16:07:34+04:00","event_type":"auto_process_moved_to_ready","actor":"cron","project":"mission-control","task_id":"MC-FAKE-AUTOPROCESS-TEST","note":"assignee=thor format=A"}
+{"ts":"2026-06-17T16:07:34+04:00","event_type":"auto_process_completed","actor":"cron","project":"mission-control","task_id":"MC-FAKE-AUTOPROCESS-TEST","note":"moved to ready, assignee=thor"}
+{"ts": "2026-06-17T16:07:52.302287+04:00", "event_type": "task_completed", "actor": "thor", "project": "mission-control", "task_id": "MC-AUTO-PROCESS-2", "note": "Sub-agent completed task"}
+{"ts": "2026-06-17T16:07:53.869891+04:00", "event_type": "task_completed", "actor": "thor", "project": "mission-control", "task_id": "MC-PARSER-AGENT-FIELD-1", "note": "Sub-agent completed task"}

@@ -3,6 +3,7 @@ id: MC-002
 title: Stage 5 — Agents panel
 project: mission-control
 agent: forge
+assigned_to: forge
 status: done
 priority: P0
 created: 2026-06-10

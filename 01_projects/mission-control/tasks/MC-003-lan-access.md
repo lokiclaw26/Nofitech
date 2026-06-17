@@ -3,6 +3,7 @@ id: MC-003
 title: v1.3.0 — Full LAN access
 project: mission-control
 agent: forge
+assigned_to: forge
 status: done
 priority: P0
 created: 2026-06-10
