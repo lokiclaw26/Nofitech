@@ -1,24 +1,24 @@
 {
   "schema": "nofitech-agent-state/v1",
-  "updated": "2026-06-16T21:41:00Z",
+  "updated": "2026-06-17T06:38:32+04:00",
   "agents": {
     "thor": {
-      "last_activity": "2026-06-16T21:41:00Z",
+      "last_activity": "2026-06-17T10:36:00+04:00",
       "status": "supervising",
-      "current_assignment": "MC-KANBAN-BUGFIX-2",
-      "current_task": "MC-KANBAN-BUGFIX-2"
+      "current_assignment": "MC-AUTO-PROCESS-1",
+      "current_task": "MC-AUTO-PROCESS-1"
     },
     "forge": {
-      "last_activity": "2026-06-16T21:41:00Z",
+      "last_activity": "2026-06-17T10:36:00+04:00",
       "status": "in_progress",
-      "current_assignment": "MC-KANBAN-BUGFIX-2",
-      "current_task": "MC-KANBAN-BUGFIX-2"
+      "current_assignment": "MC-AUTO-PROCESS-1",
+      "current_task": "MC-AUTO-PROCESS-1"
     },
     "argus": {
-      "last_activity": "2026-06-16T21:41:00Z",
+      "last_activity": "2026-06-17T10:36:00+04:00",
       "status": "complete",
-      "current_assignment": "MC-KANBAN-BUGFIX-2",
-      "current_task": "MC-KANBAN-BUGFIX-2"
+      "current_assignment": "MC-AUTO-PROCESS-1",
+      "current_task": "MC-AUTO-PROCESS-1"
     }
   },
   "projects": {
