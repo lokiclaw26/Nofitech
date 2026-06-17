@@ -1,24 +1,24 @@
 {
   "schema": "nofitech-agent-state/v1",
-  "updated": "2026-06-17T11:31:00+04:00",
+  "updated": "2026-06-17T12:01:00+04:00",
   "agents": {
     "thor": {
-      "last_activity": "2026-06-17T11:31:00+04:00",
+      "last_activity": "2026-06-17T12:01:00+04:00",
       "status": "supervising",
-      "current_assignment": "MC-KANBAN-RUNNING-NOW-1",
-      "current_task": "MC-KANBAN-RUNNING-NOW-1"
+      "current_assignment": "MC-KANBAN-3-EXPLICIT-RUNNING-STATE",
+      "current_task": "MC-KANBAN-3-EXPLICIT-RUNNING-STATE"
     },
     "forge": {
-      "last_activity": "2026-06-17T11:31:00+04:00",
+      "last_activity": "2026-06-17T12:01:00+04:00",
       "status": "in_progress",
-      "current_assignment": "MC-KANBAN-RUNNING-NOW-1",
-      "current_task": "MC-KANBAN-RUNNING-NOW-1"
+      "current_assignment": "MC-KANBAN-3-EXPLICIT-RUNNING-STATE",
+      "current_task": "MC-KANBAN-3-EXPLICIT-RUNNING-STATE"
     },
     "argus": {
-      "last_activity": "2026-06-17T11:31:00+04:00",
+      "last_activity": "2026-06-17T12:01:00+04:00",
       "status": "complete",
-      "current_assignment": "MC-KANBAN-RUNNING-NOW-1",
-      "current_task": "MC-KANBAN-RUNNING-NOW-1"
+      "current_assignment": "MC-KANBAN-3-EXPLICIT-RUNNING-STATE",
+      "current_task": "MC-KANBAN-3-EXPLICIT-RUNNING-STATE"
     }
   },
   "projects": {
