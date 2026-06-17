@@ -10,7 +10,7 @@ assigned_to: forge
 approval_required: true
 approval_status: approved
 approval_phrase: "NOFI: I WANT EVERYTHING LIVE ... FIX THE FUCKIN CODE"
-kanban_status: running_now
+kanban_status: done
 depends_on: [MC-022-ON-DEMAND-1]
 blocks: [MC-LIVE-DASHBOARD-2]
 tags: [mission-control, live-data, overview, agents, kanban, source-of-truth]

@@ -13,6 +13,7 @@ evidence: firefox --screenshot hung and timed out 3 times during Stage 4 verific
 blockers: "firefox subprocess hangs on this host; replaced with node + jsdom (see memory-log.md entry 004)"
 argus_result: pass
 data_source: local-demo
+kanban_status: done
 ---
 
 Firefox headless approach was abandoned. Replaced with node + jsdom.

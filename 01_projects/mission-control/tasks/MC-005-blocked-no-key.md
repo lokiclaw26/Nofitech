@@ -13,6 +13,7 @@ evidence: key stored in .env (chmod 600) but no integration code yet
 blockers: "Waiting for NOFI approval to spend on paid API calls (per spend authority rule); also need dispatcher runner"
 argus_result: pending
 data_source: local-demo
+kanban_status: done
 ---
 
 Paid provider wiring paused pending NOFI approval.
