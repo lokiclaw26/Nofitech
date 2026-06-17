@@ -130,7 +130,27 @@ but the *process* was broken. This rule fixes the process.
 ## Files
 - `01_projects/mission-control/code/ondemand.py` — dispatch() function
 - `01_projects/mission-control/code/serve.py` — PATCH /api/data/kanban/task/:id
+- `~/.hermes/scripts/kanban-auto-process.sh` — triage → ready (cron 2m)
+- `~/.hermes/scripts/kanban-auto-dispatch.sh` — ready → spawn MC-AUTO-* child (cron 60s)
+- `~/.hermes/scripts/kanban-auto-execute.sh` — running_now → real subagent via `hermes -z` (cron 2m, NEW 2026-06-18)
 - `00_company_os/auto-kanban-rule.md` — this file
+
+## Full pipeline (locked 2026-06-18)
+```
+[card in kanban]
+   ↓ kanban-auto-process.sh (2m)
+[triage → ready]
+   ↓ kanban-auto-dispatch.sh (60s)
+[ready → running_now + MC-AUTO-* child spawned]
+   ↓ kanban-auto-execute.sh (2m)
+[running_now MC-AUTO-* → hermes -z → real subagent]
+   ↓
+[subagent does work, writes log, PATCHes task to done]
+```
+End-to-end: card drop to task done, ~30-60s, zero human input.
+
+NOFI's standing requirement: "if I add a task in kanban will it AUTOMATICALLY run?
+I dont want to come here and tell you to do something which I have added there."
 
 ## Violation consequences
 - Future sessions that violate this rule are wasting NOFI's time.
