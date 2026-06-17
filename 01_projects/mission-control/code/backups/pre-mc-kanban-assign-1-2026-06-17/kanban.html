@@ -1,0 +1,1130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kanban — NofiTech Mission Control v1.15.0</title>
+<!--
+  MC-KANBAN-MOVE-1 (2026-06-16): Extracted from mission-control.html Section 10.
+  Shared theme CSS is duplicated here (keep in sync with mission-control.html).
+  The /api/data/kanban* endpoints and the dual-format parser (kanban_parser.py)
+  are unchanged — only the page split is new.
+-->
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #161b22;
+    --panel-2: #1c232c;
+    --line: #30363d;
+    --line-soft: #21262d;
+    --text: #e6edf3;
+    --text2: #8b949e;
+    --text3: #6e7681;
+    --green: #3fb950;
+    --amber: #d29922;
+    --red:   #f85149;
+    --cyan:  #58a6ff;
+    --pink:  #f778ba;
+    --blue:  #58a6ff;
+    --yellow: #d29922;
+    /* MC-KANBAN-1: per-agent color tokens for the Kanban swimlanes */
+    --thor-color:  #d29922;  /* amber — CEO/Orchestrator */
+    --forge-color: #58a6ff;  /* cyan — Builder/Engineer */
+    --argus-color: #f778ba;  /* pink — QA/Tester */
+    --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  body {
+    /* Sidebar layout (MC-KANBAN-MOVE-1) */
+    margin: 0;
+    display: flex;
+    min-height: 100vh;
+    font-family: var(--font-mono, monospace);
+  }
+  body.detailed .tech-detail { display: inline; }
+  body:not(.detailed) .tech-detail { display: none; }
+
+  /* ---------- Sidebar (MC-KANBAN-MOVE-1) ---------- */
+  .sidebar {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: 180px;
+    background: var(--panel, #1a1a1a);
+    border-right: 1px solid var(--line, #333);
+    padding: 16px 0;
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+  }
+  .sidebar-header {
+    padding: 8px 16px;
+    font-weight: bold;
+    font-size: 16px;
+    border-bottom: 1px solid var(--line, #333);
+    margin-bottom: 12px;
+  }
+  .sidebar nav { flex: 1; }
+  .nav-tab {
+    display: block;
+    padding: 10px 16px;
+    color: var(--text2, #888);
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: all 0.15s;
+  }
+  .nav-tab:hover {
+    background: rgba(255,255,255,0.04);
+    color: var(--text, #eee);
+  }
+  .nav-tab.active {
+    color: var(--text, #eee);
+    background: rgba(255,255,255,0.08);
+    border-left-color: var(--thor-color, #ffd700);
+  }
+  .sidebar-footer {
+    padding: 8px 16px;
+    font-size: 11px;
+    color: var(--text3, #666);
+    border-top: 1px solid var(--line, #333);
+  }
+  .main-content {
+    margin-left: 180px;
+    padding: 20px;
+    flex: 1;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* ---------- LAN warning ---------- */
+  .lan-warning {
+    background: rgba(255, 165, 0, 0.08);
+    border: 1px solid var(--amber);
+    color: var(--amber);
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+    font-size: 12px;
+  }
+  .lan-warning strong { color: var(--amber); }
+
+  /* ---------- Section / panel ---------- */
+  section {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel);
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+  section > h2 {
+    font-size: 12px; font-weight: 600;
+    margin: 0; padding: 10px 14px;
+    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 8px;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--text2);
+  }
+  section > h2 .num { color: var(--text3); font-weight: 400; }
+  section > h2 .hint { color: var(--text3); font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: auto; font-size: 11px; }
+  section .body { padding: 14px; }
+
+  /* ---------- Badges / misc ---------- */
+  .muted { color: var(--text3); }
+  .empty {
+    color: var(--text3); font-style: italic; font-size: 12px;
+    padding: 8px 0;
+  }
+
+  /* Page header (Kanban page only) */
+  .kanban-page-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px; padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .kanban-page-header h1 {
+    font-size: 18px; font-weight: 600; margin: 0;
+    color: var(--text);
+  }
+  .kanban-page-header .back-link {
+    font-size: 12px; color: var(--cyan);
+    text-decoration: none; padding: 5px 10px;
+    border: 1px solid var(--line); border-radius: 4px;
+    background: var(--panel-2);
+  }
+  .kanban-page-header .back-link:hover {
+    border-color: var(--cyan);
+  }
+
+  /* ========== MC-KANBAN-1: Kanban tab styles ========== */
+  .kanban-summary {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px;
+    font-size: 11px; align-items: center;
+  }
+  .kanban-summary .chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 9px; border-radius: 999px;
+    background: var(--panel-2); border: 1px solid var(--line);
+    color: var(--text2); white-space: nowrap;
+  }
+  .kanban-summary .chip.total { color: var(--cyan); border-color: var(--cyan); font-weight: 600; }
+  .kanban-summary .chip.triage  { color: #bc8cff; border-color: #bc8cff; }
+  .kanban-summary .chip.todo    { color: var(--text2); }
+  .kanban-summary .chip.ready   { color: #58a6ff; border-color: #58a6ff; }
+  .kanban-summary .chip.running { color: var(--green); border-color: var(--green); }
+  .kanban-summary .chip.blocked { color: var(--red); border-color: var(--red); }
+  .kanban-summary .chip.done    { color: var(--text3); }
+  .kanban-summary .chip.archived{ color: var(--text3); border-style: dashed; }
+  .kanban-summary .chip.assigned-thor  { color: var(--thor-color);  border-color: var(--thor-color); }
+  .kanban-summary .chip.assigned-forge { color: var(--forge-color); border-color: var(--forge-color); }
+  .kanban-summary .chip.assigned-argus { color: var(--argus-color); border-color: var(--argus-color); }
+
+  .kanban-toolbar {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    padding: 8px 10px; margin-bottom: 12px;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
+  }
+  .kanban-toolbar .search {
+    flex: 1 1 220px; min-width: 180px;
+    background: var(--bg); color: var(--text);
+    border: 1px solid var(--line); border-radius: 4px;
+    padding: 5px 9px; font-size: 12px; outline: none;
+  }
+  .kanban-toolbar .search:focus { border-color: var(--cyan); }
+  .kanban-toolbar label.toggle {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; color: var(--text2); cursor: pointer; user-select: none;
+  }
+  .kanban-toolbar label.toggle input { accent-color: var(--cyan); margin: 0; }
+  .kanban-toolbar .refresh-stamp {
+    font-size: 11px; color: var(--text3); margin-left: auto;
+  }
+
+  .kanban-board {
+    display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden;
+    padding-bottom: 8px; align-items: flex-start;
+  }
+  .kanban-col {
+    flex: 0 0 270px; min-width: 270px; max-height: 70vh;
+    display: flex; flex-direction: column;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
+    overflow: hidden;
+  }
+  .kanban-col.dragover { border-color: var(--cyan); box-shadow: inset 0 0 0 2px var(--cyan); }
+  .kanban-col-header {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 10px; border-bottom: 1px solid var(--line);
+    background: rgba(255,255,255,0.02); font-size: 12px; font-weight: 600;
+    color: var(--text); text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .kanban-col-header .col-label { flex: 1; }
+  .kanban-col-header .col-count {
+    font-size: 11px; color: var(--text2); font-weight: 400;
+    background: var(--bg); padding: 1px 6px; border-radius: 999px;
+    border: 1px solid var(--line);
+  }
+  .kanban-col-header .add-btn {
+    background: var(--bg); border: 1px solid var(--line);
+    color: var(--text2); width: 22px; height: 22px;
+    border-radius: 4px; cursor: pointer; font-size: 14px; line-height: 1;
+    padding: 0; display: flex; align-items: center; justify-content: center;
+  }
+  .kanban-col-header .add-btn:hover { color: var(--green); border-color: var(--green); }
+  .kanban-col-body {
+    flex: 1 1 auto; overflow-y: auto; padding: 6px;
+    min-height: 40px;
+  }
+  .kanban-col-empty {
+    color: var(--text3); font-size: 11px; font-style: italic;
+    text-align: center; padding: 14px 6px;
+  }
+
+  /* Swimlanes inside Running column */
+  .kanban-lane {
+    margin-bottom: 8px; padding-bottom: 6px;
+    border-bottom: 1px dashed var(--line);
+  }
+  .kanban-lane:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .kanban-lane-header {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.04em; color: var(--text2);
+    padding: 4px 6px;
+  }
+  .kanban-lane-header .lane-emoji { font-size: 13px; }
+  .kanban-lane-header .lane-count {
+    margin-left: auto; font-size: 10px; color: var(--text3);
+    background: var(--bg); padding: 1px 6px; border-radius: 999px;
+    border: 1px solid var(--line); font-weight: 400; text-transform: none;
+    letter-spacing: 0;
+  }
+  .kanban-lane.lane-thor  .kanban-lane-header { color: var(--thor-color); }
+  .kanban-lane.lane-forge .kanban-lane-header { color: var(--forge-color); }
+  .kanban-lane.lane-argus .kanban-lane-header { color: var(--argus-color); }
+
+  /* Cards */
+  .kanban-card {
+    background: var(--bg); border: 1px solid var(--line);
+    border-left: 3px solid var(--text3);
+    border-radius: 4px; padding: 7px 9px; margin-bottom: 6px;
+    font-size: 12px; cursor: grab;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .kanban-card:hover { border-color: var(--cyan); }
+  .kanban-card.dragging { opacity: 0.4; }
+  .kanban-card.status-triage  { border-left-color: #bc8cff; }
+  .kanban-card.status-todo    { border-left-color: var(--text3); }
+  .kanban-card.status-ready   { border-left-color: var(--blue); }
+  .kanban-card.status-running { border-left-color: var(--green); }
+  .kanban-card.status-blocked { border-left-color: var(--red); }
+  .kanban-card.status-done    { border-left-color: var(--text3); opacity: 0.75; }
+  .kanban-card.status-archived{ border-left-color: var(--text3); opacity: 0.5; border-style: dashed; }
+  .kanban-card.assignee-thor  { /* uses --thor-color in chip */ }
+  .kanban-card.assignee-forge { /* uses --forge-color in chip */ }
+  .kanban-card.assignee-argus { /* uses --argus-color in chip */ }
+  .kanban-card .card-id {
+    font-family: var(--font-mono); font-size: 10px; color: var(--blue);
+    margin-bottom: 2px; word-break: break-all;
+  }
+  .kanban-card .card-title {
+    font-weight: 600; color: var(--text); margin-bottom: 4px;
+    word-break: break-word; line-height: 1.3;
+  }
+  .kanban-card .card-meta {
+    display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
+    font-size: 10px; color: var(--text3);
+  }
+  .kanban-card .card-meta .ts { font-size: 10px; }
+  .kanban-card .card-priority {
+    display: inline-block; font-size: 10px; font-weight: 600;
+    padding: 1px 5px; border-radius: 3px;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    border: 1px solid var(--line);
+  }
+  .kanban-card .card-priority.priority-high   { color: var(--red); border-color: var(--red); }
+  .kanban-card .card-priority.priority-medium { color: var(--amber); border-color: var(--amber); }
+  .kanban-card .card-priority.priority-low    { color: var(--text3); }
+  .kanban-card .card-priority.priority-normal { color: var(--text2); }
+  .kanban-card .card-priority.priority-p0     { color: var(--red); border-color: var(--red); }
+  .kanban-card .card-priority.priority-p1     { color: var(--amber); border-color: var(--amber); }
+  .kanban-card .card-priority.priority-p2     { color: var(--text2); }
+  .kanban-card .card-assignee {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 10px; padding: 1px 5px; border-radius: 3px;
+    background: var(--panel-2); border: 1px solid var(--line);
+  }
+  .kanban-card .card-assignee.assignee-thor  { color: var(--thor-color);  border-color: var(--thor-color); }
+  .kanban-card .card-assignee.assignee-forge { color: var(--forge-color); border-color: var(--forge-color); }
+  .kanban-card .card-assignee.assignee-argus { color: var(--argus-color); border-color: var(--argus-color); }
+  .kanban-card .card-status-dot {
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--text3); vertical-align: middle;
+  }
+  .kanban-card .card-status-dot.status-triage  { background: #bc8cff; }
+  .kanban-card .card-status-dot.status-running { background: var(--green); }
+  .kanban-card .card-status-dot.status-blocked { background: var(--red); }
+  .kanban-card .card-status-dot.status-done    { background: var(--text3); }
+  .kanban-card .card-status-dot.status-ready   { background: var(--blue); }
+  .kanban-card .card-body {
+    margin-top: 6px; padding-top: 6px;
+    border-top: 1px solid var(--line-soft);
+    font-size: 11px; color: var(--text2); line-height: 1.4;
+    max-height: 240px; overflow-y: auto;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .kanban-card .card-body pre {
+    background: var(--bg); padding: 6px; border-radius: 3px;
+    overflow-x: auto; font-size: 10px; max-width: 100%;
+  }
+
+  /* Inline create form (shown when + is clicked) */
+  .kanban-create-form {
+    display: flex; flex-direction: column; gap: 5px;
+    padding: 7px; margin: 0 0 6px 0;
+    background: var(--bg); border: 1px solid var(--cyan);
+    border-radius: 4px; font-size: 11px;
+  }
+  .kanban-create-form input, .kanban-create-form select {
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 3px;
+    padding: 4px 6px; font-size: 11px; outline: none;
+    font-family: inherit;
+  }
+  .kanban-create-form input:focus, .kanban-create-form select:focus {
+    border-color: var(--cyan);
+  }
+  .kanban-create-form .form-row {
+    display: flex; gap: 4px; align-items: center;
+  }
+  .kanban-create-form .form-row input, .kanban-create-form .form-row select {
+    flex: 1 1 0; min-width: 0;
+  }
+  .kanban-create-form .form-actions {
+    display: flex; gap: 4px; justify-content: flex-end;
+  }
+  .kanban-create-form button {
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 3px;
+    padding: 3px 9px; font-size: 11px; cursor: pointer;
+    font-family: inherit;
+  }
+  .kanban-create-form button.primary { color: var(--green); border-color: var(--green); }
+  .kanban-create-form button.primary:hover { background: var(--green); color: var(--bg); }
+  .kanban-create-form button:hover { color: var(--cyan); border-color: var(--cyan); }
+
+  /* Drop target highlight while dragging */
+  .kanban-card.drag-target { border-color: var(--cyan); }
+  .kanban-col.drag-active { background: rgba(88, 166, 255, 0.04); }
+</style>
+</head>
+<body>
+
+<!-- Sidebar (MC-KANBAN-MOVE-1). Kanban page → Kanban tab is active. -->
+<aside class="sidebar">
+  <div class="sidebar-header">⚡ NofiTech</div>
+  <nav>
+    <a href="/" class="nav-tab">⚡ Main</a>
+    <a href="/kanban" class="nav-tab active">🗂 Kanban</a>
+  </nav>
+  <div class="sidebar-footer">v1.15.0+kanban</div>
+</aside>
+
+<main class="main-content">
+
+  <div class="kanban-page-header">
+    <h1>🗂 Kanban <span style="color:var(--text2);font-weight:400">— Multi-Agent Board</span></h1>
+    <a href="/" class="back-link">← Back to Main</a>
+  </div>
+
+  <div class="lan-warning">⚠ <strong>Local/LAN use only.</strong> This dashboard has no authentication in v1. Do not expose to the public internet. Intended for trusted networks (home/lab).</div>
+
+  <!-- ========== Kanban (extracted from mission-control.html Section 10) ========== -->
+  <section id="section-kanban">
+    <h2><span class="num">10.</span> Kanban <span style="color:var(--text2);font-weight:400">— Multi-Agent Board</span>
+      <span class="hint" id="kanban-hint">loading…</span></h2>
+    <div class="body">
+      <!-- Summary chips: total + per-status + per-assignee -->
+      <div class="kanban-summary" id="kanban-summary"></div>
+      <!-- Toolbar: search + 2 toggles + last-refreshed stamp -->
+      <div class="kanban-toolbar">
+        <input type="text" class="search" id="kanban-search" placeholder="🔍 search by title or task id…" />
+        <label class="toggle" title="Include archived (default hidden)">
+          <input type="checkbox" id="kanban-show-archived" /> show archived
+        </label>
+        <label class="toggle" title="Group the Running column by assignee">
+          <input type="checkbox" id="kanban-lanes-by-profile" checked /> lanes by profile
+        </label>
+        <span class="refresh-stamp" id="kanban-refresh-stamp">last refresh: never</span>
+      </div>
+      <!-- 6-column board (with optional 7th: archived) -->
+      <div class="kanban-board" id="kanban-board"></div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+/* ============================================================
+   Kanban page (MC-KANBAN-MOVE-1, 2026-06-16)
+   Extracted from mission-control.html (was Section 10).
+   Same /api/data/kanban endpoints, same dual-format parser.
+   ============================================================ */
+
+// Shared helpers (copied from mission-control.html)
+const esc = (s) => String(s ?? "—").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+
+async function fetchJSON(url) {
+  const r = await fetch(url, { cache: "no-store" });
+  if (!r.ok) throw new Error(`HTTP ${r.status} on ${url}`);
+  return await r.json();
+}
+
+function relTime(iso) {
+  if (!iso) return "—";
+  try {
+    const t = new Date(iso).getTime();
+    const diff = (Date.now() - t) / 1000;
+    if (diff < 60) return Math.floor(diff) + "s ago";
+    if (diff < 3600) return Math.floor(diff / 60) + "m ago";
+    if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
+    return Math.floor(diff / 86400) + "d ago";
+  } catch { return "—"; }
+}
+
+// ============================================================
+// Kanban — Multi-Agent Board (MC-KANBAN-1, 2026-06-16)
+//
+// Reads /api/data/kanban. Renders 6 columns (triage/todo/ready/running/
+// blocked/done) + optional 7th (archived). The Running column gets 3
+// swimlanes (Thor/Forge/Argus) when the toolbar toggle is ON. Cards are
+// draggable between columns — drop triggers PATCH /api/data/kanban/task/:id.
+// The + button in each column header opens an inline form that POSTs to
+// /api/data/kanban/task. The board polls every 5s (kanban-poll).
+// ============================================================
+
+// MC-KANBAN-BUGFIX-1: suppress browser default drag behavior (was causing page to scroll-to-top when user dragged anything)
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => e.preventDefault());
+let _kanbanCreateFormOpen = false;  // MC-KANBAN-BUGFIX-1: pause 5s polling re-render while inline create form is open
+
+let _kanbanState = null;   // last fetched board dict
+let _kanbanIncludeArchived = false;
+let _kanbanLanesByProfile = true;
+let _kanbanSearch = "";
+let _kanbanPollTimer = null;
+let _kanbanDragTaskId = null;
+let _kanbanOpenCards = new Set();  // task_ids currently expanded
+
+// MC-KANBAN-BUGFIX-2 (2026-06-16): smart-diff polling.
+// Tracks every card DOM node we've rendered, keyed by task_id. The polling
+// tick now only adds/moves/removes cards whose data has changed; cards that
+// are unchanged (same data, same column, same lane) keep their DOM node AND
+// the column body's scrollTop — fixing the 5-second scroll-reset bug.
+let _kanbanCardNodes = new Map();  // task_id -> { cardEl, columnId, laneAssignee, lastData }
+// Stable container of which task_ids are currently rendered, in order. Used
+// only for sanity-checking and the delete-orphans pass.
+let _kanbanRenderedIds = new Set();
+// Set to true by search/lanes toggle to force a full rebuild on next render.
+let _kanbanForceRebuild = true;
+
+async function loadKanban() {
+  try {
+    const url = "/api/data/kanban" + (_kanbanIncludeArchived ? "?include_archived=true" : "");
+    const d = await fetchJSON(url);
+    _kanbanState = d;
+    smartRenderKanban(d, _kanbanForceRebuild);
+    _kanbanForceRebuild = false;  // consume the flag
+    const stamp = document.getElementById("kanban-refresh-stamp");
+    if (stamp) {
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      stamp.textContent = `last refresh: ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    }
+  } catch (e) {
+    const board = document.getElementById("kanban-board");
+    if (board) board.innerHTML = `<div class="empty">⚠ failed to load /api/data/kanban: ${esc(e.message)}</div>`;
+  }
+}
+
+// MC-KANBAN-BUGFIX-2: full re-render path. Used by search/lanes toggles
+// (these change the board structure, so a diff isn't meaningful). Always
+// re-wires event listeners on all cards.
+function renderKanban(d) {
+  _kanbanForceRebuild = true;
+  smartRenderKanban(d, true);
+  _kanbanForceRebuild = false;
+}
+
+function smartRenderKanban(d, forceRebuild) {
+  // ---- Summary chips ----
+  const summary = d.summary || {};
+  const byStatus = summary.by_status || {};
+  const byAssignee = summary.by_assignee || {};
+  const agents = d.agents || [];
+  const agentById = {};
+  for (const a of agents) agentById[a.id] = a;
+
+  const chip = (label, count, cls, title) =>
+    `<span class="chip ${cls || ''}" title="${esc(title || '')}">${esc(label)}: ${count}</span>`;
+
+  const statusChips = [
+    chip("total", summary.visible ?? summary.total ?? 0, "total", "visible tasks"),
+    chip("triage",  byStatus.triage  || 0, "triage"),
+    chip("todo",    byStatus.todo    || 0, "todo"),
+    chip("ready",   byStatus.ready   || 0, "ready"),
+    chip("running", byStatus.running || 0, "running"),
+    chip("blocked", byStatus.blocked || 0, "blocked"),
+    chip("done",    byStatus.done    || 0, "done"),
+  ];
+  if (_kanbanIncludeArchived) statusChips.push(chip("archived", byStatus.archived || 0, "archived"));
+  const assigneeChips = [];
+  for (const a of agents) {
+    assigneeChips.push(chip(
+      `${a.emoji} ${a.name}`,
+      byAssignee[a.id] || 0,
+      `assigned-${a.id}`,
+      `${a.role} — running tasks (when lanes on) or any assignee`
+    ));
+  }
+  const sumEl = document.getElementById("kanban-summary");
+  if (sumEl) sumEl.innerHTML =
+    statusChips.join("") + `<span style="color:var(--line);margin:0 4px">|</span>` + assigneeChips.join("");
+
+  // ---- Board columns ----
+  const board = document.getElementById("kanban-board");
+  if (!board) return;
+  const search = _kanbanSearch.trim().toLowerCase();
+  const columns = d.columns || [];
+
+  // For full rebuild: drop all tracked cards so we re-create from scratch
+  if (forceRebuild) {
+    _kanbanCardNodes.clear();
+    _kanbanRenderedIds.clear();
+  }
+
+  // Pass 1: figure out the set of "new" task_ids + their target column/lane
+  // and the set of (columnId, laneAssignee) → tasks ordering.
+  const newCardData = new Map();  // task_id -> { task, columnId, laneAssignee }
+  const columnBodyByCol = new Map();   // colId -> { body, useLanes, lanes: [{assignee, body}] }
+  for (const col of columns) {
+    const useLanes = (col.id === "running" && _kanbanLanesByProfile && Array.isArray(col.lanes));
+    const entry = { body: null, useLanes, lanes: [] };
+    if (useLanes) {
+      for (const lane of col.lanes) {
+        entry.lanes.push({ assignee: lane.assignee, body: null });
+        for (const t of (lane.tasks || [])) {
+          newCardData.set(t.task_id, { task: t, columnId: col.id, laneAssignee: lane.assignee });
+        }
+      }
+    } else {
+      for (const t of (col.tasks || [])) {
+        newCardData.set(t.task_id, { task: t, columnId: col.id, laneAssignee: null });
+      }
+    }
+    columnBodyByCol.set(col.id, entry);
+  }
+
+  // Pass 2: ensure column shells + body containers exist on the board.
+  // Re-use existing .kanban-col-body nodes (so column body scrollTop survives).
+  // If forceRebuild, throw the board away and start fresh.
+  if (forceRebuild) {
+    board.innerHTML = "";
+  }
+
+  // Track which columns are kept (to drop stale ones)
+  const keepColIds = new Set(columns.map(c => c.id));
+
+  // Remove column shells that no longer exist (e.g. user toggled show-archived off)
+  for (const oldColEl of Array.from(board.children)) {
+    const cid = oldColEl.dataset.colId;
+    if (cid && !keepColIds.has(cid)) {
+      // Detach all cards inside this column from the tracker so they get re-rendered
+      // if the column reappears later.
+      for (const cardEl of oldColEl.querySelectorAll(".kanban-card")) {
+        const tid = cardEl.dataset.taskId;
+        if (tid) {
+          const e = _kanbanCardNodes.get(tid);
+          if (e) _kanbanCardNodes.delete(tid);
+          _kanbanRenderedIds.delete(tid);
+        }
+      }
+      oldColEl.remove();
+    }
+  }
+
+  // Ensure each new column has a shell + body
+  for (const col of columns) {
+    let colEl = document.getElementById(`kanban-col-${col.id}`);
+    if (!colEl) {
+      // Build a fresh column shell
+      const tmp = document.createElement("div");
+      tmp.innerHTML = renderKanbanColumnShell(col);
+      colEl = tmp.firstElementChild;
+      board.appendChild(colEl);
+      wireColumnShell(colEl, col);
+    } else {
+      // Update column header count + label (cheap, non-destructive)
+      const countEl = colEl.querySelector(".col-count");
+      if (countEl) countEl.textContent = col.count ?? 0;
+      const labelEl = colEl.querySelector(".col-label");
+      if (labelEl) labelEl.textContent = col.label || col.id;
+    }
+
+    const entry = columnBodyByCol.get(col.id);
+    const body = colEl.querySelector(".kanban-col-body");
+    entry.body = body;
+
+    if (entry.useLanes) {
+      // Ensure each lane div exists. Reuse existing lane divs.
+      const lanesByAssignee = new Map();
+      for (const laneEl of body.querySelectorAll(":scope > .kanban-lane")) {
+        lanesByAssignee.set(laneEl.dataset.lane, laneEl);
+      }
+      for (const laneInfo of entry.lanes) {
+        let laneEl = lanesByAssignee.get(laneInfo.assignee);
+        if (!laneEl) {
+          // Build a new lane div
+          const tmp = document.createElement("div");
+          tmp.innerHTML = renderKanbanLaneShell({ assignee: laneInfo.assignee });
+          laneEl = tmp.firstElementChild;
+          body.appendChild(laneEl);
+        }
+        laneInfo.body = laneEl;
+        // Update lane count
+        const cnt = laneEl.querySelector(".lane-count");
+        if (cnt) {
+          // find the count for this lane
+          const srcLane = col.lanes.find(l => l.assignee === laneInfo.assignee);
+          if (srcLane) cnt.textContent = srcLane.count ?? 0;
+        }
+      }
+      // Remove orphan lane divs (lane assignee disappeared from data)
+      const wantAssignees = new Set(entry.lanes.map(l => l.assignee));
+      for (const [assignee, laneEl] of lanesByAssignee.entries()) {
+        if (!wantAssignees.has(assignee)) {
+          // Detach cards
+          for (const cardEl of laneEl.querySelectorAll(".kanban-card")) {
+            const tid = cardEl.dataset.taskId;
+            if (tid) {
+              const e = _kanbanCardNodes.get(tid);
+              if (e) _kanbanCardNodes.delete(tid);
+              _kanbanRenderedIds.delete(tid);
+            }
+          }
+          laneEl.remove();
+        }
+      }
+    } else {
+      // Not using lanes — remove any leftover lane divs from prior render
+      for (const laneEl of Array.from(body.querySelectorAll(":scope > .kanban-lane"))) {
+        for (const cardEl of laneEl.querySelectorAll(".kanban-card")) {
+          const tid = cardEl.dataset.taskId;
+          if (tid) {
+            const e = _kanbanCardNodes.get(tid);
+            if (e) _kanbanCardNodes.delete(tid);
+            _kanbanRenderedIds.delete(tid);
+          }
+        }
+        laneEl.remove();
+      }
+    }
+  }
+
+  // Pass 3: diff cards. Drop removed, add new, move changed-column, in-place update changed-data.
+  // ---- Remove cards no longer in new data ----
+  for (const [tid, entry] of Array.from(_kanbanCardNodes.entries())) {
+    if (!newCardData.has(tid)) {
+      entry.cardEl.remove();
+      _kanbanCardNodes.delete(tid);
+      _kanbanRenderedIds.delete(tid);
+    }
+  }
+
+  // ---- Add / move / update cards ----
+  // Build a sequence per (columnId, laneAssignee) to preserve ordering.
+  // The new data gives us ordering via (col.tasks) and (col.lanes[].tasks).
+  // We process in order so appendChild after a move produces the right sequence.
+  const ordered = [];   // list of { task, columnId, laneAssignee }
+  for (const col of columns) {
+    const useLanes = (col.id === "running" && _kanbanLanesByProfile && Array.isArray(col.lanes));
+    if (useLanes) {
+      for (const lane of col.lanes) {
+        for (const t of (lane.tasks || [])) {
+          ordered.push({ task: t, columnId: col.id, laneAssignee: lane.assignee });
+        }
+      }
+    } else {
+      for (const t of (col.tasks || [])) {
+        ordered.push({ task: t, columnId: col.id, laneAssignee: null });
+      }
+    }
+  }
+
+  for (const { task: t, columnId, laneAssignee } of ordered) {
+    const tid = t.task_id;
+    const existing = _kanbanCardNodes.get(tid);
+    if (existing) {
+      // Card already in DOM
+      const moved = (existing.columnId !== columnId) || (existing.laneAssignee !== laneAssignee);
+      if (moved) {
+        // Move DOM node to new parent
+        const targetBody = findCardParent(columnBodyByCol, columnId, laneAssignee);
+        if (targetBody && existing.cardEl.parentNode !== targetBody) {
+          targetBody.appendChild(existing.cardEl);
+        }
+        existing.columnId = columnId;
+        existing.laneAssignee = laneAssignee;
+      }
+      // In-place content update if data changed
+      if (cardDataChanged(existing.lastData, t)) {
+        // Re-render the card's inner content (replaces the entire card element
+        // children but keeps the same outer element so attached listeners
+        // survive and the column body's scrollTop is unaffected).
+        const newCardHtml = renderKanbanCard(t, agentById);
+        existing.cardEl.outerHTML = newCardHtml;  // replaces element
+        // The new element has fresh listeners — re-wire it.
+        const newEl = document.querySelector(`[data-task-id="${cssEscapeAttr(tid)}"]`);
+        if (newEl) {
+          existing.cardEl = newEl;
+          wireKanbanCard(existing.cardEl);
+        }
+        existing.lastData = snapshotCardData(t);
+      } else {
+        // Even if data unchanged, keep the snapshot fresh (cheap, no DOM work)
+        existing.lastData = snapshotCardData(t);
+      }
+    } else {
+      // New card — create DOM and insert
+      const cardEl = createKanbanCardElement(t, agentById);
+      const targetBody = findCardParent(columnBodyByCol, columnId, laneAssignee);
+      if (targetBody) {
+        targetBody.appendChild(cardEl);
+        wireKanbanCard(cardEl);
+      }
+      _kanbanCardNodes.set(tid, {
+        cardEl,
+        columnId,
+        laneAssignee,
+        lastData: snapshotCardData(t)
+      });
+    }
+    _kanbanRenderedIds.add(tid);
+  }
+
+  // ---- Section hint ----
+  const h = document.getElementById("kanban-hint");
+  if (h) {
+    const n = summary.visible ?? summary.total ?? 0;
+    h.textContent = `${n} task${n === 1 ? '' : 's'} · 6 columns · 3 agents`;
+  }
+}
+
+// Helpers for the smart diff
+function snapshotCardData(t) {
+  return {
+    title: t.title,
+    status: t.status,
+    kanban_status: t.kanban_status,
+    priority: t.priority,
+    assigned_to: t.assigned_to || t.assignee,
+    created: t.created,
+    body: t.body || t.preview,
+  };
+}
+
+function cardDataChanged(a, b) {
+  if (!a || !b) return true;
+  return (
+    a.title !== b.title ||
+    a.status !== b.status ||
+    a.kanban_status !== b.kanban_status ||
+    a.priority !== b.priority ||
+    a.assigned_to !== (b.assigned_to || b.assignee) ||
+    a.created !== b.created ||
+    a.body !== (b.body || b.preview)
+  );
+}
+
+function findCardParent(columnBodyByCol, columnId, laneAssignee) {
+  const entry = columnBodyByCol.get(columnId);
+  if (!entry) return null;
+  if (entry.useLanes) {
+    const lane = entry.lanes.find(l => l.assignee === laneAssignee);
+    return lane ? lane.body : entry.body;
+  }
+  return entry.body;
+}
+
+function cssEscapeAttr(s) {
+  // Minimal CSS.escape for use inside an attribute-selector quoted string.
+  // We use it for [data-task-id="..."] lookups after outerHTML replacement.
+  if (window.CSS && CSS.escape) return CSS.escape(s);
+  return String(s).replace(/"/g, '\\"');
+}
+
+function renderKanbanColumnShell(col) {
+  // Same structure as the old renderKanbanColumn, but built as a template
+  // for the smart-render path. Lane bodies are filled in by the caller.
+  return `<div class="kanban-col" id="kanban-col-${esc(col.id)}" data-col-id="${esc(col.id)}">
+    <div class="kanban-col-header">
+      <span class="col-label">${esc(col.label)}</span>
+      <span class="col-count">${col.count || 0}</span>
+      <button class="add-btn" title="Create task in ${esc(col.label)}">+</button>
+    </div>
+    <div class="kanban-col-body" data-col-id="${esc(col.id)}"></div>
+  </div>`;
+}
+
+function renderKanbanLaneShell(lane) {
+  return `<div class="kanban-lane lane-${esc(lane.assignee)}" data-lane="${esc(lane.assignee)}">
+    <div class="kanban-lane-header">
+      <span class="lane-emoji">${esc(lane.emoji || "•")}</span>
+      <span>${esc(lane.name || lane.assignee)}</span>
+      <span class="lane-count">0</span>
+    </div>
+  </div>`;
+}
+
+function createKanbanCardElement(t, agentById) {
+  const tmp = document.createElement("div");
+  tmp.innerHTML = renderKanbanCard(t, agentById);
+  return tmp.firstElementChild;
+}
+
+function wireColumnShell(colEl, col) {
+  // Drag-drop on the column body
+  const body = colEl.querySelector(".kanban-col-body");
+  body.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    colEl.classList.add("dragover");
+  });
+  body.addEventListener("dragleave", () => colEl.classList.remove("dragover"));
+  body.addEventListener("drop", (e) => {
+    e.preventDefault();
+    colEl.classList.remove("dragover");
+    const tid = e.dataTransfer.getData("text/plain") || _kanbanDragTaskId;
+    if (!tid) return;
+    if (col.id === "archived") {
+      moveCardTo(tid, "archived");
+    } else {
+      moveCardTo(tid, col.id);
+    }
+  });
+  // + button shows inline create form
+  const addBtn = colEl.querySelector(".add-btn");
+  if (addBtn) {
+    addBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleCreateForm(col.id);
+    });
+  }
+}
+
+function wireKanbanCard(cardEl) {
+  cardEl.addEventListener("dragstart", (e) => {
+    _kanbanDragTaskId = cardEl.dataset.taskId;
+    e.dataTransfer.setData("text/plain", _kanbanDragTaskId);
+    e.dataTransfer.effectAllowed = "move";
+    cardEl.classList.add("dragging");
+  });
+  cardEl.addEventListener("dragend", () => {
+    cardEl.classList.remove("dragging");
+    _kanbanDragTaskId = null;
+  });
+  cardEl.addEventListener("click", (e) => {
+    if (e.target.closest("button, input, select, textarea, a")) return;
+    const tid = cardEl.dataset.taskId;
+    if (!tid) return;
+    if (_kanbanOpenCards.has(tid)) _kanbanOpenCards.delete(tid);
+    else _kanbanOpenCards.add(tid);
+    const body = cardEl.querySelector(".card-body");
+    if (body) body.style.display = _kanbanOpenCards.has(tid) ? "block" : "none";
+  });
+}
+
+function renderKanbanColumn(col, agentById, search) {
+  const tasks = (col.tasks || []).filter(t => {
+    if (!search) return true;
+    return (t.title || "").toLowerCase().includes(search)
+        || (t.task_id || "").toLowerCase().includes(search);
+  });
+  let bodyHtml = "";
+  if (col.id === "running" && _kanbanLanesByProfile && Array.isArray(col.lanes)) {
+    // Render 3 swimlanes (Thor / Forge / Argus + unassigned if present)
+    bodyHtml = col.lanes.map(lane => {
+      const laneTasks = (lane.tasks || []).filter(t => {
+        if (!search) return true;
+        return (t.title || "").toLowerCase().includes(search)
+            || (t.task_id || "").toLowerCase().includes(search);
+      });
+      const cards = laneTasks.length === 0
+        ? `<div class="kanban-col-empty">no tasks</div>`
+        : laneTasks.map(t => renderKanbanCard(t, agentById)).join("");
+      const cls = `kanban-lane lane-${lane.assignee}`;
+      return `<div class="${cls}" data-lane="${esc(lane.assignee)}">
+        <div class="kanban-lane-header">
+          <span class="lane-emoji">${esc(lane.emoji || "•")}</span>
+          <span>${esc(lane.name || lane.assignee)}</span>
+          <span class="lane-count">${lane.count || 0}</span>
+        </div>
+        ${cards}
+      </div>`;
+    }).join("");
+  } else {
+    bodyHtml = tasks.length === 0
+      ? `<div class="kanban-col-empty">no tasks</div>`
+      : tasks.map(t => renderKanbanCard(t, agentById)).join("");
+  }
+
+  return `<div class="kanban-col" id="kanban-col-${esc(col.id)}" data-col-id="${esc(col.id)}">
+    <div class="kanban-col-header">
+      <span class="col-label">${esc(col.label)}</span>
+      <span class="col-count">${col.count || 0}</span>
+      <button class="add-btn" title="Create task in ${esc(col.label)}">+</button>
+    </div>
+    <div class="kanban-col-body" data-col-id="${esc(col.id)}">${bodyHtml}</div>
+  </div>`;
+}
+
+function renderKanbanCard(t, agentById) {
+  // MC-KANBAN-2: use `kanban_status` for the column-class (so a card stays in
+  // the column the PATCH put it in, even if the project-native `status`
+  // differs). Fall back to the raw `status` for legacy cards.
+  const ks = (t.kanban_status || t.status || "triage").toLowerCase();
+  const rawStatus = (t.status || "triage").toLowerCase();
+  const pri = (t.priority || "normal").toLowerCase();
+  const assignee = (t.assigned_to || t.assignee || "").toLowerCase();
+  const assigneeMeta = assignee && agentById[assignee] ? agentById[assignee] : null;
+  const createdRel = t.created ? relTime(t.created) : "—";
+  const body = (t.body || t.preview || "").trim();
+  const isOpen = _kanbanOpenCards.has(t.task_id);
+  const assigneeChip = assigneeMeta
+    ? `<span class="card-assignee assignee-${esc(assignee)}">${esc(assigneeMeta.emoji)} ${esc(assigneeMeta.name)}</span>`
+    : (assignee ? `<span class="card-assignee">${esc(assignee)}</span>` : `<span class="card-assignee" style="color:var(--text3)">unassigned</span>`);
+  // Show the project-native status too if it differs from the kanban column
+  // (e.g. project says `in_progress` but board is `running` because the user
+  // manually moved the card).
+  const statusTooltip = (ks !== rawStatus)
+    ? `title="kanban: ${esc(ks)} · project: ${esc(rawStatus)}"`
+    : `title="status: ${esc(ks)}"`;
+  const statusBadge = (ks !== rawStatus)
+    ? `<span class="card-status-raw" title="project status: ${esc(rawStatus)}" style="font-size:10px;color:var(--text3);margin-left:4px">(${esc(rawStatus)})</span>`
+    : "";
+
+  return `<div class="kanban-card status-${esc(ks)} assignee-${esc(assignee)}" draggable="true" data-task-id="${esc(t.task_id)}" title="drag to move · click to expand">
+    <div class="card-id">${esc(t.task_id)}</div>
+    <div class="card-title">${esc(t.title || t.task_id)}</div>
+    <div class="card-meta">
+      <span class="card-priority priority-${esc(pri)}">${esc(pri)}</span>
+      ${assigneeChip}
+      <span class="card-status-dot status-${esc(ks)}" ${statusTooltip}></span>${statusBadge}
+      <span class="ts" title="${esc(t.created || '')}">created ${esc(createdRel)}</span>
+    </div>
+    <div class="card-body" style="display:${isOpen ? 'block' : 'none'}">${esc(body) || '<span class="muted">(no body)</span>'}</div>
+  </div>`;
+}
+
+async function moveCardTo(taskId, newStatus) {
+  // Optimistic UI: re-render will happen after the PATCH resolves (5s poll or now)
+  try {
+    const r = await fetch(`/api/data/kanban/task/${encodeURIComponent(taskId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+      cache: "no-store",
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.error || `HTTP ${r.status}`);
+    }
+    // Refresh immediately (don't wait for the 5s poll)
+    await loadKanban();
+  } catch (e) {
+    // On failure, force a refresh so the card snaps back to its real status
+    await loadKanban();
+    alert(`Move failed: ${e.message}`);
+  }
+}
+
+function toggleCreateForm(colId) {
+  const colEl = document.getElementById(`kanban-col-${colId}`);
+  if (!colEl) return;
+  // If a form is already open in this column, close it
+  const existing = colEl.querySelector(".kanban-create-form");
+  if (existing) {
+    existing.remove();
+    _kanbanCreateFormOpen = false;  // MC-KANBAN-BUGFIX-1: form closed, resume polling
+    return;
+  }
+  // Close any other open form first
+  document.querySelectorAll(".kanban-create-form").forEach(f => f.remove());
+
+  const form = document.createElement("form");
+  form.className = "kanban-create-form";
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    submitCreateTask(form, colId);
+  });
+  form.innerHTML = `
+    <input type="text" name="title" placeholder="Task title…" required maxlength="200" />
+    <div class="form-row">
+      <select name="assignee" required>
+        <option value="">— assignee —</option>
+        <option value="thor">⚡ Thor</option>
+        <option value="forge">🔨 Forge</option>
+        <option value="argus">👁️ Argus</option>
+      </select>
+      <select name="priority">
+        <option value="normal">normal</option>
+        <option value="low">low</option>
+        <option value="medium">medium</option>
+        <option value="high" selected>high</option>
+      </select>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="cancel">cancel</button>
+      <button type="submit" class="primary">create</button>
+    </div>`;
+  const body = colEl.querySelector(".kanban-col-body");
+  body.insertBefore(form, body.firstChild);
+  form.querySelector('input[name="title"]').focus();
+  form.querySelector(".cancel").addEventListener("click", (e) => {
+    e.preventDefault();
+    form.remove();
+    _kanbanCreateFormOpen = false;  // MC-KANBAN-BUGFIX-1: form cancelled, resume polling
+  });
+  _kanbanCreateFormOpen = true;  // MC-KANBAN-BUGFIX-1: form opened, pause polling
+}
+
+async function submitCreateTask(form, colId) {
+  const fd = new FormData(form);
+  const title = (fd.get("title") || "").toString().trim();
+  const assignee = (fd.get("assignee") || "").toString().trim();
+  const priority = (fd.get("priority") || "normal").toString().trim();
+  if (!title || !assignee) {
+    alert("title + assignee are required");
+    return;
+  }
+  // Inline create always lands in the triage column, regardless of which
+  // column the + button was clicked in (per spec: status: triage)
+  try {
+    const r = await fetch("/api/data/kanban/task", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, assignee, priority }),
+      cache: "no-store",
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.error || `HTTP ${r.status}`);
+    }
+    form.remove();
+    _kanbanCreateFormOpen = false;  // MC-KANBAN-BUGFIX-1: form submitted, resume polling
+    await loadKanban();
+  } catch (e) {
+    alert(`Create failed: ${e.message}`);
+  }
+}
+
+function startKanbanPolling() {
+  if (_kanbanPollTimer) return;
+  _kanbanPollTimer = setInterval(async () => {
+    if (_kanbanCreateFormOpen) return;  // MC-KANBAN-BUGFIX-1: pause re-render, keep form intact
+    await loadKanban();
+  }, 5000);
+}
+function stopKanbanPolling() {
+  if (_kanbanPollTimer) { clearInterval(_kanbanPollTimer); _kanbanPollTimer = null; }
+}
+
+// Wire up toolbar once the DOM is ready (script runs at end of body so OK)
+(function wireKanbanToolbar() {
+  const search = document.getElementById("kanban-search");
+  if (search) search.addEventListener("input", (e) => {
+    _kanbanSearch = e.target.value || "";
+    if (_kanbanState) renderKanban(_kanbanState);
+  });
+  const archived = document.getElementById("kanban-show-archived");
+  if (archived) archived.addEventListener("change", (e) => {
+    _kanbanIncludeArchived = !!e.target.checked;
+    loadKanban();
+  });
+  const lanes = document.getElementById("kanban-lanes-by-profile");
+  if (lanes) lanes.addEventListener("change", (e) => {
+    _kanbanLanesByProfile = !!e.target.checked;
+    if (_kanbanState) renderKanban(_kanbanState);
+  });
+})();
+
+// Initial board fetch + 5s polling
+loadKanban();
+startKanbanPolling();
+</script>
+
+</body>
+</html>
