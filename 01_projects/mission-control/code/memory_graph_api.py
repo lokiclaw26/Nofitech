@@ -208,6 +208,60 @@ def post_reset(handler) -> tuple[int, dict]:
     }
 
 
+def post_rebuild(handler) -> tuple[int, dict]:
+    """POST /api/memory-graph/rebuild — admin wipe + full re-import from disk.
+
+    Unlike reset (which wipes and leaves the graph empty), rebuild runs the
+    full importer pipeline so the graph is immediately repopulated. NOFI
+    complained that reset left the graph empty and there was no way to
+    repopulate it from the UI — this endpoint fixes that.
+
+    Requires auth (same as reset). Returns 200 with the import stats.
+
+    Implementation: just call the existing `MemoryGraphImporter.full_rebuild()`
+    which is the same code path the CLI uses (`--full-rebuild`).
+    """
+    if not is_authorized(handler):
+        return 403, auth_required_error()
+    # Body may be empty. Read for shape-validation only.
+    try:
+        length = int(handler.headers.get("Content-Length") or "0")
+    except (TypeError, ValueError):
+        length = 0
+    if length < 0 or length > _MAX_RESET_BODY:
+        return 400, {"error": f"body must be 1..{_MAX_RESET_BODY} bytes"}
+    if length > 0:
+        handler.rfile.read(length)  # discard; we don't accept {confirm:true}
+
+    # Use the same module the serve.py boot uses. We import lazily so the
+    # import path stays consistent with the rest of the code.
+    import memory_graph_import  # noqa: PLC0415  (lazy import; same module the boot uses)
+    from memory_graph_global import init_global_store  # noqa: PLC0415
+
+    try:
+        global_store = init_global_store()
+    except Exception as e:
+        return 500, {"ok": False, "error": f"failed to init global store: {e}"}
+    try:
+        # REPO_ROOT is the module-level constant the CLI uses; it's the
+        # project root (~/NofiTech-Ind) so the importer can scan for source
+        # files. Don't use the store's db_path — that's a file, not a dir.
+        importer = memory_graph_import.MemoryGraphImporter(
+            store=global_store, repo_root=memory_graph_import.REPO_ROOT
+        )
+        stats = importer.full_rebuild()
+    except Exception as e:
+        return 500, {"ok": False, "error": f"full_rebuild failed: {e}"}
+
+    return 200, {
+        "ok": True,
+        "stats": stats,
+        "node_count": stats.get("nodes_upserted", 0),
+        "edge_count": stats.get("edges_upserted", 0),
+        "files_ingested": stats.get("files_ingested", 0),
+    }
+
+
 def get_events_recent(handler) -> tuple[int, dict]:
     """GET /api/memory-graph/events/recent?n=20"""
     p = urllib.parse.urlparse(handler.path)

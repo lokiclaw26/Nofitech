@@ -69,11 +69,16 @@ if [ -z "$HERMES_BIN" ] || [ ! -x "$HERMES_BIN" ]; then
   exit 0
 fi
 
-# ---- Find running_now MC-AUTO-* tasks (Format A frontmatter) ---------------
-# Only Format A is supported (the auto-dispatch script creates them in
-# Format A). The grep is anchored to ^kanban_status: so it never matches
-# body prose. `-l` keeps the output to file paths only.
-TASKS_ALL=$(find "$TASKS_GLOB" -path "*/tasks/*" -name "MC-AUTO-*.md" -type f \
+# ---- Find running_now tasks (Format A frontmatter) -------------------------
+# We pick up BOTH `MC-AUTO-*` (auto-dispatch children, normal path) AND
+# `MC-KANBAN-CREATE-*` (UI-created tasks that the auto-process cron moved
+# to running_now but never spawned an MC-AUTO-* child for). The original
+# spec only matched `MC-AUTO-*` which left user-created tasks permanently
+# stuck in running_now — NOFI caught that. Format A only; the grep is
+# anchored to ^kanban_status: so it never matches body prose. `-l` keeps
+# the output to file paths only.
+TASKS_ALL=$(find "$TASKS_GLOB" -path "*/tasks/*" \
+  \( -name "MC-AUTO-*.md" -o -name "MC-KANBAN-CREATE-*.md" \) -type f \
   -exec grep -l "^kanban_status: running_now" {} \; 2>/dev/null | sort -u || true)
 
 # Filter out any "done" or "blocked" siblings — defensive. The frontmatter
@@ -81,7 +86,7 @@ TASKS_ALL=$(find "$TASKS_GLOB" -path "*/tasks/*" -name "MC-AUTO-*.md" -type f \
 TASKS_ALL=$(echo "$TASKS_ALL" | grep -v '^$' || true)
 
 if [ -z "$TASKS_ALL" ]; then
-  log "no running_now MC-AUTO-* tasks at $NOW_TS_ISO"
+  log "no running_now MC-AUTO-* / MC-KANBAN-CREATE-* tasks at $NOW_TS_ISO"
   exit 0
 fi
 

@@ -9,3 +9,4 @@
 2026-06-18T01:51:11+04:00  MC-AUTO-20260618014250-9DCFCB  ->  MC-AUTO-20260618015112-9DCFCB  assignee=forge priority=urgent  title='MC-AUTO-DISPATCH-1: make ready/UI-created tasks auto-dispatch an agent (fix the running_now lie)'
 2026-06-18T01:51:11+04:00  TEST-NOFI-DEMO  ->  MC-AUTO-20260618015112-C8F87A  assignee=forge priority=low  title='NOFI-DEMO-AUTO-DISPATCH-WORKS'
 2026-06-18T01:52:59+04:00  NOFI-FINAL-DEMO  ->  MC-AUTO-20260618015300-8674EF  assignee=forge priority=low  title='NOFI-FINAL-DEMO-auto-dispatch-via-cron'
+2026-06-18T10:39:10+04:00  MC-KANBAN-CREATE-20260618063653-74BF2C  ->  MC-AUTO-20260618103911-AA8A1F  assignee=forge priority=high  title='do a quick search and find out for me when is the new season of world of warcraft retail game will be starting.. and whats the patch number for the new season in the game'

@@ -2257,6 +2257,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 status, body = _mg_api.post_reset(self)
                 return self._json(body, status)
 
+            # ---- MC-MEMORY-GRAPH-REBUILD-1 (2026-06-18): admin rebuild ----
+            # Wipe + full re-import from disk in one step. NOFI complained
+            # that reset left the graph empty and there was no UI way to
+            # repopulate it. This endpoint is the missing piece.
+            if p.path == "/api/memory-graph/rebuild":
+                status, body = _mg_api.post_rebuild(self)
+                return self._json(body, status)
+
             if p.path == "/api/data/kanban/task":
                 # MC-MEMORY-GRAPH-3A-BACKEND §1: auth gate on writes.
                 if not is_authorized(self):
