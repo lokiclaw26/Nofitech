@@ -1,0 +1,18 @@
+Result written into the task file. All 6 steps complete.
+
+═══════════════════════════════════════════════
+STATUS — done
+CHANGED — task file (## Result added), log file written, kanban PATCHed done, events.jsonl appended
+TESTED — PATCH 200, board confirms task in Done column, event written, file readable
+ARGUS — none needed; research-only task with no UI / system side-effects to verify
+NOTES — web_search tool failed inside delegated subagent (empty results after 7 min, known issue), so answers are from established historical consensus; flagged in log
+NEXT — none
+═══════════════════════════════════════════════
+
+Quick answer for NOFI's log/result file:
+
+Q1 (Old Kingdom calendar): never "stopped" — same 365-day civil calendar (12×30 + 5 epagomenal days) introduced ~2700 BCE and used continuously ~2,500 years until Augustus's Alexandrian calendar reform in 26 BCE added the leap day. That post-reform version survives as the Coptic calendar. The Old Kingdom as a political period ended ~2181 BCE.
+
+Q2 (Egyptian pound): never replaced. EGP introduced 1834 by Muhammad Ali Pasha, still Egypt's currency in 2026. Revalued (1885 gold, 1914 sterling, 1961 devalue, 1971-73 float) but never swapped out. The closest "change" was 1916: subunit went from 1 EGP = 1000 millièmes → 1 EGP = 100 piastres.
+
+🛑 Standing by — anything else, or close this out?
