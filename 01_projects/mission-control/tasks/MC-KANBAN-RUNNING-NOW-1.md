@@ -3,7 +3,7 @@ task_id: MC-KANBAN-RUNNING-NOW-1
 title: Add "Running Now" column — strictly for tasks actively being worked on by an agent
 project: mission-control
 phase: live-monitor
-status: complete
+status: done
 priority: high
 created: 2026-06-17T11:30:00+04:00
 created_by: thor

@@ -4,7 +4,7 @@ title: Token Budget Mode
 project: mission-control
 agent: thor
 assigned_to: thor
-status: open
+status: done
 priority: P1
 created: 2026-06-10
 updated: 2026-06-10

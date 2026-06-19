@@ -4,7 +4,7 @@ assigned_to: forge
 title: Add Memory Graph tab to sidebar in mission-control.html and kanban.html
 type: bugfix
 priority: high
-status: complete
+status: done
 kanban_status: done
 assignee: forge
 argus_passed: true

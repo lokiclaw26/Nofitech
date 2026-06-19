@@ -4,7 +4,7 @@ title: SMOKE TEST: auto-done pipeline (drop + auto-move)
 project: mission-control
 created_by: thor
 assigned_to: argus
-status: in_progress
+status: done
 priority: low
 created_at: 2026-06-19T11:58:00+04:00
 updated_at: 2026-06-19T11:58:00+04:00

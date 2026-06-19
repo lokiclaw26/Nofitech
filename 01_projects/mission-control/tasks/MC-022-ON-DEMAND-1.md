@@ -4,7 +4,7 @@ title: On-demand command interpreter ("thor, work on X")
 project: mission-control
 created_by: thor
 assigned_to: forge
-status: assigned
+status: done
 priority: high
 created_at: 2026-06-16T16:35:00+00:00
 updated_at: 2026-06-16T16:35:00+00:00

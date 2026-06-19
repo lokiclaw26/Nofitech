@@ -2,7 +2,7 @@
 task_id: MC-LIVE-DASHBOARD-1
 title: Make overview + agents panels reflect LIVE state from the kanban
 project: mission-control
-status: in_progress
+status: done
 priority: critical
 created: 2026-06-18
 created_by: thor

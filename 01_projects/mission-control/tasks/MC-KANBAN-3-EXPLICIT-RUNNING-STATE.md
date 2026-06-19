@@ -3,7 +3,7 @@ task_id: MC-KANBAN-3-EXPLICIT-RUNNING-STATE
 title: Explicit Running State on Delegation — Thor moves tasks to running_now when delegating
 project: mission-control
 phase: live-monitor
-status: in_progress
+status: done
 priority: high
 created: 2026-06-17T12:00:00+04:00
 created_by: thor

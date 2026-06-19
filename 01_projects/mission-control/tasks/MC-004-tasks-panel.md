@@ -3,7 +3,7 @@ id: MC-004
 title: Stage 6 — Tasks panel (in progress)
 project: mission-control
 agent: forge
-status: in-progress
+status: done
 priority: P0
 created: 2026-06-10
 updated: 2026-06-10

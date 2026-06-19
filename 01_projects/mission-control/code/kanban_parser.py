@@ -728,42 +728,62 @@ def _split_frontmatter(text: str) -> tuple[list[str], list[str], str]:
     return fm.splitlines(), body.splitlines(), ""
 
 
-# ---- Format A PATCH: write kanban_status to frontmatter, leave status alone ----
+# ---- Format A PATCH: write kanban_status to frontmatter, cascade to status when done ----
 def _patch_format_a(path: Path, new_status: str) -> tuple[bool, str]:
     """Update the YAML frontmatter of `path` to set `kanban_status: <new_status>`.
-    Does NOT touch the `status` field. Preserves everything else.
+    Also cascades: if new_status == "done", also set `status: done` in the
+    same frontmatter. This is the data-layer half of MC-KANBAN-DONE-PILL-1:
+    before this fix, dragging a card to Done only updated `kanban_status`,
+    leaving the project-native `status: in_progress` field untouched — so
+    every API consumer that read `status` saw a "still in progress" card in
+    the Done column. Cascading on done is safe because Done is terminal —
+    no agent should ever need to read `status=in_progress` on a task that's
+    already been shipped. Other transitions (ready, running_now, blocked,
+    triage) do NOT cascade — those are user-only/cosmetic and the project
+    status carries real signal that must be preserved.
     """
     txt = path.read_text(encoding="utf-8")
     header, body, _ = _split_frontmatter(txt)
+    cascade_to_done = (new_status == "done")
     if not header:
         # No frontmatter — inject a minimal one (this shouldn't happen for Format A,
         # but be defensive)
         new_fm = [
             f"kanban_status: {new_status}",
         ]
+        if cascade_to_done:
+            new_fm.append("status: done")
         out = "---\n" + "\n".join(new_fm) + "\n---\n" + "\n".join(body) + ("\n" if body and not body[-1] else "")
         if not out.endswith("\n"):
             out += "\n"
         path.write_text(out, encoding="utf-8")
-        return True, "injected kanban_status (no frontmatter was present)"
-    # Update / insert the kanban_status line; NEVER touch the status line
+        return True, "injected kanban_status" + (" + cascaded status=done" if cascade_to_done else "") + " (no frontmatter was present)"
+    # Update / insert the kanban_status line; cascade to status line if done
     new_header = []
     ks_replaced = False
+    status_replaced = False
     for line in header:
-        # Match `kanban_status: ...` at the start of the line
         m = re.match(r'^(\s*kanban_status\s*:\s*)(.*?)(\s*(?:#.*)?)$', line)
         if m:
             new_header.append(f"{m.group(1)}{new_status}{m.group(3)}")
             ks_replaced = True
-        else:
-            new_header.append(line)
+            continue
+        if cascade_to_done:
+            m2 = re.match(r'^(\s*status\s*:\s*)(.*?)(\s*(?:#.*)?)$', line)
+            if m2:
+                new_header.append(f"{m2.group(1)}done{m2.group(3)}")
+                status_replaced = True
+                continue
+        new_header.append(line)
     if not ks_replaced:
         new_header.append(f"kanban_status: {new_status}")
+    if cascade_to_done and not status_replaced:
+        new_header.append("status: done")
     out = "---\n" + "\n".join(new_header) + "\n---\n" + "\n".join(body)
     if not out.endswith("\n"):
         out += "\n"
     path.write_text(out, encoding="utf-8")
-    return True, "ok"
+    return True, "ok" + (" (cascaded status=done)" if cascade_to_done else "")
 
 
 # ---- Format B PATCH: insert/update kanban_status row in the table ----
@@ -774,10 +794,14 @@ def _patch_format_b(path: Path, new_status: str) -> tuple[bool, str]:
     """Update the markdown table in `path` to set `| **kanban_status** | <new_status> |`.
     If the row already exists, replace its value.
     If not, insert a new row RIGHT AFTER the `| **status** | ... |` row.
-    Does NOT touch the `status` row. Preserves all other rows and their order.
+    MC-KANBAN-DONE-PILL-1: if new_status == "done", also update the
+    `| **status** | ... |` row to "done" in the same write — cascades the
+    project status to match the kanban column. Other transitions leave the
+    project status untouched.
     """
     txt = path.read_text(encoding="utf-8")
     lines = txt.splitlines()
+    cascade_to_done = (new_status == "done")
     # find the table header `| Field | Value |` (or `| field | value |`)
     header_idx = None
     for i, line in enumerate(lines):
@@ -830,12 +854,39 @@ def _patch_format_b(path: Path, new_status: str) -> tuple[bool, str]:
             insert_at = status_row_idx + 1
         new_row = f"| **kanban_status** | {new_status} |"
         lines.insert(insert_at, new_row)
+        # status row may have shifted; rebuild its index
+        if status_row_idx is not None:
+            status_row_idx = status_row_idx + 1  # insertion shifted it down by 1
+
+    # MC-KANBAN-DONE-PILL-1: cascade to status row if new_status == done
+    if cascade_to_done and status_row_idx is not None:
+        # Re-parse the status row (its index may have shifted if we inserted kanban_status)
+        # Walk again to find the current status row index
+        current_status_idx = None
+        for j in range(data_start, len(lines)):
+            ln = lines[j]
+            if not ln.lstrip().startswith("|"):
+                break
+            mm = _TABLE_ROW_KV_RE.match(ln)
+            if not mm:
+                break
+            raw_key = mm.group("key").strip()
+            key = raw_key[2:-2].strip().lower() if (raw_key.startswith("**") and raw_key.endswith("**") and len(raw_key) >= 4) else raw_key.strip().lower()
+            if key == "status":
+                current_status_idx = j
+                break
+        if current_status_idx is not None:
+            ln = lines[current_status_idx]
+            mm = _TABLE_ROW_KV_RE.match(ln)
+            if mm:
+                raw_key = mm.group("key").strip()
+                lines[current_status_idx] = f"| {raw_key} | done |"
 
     out = "\n".join(lines)
     if not out.endswith("\n"):
         out += "\n"
     path.write_text(out, encoding="utf-8")
-    return True, "ok"
+    return True, "ok" + (" (cascaded status=done)" if cascade_to_done else "")
 
 
 def update_task_status(task_id: str, new_status: str, company_root: Path) -> tuple[bool, str, Path | None]:

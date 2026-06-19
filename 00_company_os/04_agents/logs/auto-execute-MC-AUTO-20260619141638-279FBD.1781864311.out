@@ -1,0 +1,12 @@
+`kanban_status: done` confirmed on disk. Done.
+
+STATUS: done.
+CHANGED: nothing — bug already fixed by Forge in commit b1c34b7 ("MC-MEMORY-GRAPH-RESET-FIX-1: fix reset() schema mismatch in global store"). I only verified.
+TESTED: end-to-end on http://127.0.0.1:8767 — POST /api/memory-graph/reset → 200 with node_count=17 edge_count=25 (seeded from sample-graph.json); page renders populated graph (canvas 770×885 with 17 colored nodes); footer shows Nodes 17/17, Edges 25/25; empty-state hidden; second click works (flow repeatable). Screenshot at /tmp/reset_after.png.
+LOG: /home/nofidofi/NofiTech-Ind/00_company_os/04_agents/logs/2026-06-19/thor-MC-AUTO-20260619141638-279FBD.md (result: success)
+PATCH: kanban_status flipped to done at /api/data/kanban/task/MC-AUTO-20260619141638-279FBD
+EVENT: appended to /home/nofidofi/NofiTech-Ind/00_company_os/events.jsonl (event_type=task_completed, task_id=MC-AUTO-20260619141638-279FBD)
+
+Visible to NOFI on http://192.168.0.29:8767/memory-graph — click "↻ Reset Graph", graph stays populated with 17 nodes / 25 edges from the sample seed, Recent Events panel shows "graph_reset" entry.
+
+🛑 Standing by — should I close out the other open tasks in the running_now column, or wait for NOFI?

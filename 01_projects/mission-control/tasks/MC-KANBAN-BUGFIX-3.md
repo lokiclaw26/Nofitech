@@ -3,7 +3,7 @@ task_id: MC-KANBAN-BUGFIX-3
 title: Fix lane duplication bug + clarify "running" state semantics
 project: mission-control
 phase: live-monitor
-status: complete
+status: done
 priority: high
 created: 2026-06-17T10:50:00+04:00
 created_by: thor

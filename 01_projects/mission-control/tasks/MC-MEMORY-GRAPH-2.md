@@ -4,7 +4,7 @@ assigned_to: forge
 title: Memory Graph 2 — upgrade 2D Canvas to true 3D WebGL force graph (3d-force-graph + Three.js)
 type: feature
 priority: high
-status: complete
+status: done
 kanban_status: done
 assignee: forge
 argus_passed: true

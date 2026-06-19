@@ -4,7 +4,7 @@ assigned_to: forge
 title: Parser: recognize `agent:` field as a valid assignee (Format A)
 type: bugfix
 priority: high
-status: complete
+status: done
 kanban_status: done
 assignee: forge
 created: 2026-06-17T16:05:00+04:00

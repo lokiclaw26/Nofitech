@@ -4,7 +4,7 @@ title: TEST-EXEC-2: create a fresh hello-world log file
 project: mission-control
 created_by: forge
 assigned_to: forge
-status: in_progress
+status: done
 priority: low
 created_at: 2026-06-18T02:20:00+04:00
 updated_at: 2026-06-18T02:20:00+04:00

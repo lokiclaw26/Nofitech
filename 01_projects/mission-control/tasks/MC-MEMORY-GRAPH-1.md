@@ -4,7 +4,7 @@ assigned_to: forge
 title: Mission Control Memory Graph — integrate lokiclaw26/Obsidian-Hermes-Agent- as new page
 type: feature
 priority: high
-status: complete
+status: done
 kanban_status: done
 assignee: forge
 argus_passed: true

@@ -3,7 +3,7 @@ task_id: MC-KANBAN-BUGFIX-2
 title: Fix 2 remaining Kanban bugs — scroll reset on polling, and many tasks "in running" (browser cache)
 project: mission-control
 phase: live-monitor
-status: complete
+status: done
 priority: high
 created: 2026-06-16T21:40:00+00:00
 created_by: thor

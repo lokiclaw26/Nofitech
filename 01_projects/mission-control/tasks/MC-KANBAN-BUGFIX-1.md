@@ -3,7 +3,7 @@ task_id: MC-KANBAN-BUGFIX-1
 title: Fix 3 Kanban bugs — stale tasks, scroll jump, form reset
 project: mission-control
 phase: live-monitor
-status: complete
+status: done
 priority: high
 created: 2026-06-16T21:10:00+00:00
 created_by: thor

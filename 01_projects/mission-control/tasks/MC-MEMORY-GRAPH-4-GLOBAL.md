@@ -1,7 +1,7 @@
 ---
 task_id: MC-MEMORY-GRAPH-4-GLOBAL
 title: Memory Graph — promote from MC-only to full Hermes Agent memory
-status: in_progress
+status: done
 priority: p1
 project: mission-control
 created: 2026-06-17

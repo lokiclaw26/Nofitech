@@ -3,7 +3,7 @@ task_id: MC-KANBAN-3A-CLEANUP-READY
 title: Cleanup Ready column — move 7 stale tasks to Done
 type: chore
 priority: high
-status: complete
+status: done
 kanban_status: done
 assignee: forge
 argus_passed: true

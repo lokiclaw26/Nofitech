@@ -4,7 +4,7 @@ title: Auto-done pipeline: 4th leg (running_now → done)
 project: mission-control
 created_by: thor
 assigned_to: thor
-status: complete
+status: done
 priority: high
 created_at: 2026-06-19T11:30:00+04:00
 updated_at: 2026-06-19T14:15:00+04:00

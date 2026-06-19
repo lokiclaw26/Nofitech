@@ -343,8 +343,39 @@
   .kanban-card .card-status-dot.status-triage  { background: #bc8cff; }
   .kanban-card .card-status-dot.status-running_now { background: var(--green); }
   .kanban-card .card-status-dot.status-blocked { background: var(--red); }
-  .kanban-card .card-status-dot.status-done    { background: var(--text3); }
+  .kanban-card .card-status-dot.status-done    { background: var(--green); }
   .kanban-card .card-status-dot.status-ready   { background: var(--blue); }
+  /* MC-KANBAN-DONE-PILL-1 (2026-06-19): visible colored status pill on every
+     card. Previously the only status indicator was an 8px grey dot + an
+     optional tiny grey "(in_progress)" string — NOFI couldn't tell DONE from
+     in_progress at a glance. Now the kanban_status is rendered as a colored
+     uppercase pill that always shows the status text. */
+  .kanban-card .card-status-pill {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    line-height: 1.5;
+    border: 1px solid transparent;
+  }
+  .kanban-card .card-status-pill.status-triage  { color: #bc8cff; border-color: #bc8cff; background: rgba(188,140,255,0.10); }
+  .kanban-card .card-status-pill.status-todo    { color: var(--text3); border-color: var(--text3); background: transparent; }
+  .kanban-card .card-status-pill.status-ready   { color: var(--blue); border-color: var(--blue); background: rgba(88,166,255,0.10); }
+  .kanban-card .card-status-pill.status-running_now { color: var(--green); border-color: var(--green); background: rgba(63,185,80,0.10); }
+  .kanban-card .card-status-pill.status-blocked { color: var(--red); border-color: var(--red); background: rgba(248,81,73,0.10); }
+  .kanban-card .card-status-pill.status-done    { color: var(--green); border-color: var(--green); background: rgba(63,185,80,0.18); }
+  .kanban-card .card-status-pill.status-archived{ color: var(--text3); border-color: var(--text3); background: transparent; }
+  /* The tiny "(in_progress)" raw project-status note — only shown when the
+     project status diverges from the kanban column. Kept small/grey so it
+     doesn't compete with the main pill. */
+  .kanban-card .card-status-raw {
+    font-size: 9px;
+    color: var(--text3);
+    margin-left: 4px;
+  }
   .kanban-card .card-body {
     margin-top: 6px; padding-top: 6px;
     border-top: 1px solid var(--line-soft);
@@ -1326,8 +1357,13 @@ function renderKanbanCard(t, agentById) {
   const statusTooltip = (ks !== rawStatus)
     ? `title="kanban: ${esc(ks)} · project: ${esc(rawStatus)}"`
     : `title="status: ${esc(ks)}"`;
+  // MC-KANBAN-DONE-PILL-1: the kanban_status is now ALWAYS shown as a colored
+  // pill with the status text. Done cards get a green "DONE" pill that NOFI
+  // can spot from across the room. The raw project status is only shown as
+  // a tiny grey note when the two statuses diverge.
+  const statusPill = `<span class="card-status-pill status-${esc(ks)}" ${statusTooltip}>${esc(ks)}</span>`;
   const statusBadge = (ks !== rawStatus)
-    ? `<span class="card-status-raw" title="project status: ${esc(rawStatus)}" style="font-size:10px;color:var(--text3);margin-left:4px">(${esc(rawStatus)})</span>`
+    ? `<span class="card-status-raw" title="project status: ${esc(rawStatus)}">(${esc(rawStatus)})</span>`
     : "";
 
   // MC-KANBAN-ASSIGN-1: build the 4 assign buttons. The current assignee's
@@ -1350,7 +1386,7 @@ function renderKanbanCard(t, agentById) {
     <div class="card-meta">
       <span class="card-priority priority-${esc(pri)}">${esc(pri)}</span>
       ${assigneeChip}
-      <span class="card-status-dot status-${esc(ks)}" ${statusTooltip}></span>${statusBadge}
+      ${statusPill}${statusBadge}
       <span class="ts" title="${esc(t.created || '')}">created ${esc(createdRel)}</span>
     </div>
     <div class="card-body" style="display:${isOpen ? 'block' : 'none'}">

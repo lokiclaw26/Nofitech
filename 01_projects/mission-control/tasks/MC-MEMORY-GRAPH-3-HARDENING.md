@@ -3,7 +3,7 @@ task_id: MC-MEMORY-GRAPH-3-HARDENING
 title: Backend + frontend hardening: auth, redaction, validation, SQLite, layout fixes, mobile, clean inspector
 type: refactor
 priority: critical
-status: in_progress
+status: done
 kanban_status: done
 assignee: forge
 created: 2026-06-17T18:00:00+04:00

@@ -4,7 +4,7 @@ assigned_to: forge
 title: Backend hardening: auth, redaction, validation, SQLite, threading, module split
 type: refactor
 priority: critical
-status: complete
+status: done
 kanban_status: done
 assignee: forge
 argus_passed: true

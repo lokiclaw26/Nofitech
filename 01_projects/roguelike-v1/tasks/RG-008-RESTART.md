@@ -4,7 +4,7 @@ title: Roguelike V1 — Stage 8: Restart
 project: roguelike-v1
 created_by: nofi
 assigned_to: forge
-status: complete
+status: done
 priority: high
 created_at: "2026-06-12T03:25:00+00:00"
 updated_at: "2026-06-12T03:50:00+00:00"

@@ -3,7 +3,7 @@ task_id: MC-KANBAN-4-WIRE-PROTOCOL
 title: Wire the explicit-running-now protocol into Thor's actual delegation flow
 type: bugfix
 priority: high
-status: complete
+status: done
 kanban_status: done
 assignee: forge
 argus_passed: true

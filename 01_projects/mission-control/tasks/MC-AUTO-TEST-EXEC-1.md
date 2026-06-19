@@ -4,7 +4,7 @@ title: TEST-EXEC-1: create a hello-world log file at a known path
 project: mission-control
 created_by: thor
 assigned_to: forge
-status: in_progress
+status: done
 priority: low
 created_at: 2026-06-18T02:18:00+04:00
 updated_at: 2026-06-18T02:18:00+04:00

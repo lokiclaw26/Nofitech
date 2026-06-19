@@ -16,3 +16,4 @@
 2026-06-19T12:00:32+04:00  MC-AUTO-DONE-1-VERIFY  ->  MC-AUTO-20260619120033-F420F9  assignee=argus priority=high  title='Argus visual verify auto-done pipeline (commit 9fea521)'
 2026-06-19T12:08:10+04:00  SMOKE-TEST-AUTO-DONE-1  ->  MC-AUTO-20260619120811-E2BCC8  assignee=argus priority=low  title='SMOKE TEST: auto-done pipeline (drop + auto-move)'
 2026-06-19T14:16:37+04:00  MC-MEMORY-GRAPH-RESET-FIX-1  ->  MC-AUTO-20260619141638-279FBD  assignee=thor priority=urgent  title='Fix memory graph reset button leaving page blank'
+2026-06-19T14:24:36+04:00  MC-KANBAN-CREATE-20260619102057-BA1FD3  ->  MC-AUTO-20260619142437-98B735  assignee=forge priority=high  title='a fix for DONE column in kanban .. if the task already dne and moved to the column DONE, the status still shows in progress.. this is wrong .. IT SHOULD STATE DONE and even in green color or something highlighted ... DONE ... FIX IT'

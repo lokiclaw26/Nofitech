@@ -3,7 +3,7 @@ task_id: MC-KANBAN-ASSIGN-1
 title: Per-card assign action — click a card to assign it to Thor, Forge, or Argus
 project: mission-control
 phase: live-monitor
-status: complete
+status: done
 priority: high
 created: 2026-06-17T10:58:00+04:00
 created_by: thor

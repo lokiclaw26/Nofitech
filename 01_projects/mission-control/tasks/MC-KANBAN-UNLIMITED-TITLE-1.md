@@ -3,7 +3,7 @@ task_id: MC-KANBAN-UNLIMITED-TITLE-1
 title: Remove maxlength="200" on the create-task title input — NOFI wants unlimited
 project: mission-control
 phase: live-monitor
-status: complete
+status: done
 priority: low
 created: 2026-06-17T11:23:00+04:00
 created_by: thor
