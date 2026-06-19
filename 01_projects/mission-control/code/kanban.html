@@ -474,6 +474,55 @@
     background: rgba(210, 153, 34, 0.22);
     border-color: var(--amber);
   }
+  /* ========== MC-KANBAN-ARCHIVE-1: per-card Archive / Unarchive actions ========== */
+  /* Grey/dashed palette (matches .kanban-card.status-archived aesthetic — */
+  /* archive is reversible via "show archived" + Unarchive, so it's NOT red). */
+  .card-archive-actions {
+    display: flex; gap: 6px; margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .card-archive-actions .archive-btn,
+  .card-archive-actions .unarchive-btn {
+    flex: 1;
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: var(--font-mono, monospace);
+    line-height: 1.4;
+    transition: all 0.12s ease;
+  }
+  .card-archive-actions .archive-btn {
+    background: transparent;
+    color: var(--text3);
+    border: 1px dashed var(--line);
+  }
+  .card-archive-actions .archive-btn:hover {
+    background: rgba(139, 148, 158, 0.10);
+    color: var(--text);
+    border-color: var(--text3);
+    border-style: solid;
+  }
+  .card-archive-actions .unarchive-btn {
+    background: rgba(88, 166, 255, 0.10);
+    color: var(--cyan);
+    border: 1px solid rgba(88, 166, 255, 0.35);
+  }
+  .card-archive-actions .unarchive-btn:hover {
+    background: rgba(88, 166, 255, 0.20);
+    border-color: var(--cyan);
+    color: var(--text);
+  }
+  .card-archive-actions .archive-btn:disabled,
+  .card-archive-actions .unarchive-btn:disabled {
+    opacity: 0.5; cursor: wait;
+  }
+  /* When the card is already archived, the unarchive button is the only action
+     — visually emphasize it slightly so the user knows the card is hidden. */
+  .kanban-card.status-archived .card-archive-actions {
+    border-top-color: var(--line);
+  }
   .result-modal-backdrop {
     position: fixed;
     inset: 0;
@@ -1308,6 +1357,12 @@ function renderKanbanCard(t, agentById) {
     </div>${t.has_result ? `
     <div class="result-teaser">${esc(t.result_teaser || '')}</div>
     <button type="button" class="result-button" data-action="view-result" data-task-id="${esc(t.task_id)}">📋 Result</button>` : ''}
+    ${isOpen ? `
+    <div class="card-archive-actions">
+      ${ks === 'archived'
+        ? `<button type="button" class="unarchive-btn" data-action="unarchive-task" data-task-id="${esc(t.task_id)}" title="Move this card back to Done (it will show again when 'show archived' is off)">↩ Unarchive</button>`
+        : `<button type="button" class="archive-btn" data-action="archive-task" data-task-id="${esc(t.task_id)}" title="Hide this card from the default view. It can be restored via 'show archived' + Unarchive.">🗄 Archive</button>`}
+    </div>` : ''}
   </div>`;
 }
 
