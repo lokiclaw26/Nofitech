@@ -1,0 +1,20 @@
+[warning] Scripts "build/three.js" and "build/three.min.js" are deprecated with r150+, and will be removed with r160. Please use ES Modules or alternatives: https://threejs.org/docs/index.html#manual/en/introduction/Installation @ http://127.0.0.1:8767/vendor/three/three.min.js:0
+[warning] WARNING: Multiple instances of Three.js being imported. @ http://127.0.0.1:8767/vendor/3d-force-graph/3d-force-graph.min.js:1
+[warning] [.WebGL-0x1d5400173800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels @ http://127.0.0.1:8767/memory-graph:719
+[warning] [.WebGL-0x1d5400173800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels @ http://127.0.0.1:8767/memory-graph:0
+[warning] [.WebGL-0x1d5400173800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels @ http://127.0.0.1:8767/memory-graph:0
+[warning] [.WebGL-0x1d5400173800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat) @ http://127.0.0.1:8767/memory-graph:0
+[request_failed] http://127.0.0.1:8767/api/memory-graph/events/recent?n=20 -> net::ERR_ABORTED
+[warning] Scripts "build/three.js" and "build/three.min.js" are deprecated with r150+, and will be removed with r160. Please use ES Modules or alternatives: https://threejs.org/docs/index.html#manual/en/introduction/Installation @ http://127.0.0.1:8767/vendor/three/three.min.js:0
+[warning] WARNING: Multiple instances of Three.js being imported. @ http://127.0.0.1:8767/vendor/3d-force-graph/3d-force-graph.min.js:1
+[error] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:8767/favicon.ico:0
+[any_reset_request] REQUEST: POST http://127.0.0.1:8767/api/memory-graph/reset
+headers:
+  sec-ch-ua-platform: "Linux"
+  referer: http://127.0.0.1:8767/memory-graph
+  user-agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36
+  sec-ch-ua: "Chromium";v="149", "Not)A;Brand";v="24"
+  content-type: application/json
+  x-mc-admin-token: dev-secret-nofitech-2026-bf-90-aa-7e-3c-12
+  sec-ch-ua-mobile: ?0
+body: {"confirm":true}
