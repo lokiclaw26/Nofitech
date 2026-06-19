@@ -297,7 +297,7 @@
   .kanban-card.status-ready   { border-left-color: var(--blue); }
   .kanban-card.status-running_now { border-left-color: var(--green); }
   .kanban-card.status-blocked { border-left-color: var(--red); }
-  .kanban-card.status-done    { border-left-color: var(--text3); opacity: 0.75; }
+  .kanban-card.status-done    { border-left-color: var(--green); opacity: 1.0; }
   .kanban-card.status-archived{ border-left-color: var(--text3); opacity: 0.5; border-style: dashed; }
   .kanban-card.assignee-thor  { /* uses --thor-color in chip */ }
   .kanban-card.assignee-forge { /* uses --forge-color in chip */ }
@@ -628,6 +628,9 @@
         <label class="toggle" title="Group the Running Now column by assignee">
           <input type="checkbox" id="kanban-lanes-by-profile" checked /> lanes by profile
         </label>
+        <label class="toggle" title="Show newest done at the top of the Done column">
+          <input type="checkbox" id="kanban-recent-done" checked /> recent done first
+        </label>
         <span class="refresh-stamp" id="kanban-refresh-stamp">last refresh: never</span>
       </div>
       <!-- 6-column board (with optional 7th: archived) -->
@@ -688,6 +691,7 @@ let _kanbanCreateFormOpen = false;  // MC-KANBAN-BUGFIX-1: pause 5s polling re-r
 let _kanbanState = null;   // last fetched board dict
 let _kanbanIncludeArchived = false;
 let _kanbanLanesByProfile = true;
+let _kanbanRecentDoneFirst = true;  // MC-KANBAN-DONE-VISIBLE-1 (2026-06-19): sort done DESC by created/updated so the most recent done card is on top
 let _kanbanSearch = "";
 let _kanbanPollTimer = null;
 let _kanbanDragTaskId = null;
@@ -1193,11 +1197,22 @@ function wireKanbanCard(cardEl) {
 }
 
 function renderKanbanColumn(col, agentById, search) {
-  const tasks = (col.tasks || []).filter(t => {
+  let tasks = (col.tasks || []).filter(t => {
     if (!search) return true;
     return (t.title || "").toLowerCase().includes(search)
         || (t.task_id || "").toLowerCase().includes(search);
   });
+  // MC-KANBAN-DONE-VISIBLE-1 (2026-06-19): in the Done column, put the most
+  // recently finished card at the TOP so users see new completions without
+  // scrolling through 80+ old cards. The file mtime (updated_at/created)
+  // is on the task record from the API.
+  if (col.id === "done" && _kanbanRecentDoneFirst) {
+    tasks = tasks.slice().sort((a, b) => {
+      const ta = Date.parse(a.updated || a.created || "") || 0;
+      const tb = Date.parse(b.updated || b.created || "") || 0;
+      return tb - ta;  // DESC
+    });
+  }
   let bodyHtml = "";
   if (col.id === "running_now" && _kanbanLanesByProfile && Array.isArray(col.lanes)) {
     // Render 3 swimlanes (Thor / Forge / Argus + unassigned if present)
@@ -1450,6 +1465,11 @@ function stopKanbanPolling() {
   const lanes = document.getElementById("kanban-lanes-by-profile");
   if (lanes) lanes.addEventListener("change", (e) => {
     _kanbanLanesByProfile = !!e.target.checked;
+    if (_kanbanState) renderKanban(_kanbanState);
+  });
+  const recentDone = document.getElementById("kanban-recent-done");
+  if (recentDone) recentDone.addEventListener("change", (e) => {
+    _kanbanRecentDoneFirst = !!e.target.checked;
     if (_kanbanState) renderKanban(_kanbanState);
   });
   const tokenBtn = document.getElementById("token-btn");
