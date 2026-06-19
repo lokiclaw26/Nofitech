@@ -1361,7 +1361,9 @@ function renderKanbanCard(t, agentById) {
     <div class="card-archive-actions">
       ${ks === 'archived'
         ? `<button type="button" class="unarchive-btn" data-action="unarchive-task" data-task-id="${esc(t.task_id)}" title="Move this card back to Done (it will show again when 'show archived' is off)">↩ Unarchive</button>`
-        : `<button type="button" class="archive-btn" data-action="archive-task" data-task-id="${esc(t.task_id)}" title="Hide this card from the default view. It can be restored via 'show archived' + Unarchive.">🗄 Archive</button>`}
+        : (ks === 'done'
+            ? `<button type="button" class="archive-btn" data-action="archive-task" data-task-id="${esc(t.task_id)}" title="Hide this card from the default view. It can be restored via 'show archived' + Unarchive.">📦 Archive</button>`
+            : '')}
     </div>` : ''}
   </div>`;
 }
@@ -1632,6 +1634,43 @@ document.addEventListener("click", (e) => {
   // Click outside the modal box closes it
   if (e.target && e.target.classList && e.target.classList.contains("result-modal-backdrop")) {
     closeResultModal();
+  }
+});
+
+// MC-KANBAN-ARCHIVE-1: archive / unarchive buttons inside expanded card body.
+// Both go through the same PATCH /api/data/kanban/task/:id endpoint that
+// drag-and-drop already uses — the only difference is the target status.
+// "Unarchive" doesn't actually move to a new column, it moves the card back
+// to "done" (the most sensible destination for a previously-completed task
+// that the user just wants back in the default view).
+document.addEventListener("click", async (e) => {
+  const archiveBtn = e.target.closest('[data-action="archive-task"]');
+  if (archiveBtn) {
+    e.stopPropagation();
+    e.preventDefault();
+    const taskId = archiveBtn.getAttribute("data-task-id");
+    if (!taskId) return;
+    archiveBtn.disabled = true;
+    try {
+      await moveCardTo(taskId, "archived");
+    } finally {
+      archiveBtn.disabled = false;
+    }
+    return;
+  }
+  const unarchiveBtn = e.target.closest('[data-action="unarchive-task"]');
+  if (unarchiveBtn) {
+    e.stopPropagation();
+    e.preventDefault();
+    const taskId = unarchiveBtn.getAttribute("data-task-id");
+    if (!taskId) return;
+    unarchiveBtn.disabled = true;
+    try {
+      await moveCardTo(taskId, "done");
+    } finally {
+      unarchiveBtn.disabled = false;
+    }
+    return;
   }
 });
 
