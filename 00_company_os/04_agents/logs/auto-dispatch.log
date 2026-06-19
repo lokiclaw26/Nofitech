@@ -20,3 +20,8 @@
 2026-06-19T15:00:38+04:00  MC-KANBAN-CREATE-20260619105749-E5ECE0  ->  MC-AUTO-20260619150039-385486  assignee=argus priority=normal  title='LIVE-EMIT-VERIFY-1: Thor orchestrates, Forge ships, Argus proves'
 2026-06-19T15:18:40+04:00  MC-KANBAN-CREATE-20260619111610-E5AC71  ->  MC-AUTO-20260619151841-71C2A0  assignee=argus priority=normal  title='Argus probe argus-verify-mc-live-1781867770'
 2026-06-19T15:20:38+04:00  MC-KANBAN-CREATE-20260619111810-097F0F  ->  MC-AUTO-20260619152039-34872C  assignee=argus priority=normal  title='THOR-SELFVERIFY-MC-LIVE-1: confirm live emit works'
+2026-06-19T23:42:49+04:00  MC-KANBAN-CREATE-20260619194031-2DA608  ->  MC-AUTO-20260619234250-328F2A  assignee=forge priority=high  title='check and find the 3 blocked tasks and report what are they'
+2026-06-19T23:57:29+04:00  MC-TEST-DISPATCH-NOCLONE  assignee=forge priority=normal  title='TEST noclone-dispatch — should not create MC-AUTO-* clone'  patch_ok=0
+2026-06-19T23:58:09+04:00  MC-TEST-DISPATCH-NOCLONE  assignee=forge priority=normal  title='TEST noclone-dispatch — should not create MC-AUTO-* clone'  patch_ok=1
+2026-06-20T00:00:47+04:00  MC-KANBAN-CREATE-20260619195653-5E5B0E  assignee=argus priority=low  title='FORGE-TEST-NO-CLONE-1'  patch_ok=1
+2026-06-20T00:02:10+04:00  MC-TEST-DISPATCH-NOCLONE  assignee=forge priority=normal  title='TEST noclone-dispatch — should not create MC-AUTO-* clone'  patch_ok=1
