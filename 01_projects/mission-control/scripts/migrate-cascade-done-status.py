@@ -32,6 +32,7 @@ from kanban_parser import (  # noqa: E402
     parse_frontmatter,
     parse_markdown_table,
     detect_format,
+    _normalize_status,
     _TABLE_ROW_KV_RE,
     _TABLE_HEADER_RE,
     _TABLE_SEP_RE,
@@ -39,30 +40,48 @@ from kanban_parser import (  # noqa: E402
 
 
 def _backfill_format_a(path: Path) -> tuple[bool, str]:
-    """If kanban_status: done and status != done, set status: done. Return
+    """If the card lands in the Done column (per the parser's logic) and
+    `status` is not already `done`, set `status: done`. Returns
     (changed, before_status).
 
+    A card is "in the done column" when EITHER:
+      - the file has an explicit `kanban_status: done`, OR
+      - the file has NO kanban_status field AND `status` normalizes to
+        `done` (e.g. `complete` -> `done` per the parser's _normalize_status
+        table at kanban_parser.py:70).
+
+    This handles the case where old-format task files used
+    `status: complete` to mean "done" — the parser already routes them
+    to the Done column, but the raw status text on the card still reads
+    "complete" and NOFI can't tell them apart from a Done card at a glance.
+
     Two-pass: first read the whole header to decide whether the cascade
-    applies (kanban_status == done and status != done), then a second pass
-    rewrites the status line in place. This handles files where the
-    `status:` key appears BEFORE `kanban_status:` in the frontmatter.
+    applies, then a second pass rewrites the status line in place. This
+    handles files where the `status:` key appears BEFORE `kanban_status:`
+    in the frontmatter.
     """
     txt = path.read_text(encoding="utf-8")
     header, body, _ = _split_frontmatter(txt)
     if not header:
         return False, ""
-    has_kanban_done = False
+    kanban_status_value = ""
     status_idx = None
     status_before = ""
     for i, line in enumerate(header):
         m = re.match(r'^(\s*kanban_status\s*:\s*)(.*?)(\s*(?:#.*)?)$', line)
-        if m and m.group(2).strip().lower() == "done":
-            has_kanban_done = True
+        if m:
+            kanban_status_value = m.group(2).strip()
         m2 = re.match(r'^(\s*status\s*:\s*)(.*?)(\s*(?:#.*)?)$', line)
         if m2:
             status_idx = i
             status_before = m2.group(2).strip()
-    if not has_kanban_done:
+    # Use the same normalization the parser uses (kanban_parser._normalize_status)
+    # for the case where kanban_status is absent.
+    if kanban_status_value:
+        col_status = kanban_status_value.lower()
+    else:
+        col_status = _normalize_status(status_before)
+    if col_status != "done":
         return False, ""
     if status_idx is None:
         # No status line — inject one at the top of the header
@@ -74,7 +93,11 @@ def _backfill_format_a(path: Path) -> tuple[bool, str]:
         return True, ""
     if status_before.lower() == "done":
         return False, status_before
-    # Rewrite the status line in place
+    # Rewrite the status line in place — NOFI's mental model is
+    # "Done column = status=done". Anything else (in_progress, complete,
+    # failed, blocked, open, assigned, etc.) reads as "not done" on a card
+    # that sits in the Done column. So we cascade in every case where the
+    # file is in the done column. Safe because Done is terminal.
     new_header = []
     for i, line in enumerate(header):
         if i == status_idx:
@@ -90,7 +113,11 @@ def _backfill_format_a(path: Path) -> tuple[bool, str]:
 
 
 def _backfill_format_b(path: Path) -> tuple[bool, str]:
-    """Same as _backfill_format_a but for the table format."""
+    """Same as _backfill_format_a but for the table format. A card is
+    considered "in the done column" if either the kanban_status row says
+    done OR the kanban_status row is missing and the status value
+    normalizes to done (per the parser's _normalize_status table).
+    """
     txt = path.read_text(encoding="utf-8")
     lines = txt.splitlines()
     header_idx = None
@@ -105,7 +132,7 @@ def _backfill_format_b(path: Path) -> tuple[bool, str]:
         data_start += 1
     status_row_idx = None
     status_value = None
-    kanban_status_value = None
+    kanban_status_value = ""
     for j in range(data_start, len(lines)):
         ln = lines[j]
         if not ln.lstrip().startswith("|"):
@@ -122,10 +149,14 @@ def _backfill_format_b(path: Path) -> tuple[bool, str]:
             status_row_idx = j
             status_value = m.group("val").strip()
         elif key == "kanban_status":
-            kanban_status_value = m.group("val").strip().lower()
+            kanban_status_value = m.group("val").strip()
     if status_row_idx is None:
         return False, ""
-    if kanban_status_value != "done":
+    if kanban_status_value:
+        col_status = kanban_status_value.lower()
+    else:
+        col_status = _normalize_status(status_value or "")
+    if col_status != "done":
         return False, ""
     if status_value is not None and status_value.lower() == "done":
         return False, ""

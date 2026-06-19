@@ -4,7 +4,7 @@ title: "Fix Mission Control 'last activity 2d ago' — proper sub-agent runs wit
 project: mission-control
 created_by: thor
 assigned_to: forge,argus
-status: complete
+status: done
 priority: critical
 created: 2026-06-16
 updated: 2026-06-16T11:24:48Z

@@ -4,7 +4,7 @@ title: Stage 20 — Pending order cleanup + smoke-test fixture removal
 project: mission-control
 created_by: nofi
 assigned_to: forge
-status: complete
+status: done
 priority: normal
 created_at: "2026-06-11T14:05:00+00:00"
 updated_at: "2026-06-11T18:30:00+00:00"

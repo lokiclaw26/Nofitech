@@ -4,7 +4,7 @@ title: "Set up NofiTech Ind. public GitHub repo + 6h auto-push cron"
 project: mission-control
 created_by: thor
 assigned_to: forge,argus
-status: complete
+status: done
 priority: high
 created: 2026-06-16
 updated: 2026-06-16T11:39:11Z

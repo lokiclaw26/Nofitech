@@ -4,7 +4,7 @@ title: Stage 19 — Pending Orders panel (order-receipt, no auto-fix)
 project: mission-control
 created_by: nofi
 assigned_to: forge
-status: complete
+status: done
 priority: high
 created_at: "2026-06-11T13:35:00+00:00"
 updated_at: "2026-06-11T14:00:00+00:00"

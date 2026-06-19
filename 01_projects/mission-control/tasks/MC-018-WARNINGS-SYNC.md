@@ -4,7 +4,7 @@ title: Stage 18 — Single source of truth for warnings (data_logs sync with cou
 project: mission-control
 created_by: nofi
 assigned_to: forge
-status: complete
+status: done
 priority: high
 created_at: "2026-06-11T12:50:00+00:00"
 updated_at: "2026-06-11T13:30:00+00:00"

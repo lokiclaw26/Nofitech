@@ -4,7 +4,7 @@ title: "Add GitHub Connection panel to Mission Control (Section 9)"
 project: mission-control
 created_by: thor
 assigned_to: forge,argus
-status: complete
+status: done
 priority: high
 created: 2026-06-16
 updated: 2026-06-16T11:56:58Z

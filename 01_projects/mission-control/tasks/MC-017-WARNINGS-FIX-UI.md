@@ -4,7 +4,7 @@ title: Stage 17 — Warnings panel with fix-order buttons + remove Provider/Mode
 project: mission-control
 created_by: nofi
 assigned_to: forge
-status: complete
+status: done
 priority: high
 created_at: "2026-06-11T12:00:00+00:00"
 updated_at: "2026-06-11T12:36:01+00:00"

@@ -4,7 +4,7 @@ title: Add daily morning brief cron job (value-pipeline stage 1)
 project: mission-control
 created_by: thor
 assigned_to: forge
-status: complete
+status: done
 priority: high
 created_at: 2026-06-16T16:20:00+00:00
 updated_at: 2026-06-16T16:30:00+00:00

@@ -4,7 +4,7 @@ title: Stage 16 — Make LAN IP detection live (per-request)
 project: mission-control
 created_by: nofi
 assigned_to: forge
-status: complete
+status: done
 priority: normal
 created_at: "2026-06-11T11:45:00+00:00"
 updated_at: "2026-06-11T11:55:38+00:00"

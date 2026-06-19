@@ -4,7 +4,7 @@ title: "Stage 13 — Inbox triage and 3-agent charter"
 project: mission-control
 created_by: nofi
 assigned_to: thor
-status: complete
+status: done
 priority: normal
 created_at: "2026-06-11T11:22:38+00:00"
 updated_at: "2026-06-11T11:22:38+00:00"

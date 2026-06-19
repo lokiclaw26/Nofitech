@@ -4,7 +4,7 @@ title: Stage 15.2 — Full data-source audit and backfill
 project: mission-control
 created_by: nofi
 assigned_to: forge
-status: complete
+status: done
 priority: normal
 created_at: "2026-06-11T11:30:00+00:00"
 updated_at: "2026-06-11T11:50:00+00:00"
