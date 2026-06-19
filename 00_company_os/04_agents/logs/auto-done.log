@@ -222,3 +222,51 @@ kanban-auto-done: [2026-06-19T14:56:32+04:00] === auto-done tick start ===
 kanban-auto-done: [2026-06-19T14:56:32+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
 kanban-auto-done: [2026-06-19T14:58:32+04:00] === auto-done tick start ===
 kanban-auto-done: [2026-06-19T14:58:32+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T15:00:32+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T15:00:32+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T15:02:32+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T15:02:32+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T15:04:32+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T15:04:32+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T15:06:32+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T15:06:32+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T15:08:32+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T15:08:32+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T15:10:32+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T15:10:32+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T15:12:32+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T15:12:32+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T15:14:32+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T15:14:32+04:00] MOVED MC-LIVE-MEMORY-GRAPH-1 running_now->done reason=orphan:age=1890s,no-pid http=200
+kanban-auto-done: [2026-06-19T15:14:32+04:00] === auto-done tick end moved=1 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T15:16:32+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T15:16:32+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T15:18:32+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T15:18:32+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T15:20:32+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T15:20:32+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T15:22:32+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T15:22:32+04:00] MOVED MC-KANBAN-CREATE-20260619111610-E5AC71 running_now->done reason=child-done:MC-AUTO-20260619151841-71C2A0 http=200
+kanban-auto-done: [2026-06-19T15:22:32+04:00] === auto-done tick end moved=1 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T15:24:32+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T15:24:32+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T15:26:32+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T15:26:32+04:00] MOVED MC-KANBAN-CREATE-20260619111810-097F0F running_now->done reason=child-done:MC-AUTO-20260619152039-34872C http=200
+kanban-auto-done: [2026-06-19T15:26:32+04:00] === auto-done tick end moved=1 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T15:28:32+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T15:28:32+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T15:30:32+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T15:30:32+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T15:32:32+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T15:32:32+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T15:34:32+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T15:34:32+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T15:36:33+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T15:36:33+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T15:38:33+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T15:38:33+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T15:40:33+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T15:40:33+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T15:42:33+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T15:42:33+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T15:44:33+04:00] === auto-done tick start ===

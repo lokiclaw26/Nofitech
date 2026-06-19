@@ -1,0 +1,48 @@
+All consistent. Final state:
+- Task file: `kanban_status: done` ✓
+- events.jsonl: my `task_completed` event at 15:28:56 is appended ✓
+- Memory graph node: `status=done`, `source=serve.py:live_emit` ✓
+- Log file written: 174 lines ✓
+
+All steps complete. Time to report.
+
+================================================================
+
+ARGUS — verification complete for MC-KANBAN-CREATE-20260619111810-097F0F
+
+STATUS: result=success
+TASK:   THOR-SELFVERIFY-MC-LIVE-1: confirm live emit works
+
+WHAT I DID
+- Read task body, prior argus logs (E5AC71, E5ECE0, 385486) for context — same THOR-SELFVERIFY probe pattern.
+- Verified all 4 auto-kanban cron legs alive in logs (process / dispatch / execute / done all ticking).
+- Captured clean BEFORE/PATCH/AFTER proof of live emit:
+  * BEFORE: memory graph node status=done, summary="...→ done"
+  * PATCH: {"status":"running_now"} → 200 ok new_status=running_now
+  * AFTER (~2s): node status=running_now, summary="...→ running_now"
+  * Total nodes 1620 / edges 3127 unchanged (upsert, not append).
+- Verified PATCH endpoint schema (PATCH-only, enum-validated, writes kanban_status only, preserves project-native status).
+- Confirmed memory graph node source attribution = "serve.py:live_emit" (the new code path in serve.py:1789-1791).
+- Auto-done had already moved task to done at 15:26:32 (child MC-AUTO-20260619152039-34872C closed); my PATCH demonstrated manual override path is also live.
+
+CHANGED
+- /home/nofidofi/NofiTech-Ind/01_projects/mission-control/tasks/MC-KANBAN-CREATE-20260619111810-097F0F.md  (kanban_status: running_now → done via final PATCH)
+- /home/nofidofi/NofiTech-Ind/00_company_os/04_agents/logs/2026-06-19/argus-MC-KANBAN-CREATE-20260619111810-097F0F.md  (174-line verification log written)
+- /home/nofidofi/NofiTech-Ind/00_company_os/events.jsonl  (task_completed event appended; 668 → 669 lines)
+
+TESTED
+- PATCH /api/data/kanban/task/<id> → live emit → memory graph mutation  ✓
+- GET /api/health, /api/version, /api/memory-graph  ✓
+- PATCH schema validation (unknown status, GET vs PATCH)  ✓
+- Auto-kanban cron leg logs (4/4 active in last 2 min)  ✓
+
+ARGUS NOTES
+- The live emit proof is definitive: source field literally reads "serve.py:live_emit" on the mutated node. Total nodes/edges stable → upsert semantics correct. Latency ~2s wall-clock from PATCH return to graph visible.
+- One observation worth flagging (not a bug): auto-done ran at 15:26:32 and closed this task before I started the live emit probe. My PATCH at 15:27:40 overrode it back to running_now — this is *good*: it confirms the PATCH path is a legitimate live override, not gated by the cron. Then my closing PATCH at 15:28:14 moved it to done again, and auto-done at 15:28:32 saw it already in done (no-op, but the cycle is closed).
+- Visual verification (Firefox headless screenshots of the kanban board) is out of scope here — that's MC-LIVE-MEMORY-GRAPH-1-ARGUS-VISUAL-1, a separate dogfood task.
+
+NEXT
+- None. Task closed; cron will keep this in done state.
+- Standalone pre-existing: MC-LIVE-MEMORY-GRAPH-1-ARGUS-VISUAL-1 still pending for the visual half.
+
+🛑 Standing by. Want me to also fold this same BEFORE/PATCH/AFTER probe into a reusable verification script in 00_company_os/04_agents/scripts/ so future THOR-SELFVERIFY-MC-LIVE-* tasks can run it cheaper?

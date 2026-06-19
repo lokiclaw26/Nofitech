@@ -1,0 +1,8 @@
+Live emit confirmed end-to-end:
+
+- PATCH HTTP=200, latency=131ms
+- node status: `running_now` → `done` (upserted in place, idempotent on `id`)
+- 2 new audit events logged: `kanban.status_change` from `serve.py:patch_kanban_task`
+- All within 1.5s of PATCH
+
+Now let me also verify the live emit on the `/api/memory-graph` endpoint, since the frontend reads from there:

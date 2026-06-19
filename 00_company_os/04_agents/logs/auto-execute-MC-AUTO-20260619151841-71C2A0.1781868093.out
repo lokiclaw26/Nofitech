@@ -1,0 +1,10 @@
+Confirmed: my task in done column with status=done, kanban_status=done. running_now dropped 3→2 (a sibling task also finished during my probe — pipeline healthy), done rose 90→91. All artifacts in place.
+
+STATUS  argus-verify-mc-live-1781867770 PASS — MC live, all 9 probes green
+CHANGED  task MC-AUTO-20260619151841-71C2A0 PATCHed in_progress→done (cascaded); log at /home/nofidofi/NofiTech-Ind/00_company_os/04_agents/logs/2026-06-19/argus-MC-AUTO-20260619151841-71C2A0.md; event task_completed appended to /home/nofidofi/NofiTech-Ind/00_company_os/events.jsonl
+TESTED  GET / (200), /api/health (200), /api/version (200, v1.15.0-order-cleanup @ 615becbdc4bd656e2c59e5578ad2c31f6422f50f, dirty, uptime 1603s), /api/memory-graph (200), /api/data/kanban (200, 101 tasks total, 90→91 done after my PATCH, 3→2 running_now), /api/data/agents (200), /api/data/events (200), /api/data/kanban/task/<id> (200), PATCH /api/data/kanban/task/<id> (200, ok=true, new_status=done, cascaded)
+ARGUS  no blockers, no auth issues, no drift between kanban summary and columns array. 1 non-blocking warning noted: MC-KANBAN-2-DUAL-FORMAT-PARSER.md has both YAML + markdown table (parser picks YAML correctly, pre-existing)
+NEXT  none required from me — task is done. The other 2 running_now cards (MC-AUTO-20260619152039-34872C and MC-KANBAN-CREATE-20260619111810-097F0F) belong to other Argus probes dispatched in the same window and will finish on their own clock
+result: success
+
+🛑 Standing by — should I also write a short follow-up note to memory about the v1.15.0-order-cleanup version + the dual-format parser warning being live, or is that already covered elsewhere?

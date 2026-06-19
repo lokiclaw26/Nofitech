@@ -17,3 +17,6 @@
 2026-06-19T12:08:10+04:00  SMOKE-TEST-AUTO-DONE-1  ->  MC-AUTO-20260619120811-E2BCC8  assignee=argus priority=low  title='SMOKE TEST: auto-done pipeline (drop + auto-move)'
 2026-06-19T14:16:37+04:00  MC-MEMORY-GRAPH-RESET-FIX-1  ->  MC-AUTO-20260619141638-279FBD  assignee=thor priority=urgent  title='Fix memory graph reset button leaving page blank'
 2026-06-19T14:24:36+04:00  MC-KANBAN-CREATE-20260619102057-BA1FD3  ->  MC-AUTO-20260619142437-98B735  assignee=forge priority=high  title='a fix for DONE column in kanban .. if the task already dne and moved to the column DONE, the status still shows in progress.. this is wrong .. IT SHOULD STATE DONE and even in green color or something highlighted ... DONE ... FIX IT'
+2026-06-19T15:00:38+04:00  MC-KANBAN-CREATE-20260619105749-E5ECE0  ->  MC-AUTO-20260619150039-385486  assignee=argus priority=normal  title='LIVE-EMIT-VERIFY-1: Thor orchestrates, Forge ships, Argus proves'
+2026-06-19T15:18:40+04:00  MC-KANBAN-CREATE-20260619111610-E5AC71  ->  MC-AUTO-20260619151841-71C2A0  assignee=argus priority=normal  title='Argus probe argus-verify-mc-live-1781867770'
+2026-06-19T15:20:38+04:00  MC-KANBAN-CREATE-20260619111810-097F0F  ->  MC-AUTO-20260619152039-34872C  assignee=argus priority=normal  title='THOR-SELFVERIFY-MC-LIVE-1: confirm live emit works'

@@ -4,7 +4,7 @@ title: Real live persistent memory graph (replaces dummy seed)
 project: mission-control
 created_by: thor
 assigned_to: forge
-status: todo
+status: done
 priority: critical
 created_at: 2026-06-19T14:40:00+04:00
 updated_at: 2026-06-19T14:40:00+04:00
@@ -13,7 +13,7 @@ blocker: ""
 data_source: nofi-bug-report
 result: ""
 description: "NOFI: 'I WANT A LIVE ACTUAL MEMORY REPRESENTATION ... LIKE IF I ADD A TASK IT SHOULD GET UPDATED AUTOMATICALLY IN THE MEMORY AND IT SHOULD BE RECORDED IN BACKEND SO IF I RESET THE GRAPH IT DOESNT LOOSE THE DATA .. ONLY RESETS THE ORIENTATION AND THE VISUALS TO ORIGINS.. THATS ALL... I WANT THE PROPER BACK END AND NOT A DUMB FUCK BULLSHIT DUMMY MEMORY GRAPH .. A FUCKIN REAL AND WORKING LIVE GOD DAMN MEMORY GRAPH .. U ARE MAKING ME VERY VERY VERY FRUSTRAITED'. Build: (1) live auto-emit from kanban/agent/event endpoints into memory-graph.sqlite3, (2) Reset button = visual-only, DB untouched, (3) real bulk-seed from filesystem walk (agents/projects/tasks/events/hardware), (4) target 100+ real nodes. Forge owns build, Argus owns verify, Thor orchestrates only. See task file for full spec."
-kanban_status: running_now
+kanban_status: done
 ---
 
 # MC-LIVE-MEMORY-GRAPH-1: Real live persistent memory graph (replaces dummy seed)
