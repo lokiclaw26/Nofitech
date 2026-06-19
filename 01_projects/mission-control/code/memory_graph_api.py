@@ -173,11 +173,20 @@ def post_events(handler) -> tuple[int, dict]:
 
 
 def post_reset(handler) -> tuple[int, dict]:
-    """POST /api/memory-graph/reset — admin reset; requires auth.
+    """POST /api/memory-graph/reset — user-facing "Reset View" button.
 
-    Resets BOTH the legacy (kanban-bridge) and global stores. The global
-    store is reseeded from the legacy store's last data on the next
-    request (via the bootstrap path).
+    MC-LIVE-MEMORY-GRAPH-1 (2026-06-19): NOFI complained that
+    clicking reset wiped the graph. The new behaviour is **visual
+    reset only**: the DB is NEVER touched (no DELETE, no reseed).
+    We just record a `view_reset` event for the audit trail and
+    return the current graph shape. The frontend resets the 3D
+    camera on its end.
+
+    The hard-reset (admin wipe) is now exposed at
+    /api/memory-graph/admin-reset and is NOT wired to the UI.
+
+    Requires auth (same as before). Returns 200 with the current
+    node/edge counts (unchanged) and a `view_reset: true` flag.
     """
     if not is_authorized(handler):
         return 403, auth_required_error()
@@ -191,17 +200,49 @@ def post_reset(handler) -> tuple[int, dict]:
     if length > 0:
         handler.rfile.read(length)  # discard; we don't accept {confirm:true}
 
-    store = get_store()
-    g = store.reset()
-    # Also wipe the global store. It will re-seed from legacy on next open
-    # (see GlobalMemoryGraphStore._maybe_bootstrap_from_legacy).
     try:
         global_store = get_global_store()
     except RuntimeError:
         global_store = init_global_store()
-    global_store.reset()
+
+    # Visual reset only. DB is preserved.
+    g = global_store.reset_view()
     return 200, {
         "ok": True,
+        "view_reset": True,
+        "db_wiped": False,
+        "reset_at": g.get("last_updated"),
+        "node_count": g.get("node_count", 0),
+        "edge_count": g.get("edge_count", 0),
+        "note": "Camera returned to origin. Database is unchanged.",
+    }
+
+
+def post_admin_reset(handler) -> tuple[int, dict]:
+    """POST /api/memory-graph/admin-reset — destructive hard reset.
+
+    MC-LIVE-MEMORY-GRAPH-1 (2026-06-19): NOT wired to the UI.
+    Kept for explicit ops / tests. Requires auth.
+    """
+    if not is_authorized(handler):
+        return 403, auth_required_error()
+    try:
+        length = int(handler.headers.get("Content-Length") or "0")
+    except (TypeError, ValueError):
+        length = 0
+    if length < 0 or length > _MAX_RESET_BODY:
+        return 400, {"error": f"body must be 1..{_MAX_RESET_BODY} bytes"}
+    if length > 0:
+        handler.rfile.read(length)
+
+    try:
+        global_store = get_global_store()
+    except RuntimeError:
+        global_store = init_global_store()
+    g = global_store.reset(reseed=False)
+    return 200, {
+        "ok": True,
+        "admin_reset": True,
         "reset_at": g.get("last_updated"),
         "node_count": g.get("node_count", 0),
         "edge_count": g.get("edge_count", 0),

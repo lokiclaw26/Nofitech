@@ -66,6 +66,18 @@
   .scope-banner { padding: 8px 20px; background: #1a1a0a; border-bottom: 1px solid #2a2a2a; color: #d4af37; font-size: 12px; letter-spacing: 0.5px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .scope-banner .scope-label { font-weight: 600; }
   .scope-banner .scope-stats { color: #888; font-family: monospace; font-size: 11px; }
+  /* MC-LIVE-MEMORY-GRAPH-1 (2026-06-19): live top-corner count badge. */
+  .live-count {
+    position: fixed; top: 12px; right: 12px; z-index: 50;
+    background: rgba(20,20,20,0.92); color: #d4af37;
+    border: 1px solid #2a2a2a; border-radius: 4px;
+    padding: 6px 10px; font-size: 12px; font-family: monospace;
+    display: flex; gap: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  }
+  .live-count .lbl { color: #888; font-weight: normal; }
+  .live-count .num { color: #d4af37; font-weight: bold; }
+  .live-count .pulse { color: #2ecc71; }
+  .live-count .stale { color: #e74c3c; }
   .scope-banner.scope-mission-control { background: #0f1a1a; color: #4a9eff; }
   .scope-banner.scope-project { background: #0f1a0f; color: #2ecc71; }
   .scope-banner.scope-agent { background: #1a0f1a; color: #9b59b6; }
@@ -104,6 +116,12 @@
     <div class="sidebar-footer" id="version">v1.17.0+3d</div>
   </div>
   <div class="main">
+    <!-- MC-LIVE-MEMORY-GRAPH-1 (2026-06-19): live top-corner count. -->
+    <div class="live-count" id="live-count" title="Live node/edge counts (auto-refresh 5s)">
+      <span><span class="lbl">nodes</span> <span class="num" id="lc-nodes">0</span></span>
+      <span><span class="lbl">edges</span> <span class="num" id="lc-edges">0</span></span>
+      <span class="pulse" id="lc-pulse">●</span>
+    </div>
     <header>
       <h1>Memory Graph <span class="subtitle">Hermes working memory</span></h1>
       <div class="connection-status">
@@ -173,7 +191,7 @@
           <label><input type="checkbox" value="message" checked /> <span class="kind-color" style="background:#34495e"></span> Message</label>
         </fieldset>
         <div class="slider-row">Min importance: <input type="range" id="importance" min="0" max="1" step="0.05" value="0" /> <span id="importance-val">0.00</span></div>
-        <button id="reset">↻ Reset Graph</button>
+        <button id="reset" title="Returns the 3D camera to origin. Does NOT delete data.">↻ Reset View</button>
       </aside>
       <div class="graph-container">
         <div id="graph"></div>
@@ -554,12 +572,25 @@
         if (luEl) luEl.textContent = lu;
         document.getElementById('conn-dot').classList.remove('error');
         document.getElementById('conn-text').textContent = 'polling 5s';
+        // MC-LIVE-MEMORY-GRAPH-1 (2026-06-19): update the live top-corner count.
+        const lcNodes = document.getElementById('lc-nodes');
+        const lcEdges = document.getElementById('lc-edges');
+        const lcPulse = document.getElementById('lc-pulse');
+        if (lcNodes) lcNodes.textContent = String(data.node_count || 0);
+        if (lcEdges) lcEdges.textContent = String(data.edge_count || 0);
+        if (lcPulse) {
+          lcPulse.className = 'pulse';
+          lcPulse.textContent = '●';
+        }
         updateScopeBanner(raw, data);
         applyFilters();
       } catch (err) {
         lastError = err.message;
         document.getElementById('conn-dot').classList.add('error');
         document.getElementById('conn-text').textContent = 'error: ' + err.message;
+        // Mark the live count as stale on error.
+        const lcPulse = document.getElementById('lc-pulse');
+        if (lcPulse) { lcPulse.className = 'stale'; lcPulse.textContent = '●'; }
       }
     }
     // Populate the project dropdown from the API metadata.
@@ -695,17 +726,33 @@
       document.getElementById('importance-val').textContent = parseFloat(e.target.value).toFixed(2);
       applyFilters();
     });
+    // MC-LIVE-MEMORY-GRAPH-1 (2026-06-19): "Reset View" — visual only.
+    // The DB is NEVER touched. The 3D camera just returns to its origin.
+    // Optionally, if the auth token is set, we still call the endpoint
+    // (which itself is now a no-op for the DB) so the server can record
+    // a `view_reset` event in the audit log.
     document.getElementById('reset').addEventListener('click', async () => {
-      if (!confirm('Reset graph to clean sample data?')) return;
       try {
-        const r = await authFetch('/api/memory-graph/reset', { method: 'POST', body: JSON.stringify({ confirm: true }) });
-        if (!r.ok) {
-          const j = await r.json().catch(() => ({}));
-          throw new Error(j.error || `HTTP ${r.status}`);
+        if (Graph) {
+          // 1. Move the 3D camera back to its origin (no DB hit).
+          try { Graph.cameraPosition({ x: 0, y: 0, z: 250 }, { x: 0, y: 0, z: 0 }, 700); } catch (e) {}
+          // 2. Reheat the simulation so the layout settles around origin.
+          try { Graph.d3ReheatSimulation(); } catch (e) {}
         }
+        // 3. Notify the server (auth-gated) so the audit log records
+        //    the click. The server endpoint is the visual-only one.
+        const r = await authFetch('/api/memory-graph/reset', { method: 'POST' });
+        if (!r.ok) {
+          // Not fatal — visual reset already worked. Just log it.
+          console.warn('reset_view server notify failed:', r.status);
+        }
+        // 4. Immediately re-render (the next 5s poll will do this too,
+        //    but we want the inspector / counts to refresh now).
         await fetchGraph();
         await fetchEvents();
-      } catch (err) { alert('Reset failed: ' + err.message); }
+      } catch (err) {
+        console.warn('reset_view error:', err.message);
+      }
     });
 
     // Polling

@@ -4,7 +4,7 @@ title: Roguelike V1 — Stage 4: Slime AI Movement
 project: roguelike-v1
 created_by: nofi
 assigned_to: forge
-status: complete
+status: done
 priority: high
 created_at: "2026-06-12T01:10:00+00:00"
 updated_at: "2026-06-12T01:35:00+00:00"

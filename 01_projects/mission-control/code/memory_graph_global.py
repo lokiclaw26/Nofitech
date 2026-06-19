@@ -36,9 +36,11 @@ Stdlib only.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
+import re
 import sqlite3
 import threading
 from datetime import datetime, timezone
@@ -669,31 +671,746 @@ class GlobalMemoryGraphStore:
             )
             return {r[0]: int(r[1]) for r in cur.fetchall()}
 
-    def reset(self, *, reseed: bool = True) -> dict:
-        """Wipe nodes/edges/events, then re-seed from sample-graph.json.
+    # ----- bulk filesystem seed (MC-LIVE-MEMORY-GRAPH-1, 2026-06-19) ---
 
-        This matches the legacy `MemoryGraphStore.reset()` contract — the
-        user-facing "Reset to clean sample data" button must leave the page
-        in a populated state, not an empty one.
+    def bulk_seed(self, *, repo_root: Path | None = None,
+                  max_event_lines: int = 5000) -> dict:
+        """One-shot filesystem walk that ingests the real NofiTech
+        artifacts as nodes + edges.
 
-        Returns the new (post-reset) graph shape (a scope='all' dict with
-        node_count / edge_count / last_updated / nodes / edges / metadata).
-        If ``reseed`` is False the database is left empty (used for tests).
-        The reset operation itself is recorded as a single 'graph_reset'
-        event so the audit trail shows when it happened and how many rows
-        landed in the post-reset graph.
+        Idempotent: every upsert is a no-op on duplicate IDs.
 
-        MC-MEMORY-GRAPH-RESET-FIX-1 (2026-06-19): NOFI clicked "Reset Graph"
-        and the page went blank. Root cause: the global store's reset()
-        was a hard-wipe with no reseed, while the button label promised
-        "Reset to clean sample data". Thor's first-pass draft got the
-        intent right but used column names (created_at / updated_at, plus
-        a non-existent 'label' column on edges) that don't match the
-        schema created in __init__ — every INSERT would have failed with
-        "table nodes has 14 columns but 12 values were supplied". Forge
-        reviewed the draft, rewrote the upserters against the real
-        schema, and routed the audit event through the real
-        `append_event` API. This is the shipped version.
+        Sources:
+          - 00_company_os/04_agents/*.md           -> agent nodes
+          - 00_company_os/01_projects/*            -> project nodes
+          - 01_projects/*/                         -> project nodes
+          - 01_projects/*/tasks/*.md               -> task nodes
+          - 00_company_os/02_tasks/                -> task nodes (alt)
+          - 00_company_os/04_agents/events.jsonl   -> event nodes
+          - 00_company_os/events.jsonl             -> event nodes
+          - 00_company_os/05_knowledge/            -> knowledge nodes
+          - 00_company_os/charter.md, activation-protocol.md,
+            auto-kanban-rule.md, event-schema.md, task-schema.md,
+            token-budget-mode.md, stage-12-plan.md,
+            memory-log.md, memory-log-*.md          -> concept nodes
+          - 00_company_os/04_agents/state.json     -> agent state
+          - 00_company_os/04_agents/logs/**/*.md   -> log nodes
+
+        Target: 100+ real nodes after one full run.
+
+        Returns a stats dict with the counts.
+        """
+        from memory_graph_global import assert_safe_path  # local
+
+        repo = Path(repo_root) if repo_root else Path("/home/nofidofi/NofiTech-Ind")
+        if not assert_safe_path(repo):
+            return {"error": f"refusing to walk outside allowlist: {repo}"}
+
+        stats = {
+            "agents": 0,
+            "projects": 0,
+            "tasks": 0,
+            "events": 0,
+            "knowledge": 0,
+            "logs": 0,
+            "company_files": 0,
+            "edges": 0,
+            "skipped": 0,
+            "skipped_existing": 0,
+        }
+
+        # Ensure company + agent scaffolding exists.
+        self.upsert_node({
+            "id": "company:nofitech",
+            "kind": "company",
+            "label": "NofiTech Ind.",
+            "summary": "Root company node for the NofiTech Ind. / Hermes Agent memory graph.",
+            "importance": 1.0,
+            "confidence": 1.0,
+            "status": "active",
+            "tags": ["company", "nofitech"],
+            "source": "bulk_seed",
+        })
+        known_agents = ("thor", "forge", "argus")
+        for a in known_agents:
+            self.upsert_node({
+                "id": f"agent:{a}",
+                "kind": "agent",
+                "label": a.capitalize(),
+                "summary": f"Agent node for {a} (bulk_seed bootstrap).",
+                "importance": 0.8,
+                "confidence": 0.9,
+                "status": "active",
+                "tags": ["agent", a],
+                "source": "bulk_seed",
+                "agent": a,
+            })
+            self.upsert_edge({
+                "id": f"edge-company:nofitech-agent:{a}-contains",
+                "source": "company:nofitech",
+                "target": f"agent:{a}",
+                "kind": "contains",
+                "weight": 0.9,
+                "metadata": {"via": "bulk_seed"},
+            })
+            stats["agents"] += 1
+            stats["edges"] += 1
+
+        # ----- 1. agents/*.md -----
+        agents_dir = repo / "00_company_os" / "04_agents"
+        if agents_dir.is_dir():
+            for md in sorted(agents_dir.glob("*.md")):
+                try:
+                    text = md.read_text(encoding="utf-8", errors="replace")
+                except Exception:
+                    stats["skipped"] += 1
+                    continue
+                # Extract title from first H1 or filename
+                name = md.stem
+                title = name.capitalize()
+                for line in text.splitlines():
+                    if line.startswith("# "):
+                        title = line[2:].strip()
+                        break
+                self.upsert_node({
+                    "id": f"agent_md:{name}",
+                    "kind": "file",
+                    "label": f"{title} (agent file)",
+                    "summary": (text[:500]).strip(),
+                    "importance": 0.6,
+                    "confidence": 0.9,
+                    "status": "active",
+                    "tags": ["agent", "file", name],
+                    "source": f"00_company_os/04_agents/{md.name}",
+                })
+                # Link to the corresponding agent
+                if name in known_agents:
+                    self.upsert_edge({
+                        "id": f"edge-agent:{name}-agent_md:{name}-references_file",
+                        "source": f"agent:{name}",
+                        "target": f"agent_md:{name}",
+                        "kind": "references_file",
+                        "weight": 0.7,
+                    })
+                    stats["edges"] += 1
+                else:
+                    self.upsert_edge({
+                        "id": f"edge-company:nofitech-agent_md:{name}-contains",
+                        "source": "company:nofitech",
+                        "target": f"agent_md:{name}",
+                        "kind": "contains",
+                        "weight": 0.5,
+                    })
+                    stats["edges"] += 1
+                stats["knowledge"] += 1
+
+        # ----- 2. projects -----
+        projects_seen: set[str] = set()
+
+        def _project_node(proj_id: str, rel_path: str, *,
+                          label: str | None = None,
+                          summary: str | None = None) -> None:
+            if proj_id in projects_seen:
+                return
+            projects_seen.add(proj_id)
+            self.upsert_node({
+                "id": f"project:{proj_id}",
+                "kind": "project",
+                "label": label or proj_id,
+                "summary": summary or f"Project: {proj_id}",
+                "importance": 0.7,
+                "confidence": 0.9,
+                "status": "active",
+                "tags": ["project", proj_id],
+                "source": rel_path,
+                "project": proj_id,
+            })
+            self.upsert_edge({
+                "id": f"edge-company:nofitech-project:{proj_id}-contains",
+                "source": "company:nofitech",
+                "target": f"project:{proj_id}",
+                "kind": "contains",
+                "weight": 0.8,
+                "metadata": {"via": "bulk_seed"},
+            })
+            stats["projects"] += 1
+            stats["edges"] += 1
+
+        # 00_company_os/01_projects/*
+        co_projects = repo / "00_company_os" / "01_projects"
+        if co_projects.is_dir():
+            for p in sorted(co_projects.iterdir()):
+                if p.is_dir() and not p.name.startswith("."):
+                    _project_node(p.name, f"00_company_os/01_projects/{p.name}/")
+
+        # 01_projects/*
+        top_projects = repo / "01_projects"
+        if top_projects.is_dir():
+            for p in sorted(top_projects.iterdir()):
+                if p.is_dir() and not p.name.startswith("."):
+                    # read status.md / plan.md / README.md for a summary if present
+                    summary = None
+                    for fname in ("status.md", "plan.md", "README.md"):
+                        f = p / fname
+                        if f.is_file():
+                            try:
+                                summary = f.read_text(encoding="utf-8", errors="replace")[:400]
+                                break
+                            except Exception:
+                                pass
+                    _project_node(p.name, f"01_projects/{p.name}/", summary=summary)
+
+        # ----- 3. tasks -----
+        def _task_id_safe(s: str) -> str:
+            out = re.sub(r"[^A-Za-z0-9._\-]+", "-", (s or "").strip())
+            out = re.sub(r"-+", "-", out).strip("-")
+            return (out or "x")[:200]
+
+        def _ingest_task_file(md: Path, default_project: str | None) -> None:
+            try:
+                text = md.read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                stats["skipped"] += 1
+                return
+            # Try YAML frontmatter first (Format A)
+            task_id = None
+            project_id = default_project
+            status = None
+            priority = None
+            title = md.stem
+            assignee = None
+            fm_match = re.match(r"^---\s*\n(.*?)\n---\s*\n", text, re.DOTALL)
+            if fm_match:
+                head = fm_match.group(1)
+                for line in head.splitlines():
+                    if ":" not in line:
+                        continue
+                    k, _, v = line.partition(":")
+                    k = k.strip().lower()
+                    v = v.strip().strip('"\'')
+                    if k == "id" or k == "task_id":
+                        task_id = v
+                    elif k == "title":
+                        title = v
+                    elif k == "project":
+                        project_id = v or project_id
+                    elif k == "status" or k == "kanban_status":
+                        status = v
+                    elif k == "priority":
+                        priority = v
+                    elif k in ("assigned_to", "owner", "assignee"):
+                        assignee = v.lower() if v else None
+            else:
+                # Try Format B markdown table
+                for line in text.splitlines()[:30]:
+                    line = line.strip()
+                    if not line.startswith("|"):
+                        continue
+                    cells = [c.strip() for c in line.strip("|").split("|")]
+                    if len(cells) < 2:
+                        continue
+                    if all(set(c) <= set("-: ") for c in cells):
+                        continue
+                    key = cells[0].strip("* ").strip().lower()
+                    val = cells[1].strip()
+                    if key in ("id", "task_id"):
+                        task_id = val
+                    elif key == "title":
+                        title = val
+                    elif key == "project":
+                        project_id = val or project_id
+                    elif key in ("status", "kanban_status"):
+                        status = val
+                    elif key == "priority":
+                        priority = val
+                    elif key in ("owner", "assigned_to", "assignee"):
+                        assignee = val.lower() if val else None
+            if not task_id:
+                task_id = md.stem
+            if not task_id:
+                return
+            # Canonical id: prefer the frontmatter `id` field; fall back
+            # to the file stem. Always BARE (no path suffix) so the
+            # bulk_seed walker uses the SAME id convention as the live
+            # kanban-bridge. Re-runs are idempotent: if a node with this
+            # bare id already exists (whether written by a prior seed or
+            # by a live POST /api/kanban), we skip.
+            nid = f"task:{_task_id_safe(task_id)}"
+            rel = str(md.relative_to(repo)) if str(md).startswith(str(repo)) else str(md)
+            if self.has_node(nid):
+                stats["skipped_existing"] += 1
+                return  # already ingested; idempotent on rerun
+            self.upsert_node({
+                "id": nid,
+                "kind": "task",
+                "label": title or task_id,
+                "summary": text[:600].strip(),
+                "importance": 0.6,
+                "confidence": 0.85,
+                "status": status or "active",
+                "tags": ["task", project_id or "unknown", priority or "normal"],
+                "source": rel,
+                "project": project_id,
+                "agent": assignee,
+                "metadata": {
+                    "task_id": task_id,
+                    "priority": priority,
+                    "assignee": assignee,
+                },
+            })
+            stats["tasks"] += 1
+            if project_id:
+                _project_node(project_id, f"01_projects/{project_id}/")
+                self.upsert_edge({
+                    "id": f"edge-project:{_task_id_safe(project_id)}-{nid}-contains",
+                    "source": f"project:{_task_id_safe(project_id)}",
+                    "target": nid,
+                    "kind": "contains",
+                    "weight": 0.7,
+                })
+                stats["edges"] += 1
+            if assignee and assignee in known_agents:
+                self.upsert_edge({
+                    "id": f"edge-{nid}-agent:{assignee}-assigned_to",
+                    "source": nid,
+                    "target": f"agent:{assignee}",
+                    "kind": "assigned_to",
+                    "weight": 0.8,
+                })
+                stats["edges"] += 1
+
+        # 01_projects/*/tasks/*.md
+        if top_projects.is_dir():
+            for proj_dir in sorted(top_projects.iterdir()):
+                if not proj_dir.is_dir() or proj_dir.name.startswith("."):
+                    continue
+                tasks_dir = proj_dir / "tasks"
+                if tasks_dir.is_dir():
+                    for md in sorted(tasks_dir.glob("*.md")):
+                        _ingest_task_file(md, default_project=proj_dir.name)
+
+        # 00_company_os/02_tasks/*  (alt location)
+        co_tasks = repo / "00_company_os" / "02_tasks"
+        if co_tasks.is_dir():
+            for md in sorted(co_tasks.rglob("*.md")):
+                _ingest_task_file(md, default_project=None)
+
+        # ----- 4. events.jsonl -----
+        def _ingest_events_jsonl(path: Path, source_label: str) -> None:
+            if not path.is_file():
+                return
+            try:
+                with path.open("r", encoding="utf-8", errors="replace") as f:
+                    lines = f.readlines()
+            except Exception:
+                stats["skipped"] += 1
+                return
+            # Cap to max_event_lines most recent (file is usually small).
+            lines = lines[-max_event_lines:]
+            count = 0
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    ev = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(ev, dict):
+                    continue
+                ts = ev.get("ts") or ev.get("timestamp") or ""
+                actor = ev.get("actor")
+                task_id = ev.get("task_id")
+                project_id = ev.get("project")
+                event_type = ev.get("event_type") or ev.get("type") or "log"
+                # Stable id: hash on task_id + ts + type to dedup on rerun
+                seed = f"{ts}|{task_id}|{event_type}|{actor}"
+                eid_seed = hashlib.sha1(seed.encode("utf-8", errors="replace")).hexdigest()[:12]
+                eid = f"event:{eid_seed}"
+                if self.has_node(eid):
+                    continue
+                self.upsert_node({
+                    "id": eid,
+                    "kind": "event",
+                    "label": f"{event_type} · {task_id or '—'}",
+                    "summary": (ev.get("message") or ev.get("title") or
+                                ev.get("note") or ev.get("text") or "")[:300],
+                    "importance": 0.3,
+                    "confidence": 0.7,
+                    "status": str(ev.get("status") or "logged"),
+                    "tags": ["event", source_label, event_type],
+                    "source": str(path.relative_to(repo)) if str(path).startswith(str(repo)) else str(path),
+                    "project": project_id,
+                    "agent": actor if isinstance(actor, str) else None,
+                    "created": ts,
+                })
+                count += 1
+                if project_id:
+                    _project_node(project_id, "")
+                    self.upsert_edge({
+                        "id": f"edge-project:{_task_id_safe(project_id)}-{eid}-emitted_event",
+                        "source": f"project:{_task_id_safe(project_id)}",
+                        "target": eid,
+                        "kind": "emitted_event",
+                        "weight": 0.5,
+                    })
+                    stats["edges"] += 1
+                if task_id:
+                    self.upsert_edge({
+                        "id": f"edge-{eid}-task:{_task_id_safe(task_id)}-references_file",
+                        "source": eid,
+                        "target": f"task:{_task_id_safe(task_id)}",
+                        "kind": "references_file",
+                        "weight": 0.5,
+                    })
+                    stats["edges"] += 1
+            stats["events"] += count
+
+        _ingest_events_jsonl(repo / "00_company_os" / "04_agents" / "events.jsonl", "agent-events")
+        _ingest_events_jsonl(repo / "00_company_os" / "events.jsonl", "company-events")
+
+        # ----- 5. knowledge -----
+        knowledge_dirs = [
+            repo / "00_company_os" / "05_knowledge",
+        ]
+        for kdir in knowledge_dirs:
+            if kdir.is_dir():
+                for md in sorted(kdir.rglob("*.md")):
+                    try:
+                        text = md.read_text(encoding="utf-8", errors="replace")
+                    except Exception:
+                        stats["skipped"] += 1
+                        continue
+                    name = md.stem
+                    title = name.replace("-", " ").replace("_", " ").title()
+                    for line in text.splitlines():
+                        if line.startswith("# "):
+                            title = line[2:].strip()
+                            break
+                    nid = f"knowledge:{_task_id_safe(name)}"
+                    rel = str(md.relative_to(repo)) if str(md).startswith(str(repo)) else str(md)
+                    self.upsert_node({
+                        "id": nid,
+                        "kind": "memory",
+                        "label": f"Knowledge: {title}",
+                        "summary": text[:500].strip(),
+                        "importance": 0.6,
+                        "confidence": 0.85,
+                        "status": "active",
+                        "tags": ["knowledge", name],
+                        "source": rel,
+                    })
+                    self.upsert_edge({
+                        "id": f"edge-company:nofitech-{nid}-contains",
+                        "source": "company:nofitech",
+                        "target": nid,
+                        "kind": "contains",
+                        "weight": 0.5,
+                    })
+                    stats["knowledge"] += 1
+                    stats["edges"] += 1
+
+        # Top-level company OS docs (charter, schemas, etc.)
+        company_docs = (
+            "charter.md", "activation-protocol.md", "auto-kanban-rule.md",
+            "event-schema.md", "task-schema.md", "token-budget-mode.md",
+            "stage-12-plan.md", "memory-log.md",
+        )
+        for fname in company_docs:
+            p = repo / "00_company_os" / fname
+            if not p.is_file():
+                continue
+            try:
+                text = p.read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                stats["skipped"] += 1
+                continue
+            name = p.stem
+            title = name.replace("-", " ").title()
+            for line in text.splitlines():
+                if line.startswith("# "):
+                    title = line[2:].strip()
+                    break
+            nid = f"company_doc:{_task_id_safe(name)}"
+            self.upsert_node({
+                "id": nid,
+                "kind": "memory",
+                "label": f"Company doc: {title}",
+                "summary": text[:500].strip(),
+                "importance": 0.7,
+                "confidence": 0.95,
+                "status": "active",
+                "tags": ["company-doc", name],
+                "source": f"00_company_os/{fname}",
+            })
+            self.upsert_edge({
+                "id": f"edge-company:nofitech-{nid}-contains",
+                "source": "company:nofitech",
+                "target": nid,
+                "kind": "contains",
+                "weight": 0.6,
+            })
+            stats["company_files"] += 1
+            stats["edges"] += 1
+
+        # memory-log-*.md (additional log files)
+        co_memlogs = repo / "00_company_os"
+        for p in sorted(co_memlogs.glob("memory-log-*.md")):
+            try:
+                text = p.read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                stats["skipped"] += 1
+                continue
+            name = p.stem
+            nid = f"company_doc:{_task_id_safe(name)}"
+            if self.has_node(nid):
+                continue
+            self.upsert_node({
+                "id": nid,
+                "kind": "memory",
+                "label": f"Company doc: {name}",
+                "summary": text[:500].strip(),
+                "importance": 0.5,
+                "confidence": 0.9,
+                "status": "active",
+                "tags": ["company-doc", "memory-log"],
+                "source": f"00_company_os/{p.name}",
+            })
+            self.upsert_edge({
+                "id": f"edge-company:nofitech-{nid}-contains",
+                "source": "company:nofitech",
+                "target": nid,
+                "kind": "contains",
+                "weight": 0.5,
+            })
+            stats["company_files"] += 1
+            stats["edges"] += 1
+
+        # ----- 6. agent logs/**/*.md -----
+        logs_root = repo / "00_company_os" / "04_agents" / "logs"
+        if logs_root.is_dir():
+            for md in sorted(logs_root.rglob("*.md")):
+                try:
+                    text = md.read_text(encoding="utf-8", errors="replace")
+                except Exception:
+                    stats["skipped"] += 1
+                    continue
+                # Extract agent from path (.../logs/<date>/<agent>-<task>-<hash>.md)
+                rel = md.relative_to(logs_root)
+                parts = rel.parts
+                date = parts[0] if parts else "unknown"
+                fname = md.stem
+                # Try to detect which agent this log is for from the filename prefix
+                agent = None
+                for a in known_agents:
+                    if fname.lower().startswith(a.lower()):
+                        agent = a
+                        break
+                nid = f"log:{_task_id_safe(fname)}"
+                if self.has_node(nid):
+                    continue
+                self.upsert_node({
+                    "id": nid,
+                    "kind": "file",
+                    "label": f"Log: {fname}",
+                    "summary": text[:400].strip(),
+                    "importance": 0.3,
+                    "confidence": 0.7,
+                    "status": "active",
+                    "tags": ["log", date, agent or "unknown"],
+                    "source": str(md.relative_to(repo)),
+                    "agent": agent,
+                    "metadata": {"log_date": date},
+                })
+                if agent:
+                    self.upsert_edge({
+                        "id": f"edge-agent:{agent}-{nid}-produced_artifact",
+                        "source": f"agent:{agent}",
+                        "target": nid,
+                        "kind": "produced_artifact",
+                        "weight": 0.5,
+                    })
+                    stats["edges"] += 1
+                else:
+                    self.upsert_edge({
+                        "id": f"edge-company:nofitech-{nid}-contains",
+                        "source": "company:nofitech",
+                        "target": nid,
+                        "kind": "contains",
+                        "weight": 0.3,
+                    })
+                    stats["edges"] += 1
+                stats["logs"] += 1
+
+        # ----- 7. 04_agents/state.json -----
+        state_path = repo / "00_company_os" / "04_agents" / "state.json"
+        if state_path.is_file():
+            try:
+                state = json.loads(state_path.read_text(encoding="utf-8", errors="replace"))
+                if isinstance(state, dict):
+                    self.upsert_node({
+                        "id": "agent_state:04_agents",
+                        "kind": "memory",
+                        "label": "Agent state (04_agents/state.json)",
+                        "summary": json.dumps(state)[:500],
+                        "importance": 0.5,
+                        "confidence": 0.9,
+                        "status": "active",
+                        "tags": ["agent-state", "config"],
+                        "source": "00_company_os/04_agents/state.json",
+                    })
+                    self.upsert_edge({
+                        "id": "edge-company:nofitech-agent_state:04_agents-contains",
+                        "source": "company:nofitech",
+                        "target": "agent_state:04_agents",
+                        "kind": "contains",
+                        "weight": 0.5,
+                    })
+                    stats["company_files"] += 1
+                    stats["edges"] += 1
+            except Exception:
+                stats["skipped"] += 1
+
+        # ----- 8. 00_company_os/state.json (top-level) -----
+        top_state = repo / "00_company_os" / "state.json"
+        if top_state.is_file():
+            try:
+                state = json.loads(top_state.read_text(encoding="utf-8", errors="replace"))
+                if isinstance(state, dict):
+                    self.upsert_node({
+                        "id": "agent_state:company",
+                        "kind": "memory",
+                        "label": "Company state (state.json)",
+                        "summary": json.dumps(state)[:500],
+                        "importance": 0.5,
+                        "confidence": 0.9,
+                        "status": "active",
+                        "tags": ["company-state", "config"],
+                        "source": "00_company_os/state.json",
+                    })
+                    self.upsert_edge({
+                        "id": "edge-company:nofitech-agent_state:company-contains",
+                        "source": "company:nofitech",
+                        "target": "agent_state:company",
+                        "kind": "contains",
+                        "weight": 0.5,
+                    })
+                    stats["company_files"] += 1
+                    stats["edges"] += 1
+            except Exception:
+                stats["skipped"] += 1
+
+        # Audit event for the seed.
+        n_after = self.node_count()
+        e_after = self.edge_count()
+        self.append_event(
+            event_type="bulk_seed",
+            actor="forge",
+            task_id="MC-LIVE-MEMORY-GRAPH-1",
+            project="mission-control",
+            agent="forge",
+            source="bulk_seed_script",
+            payload={
+                "note": "Bulk filesystem seed completed",
+                "stats": stats,
+                "node_count": n_after,
+                "edge_count": e_after,
+            },
+        )
+        stats["total_nodes_after"] = n_after
+        stats["total_edges_after"] = e_after
+        return stats
+
+    # ----- live auto-emit (MC-LIVE-MEMORY-GRAPH-1, 2026-06-19) ---------
+
+    def add_node(self, node: dict) -> bool:
+        """Public alias for upsert_node, used by serve.py hot paths.
+
+        Idempotent on `id`. Returns True on success. Never raises —
+        memory writes must never break kanban/agent operations.
+        """
+        try:
+            return self.upsert_node(node)
+        except Exception as e:
+            log.warning("add_node failed for %r: %s", (node or {}).get("id"), e)
+            return False
+
+    def add_edge(self, edge: dict) -> bool:
+        """Public alias for upsert_edge, used by serve.py hot paths.
+
+        Idempotent on `id` (auto-generated as
+        `edge-<source>-<target>-<kind>` when not supplied). Returns
+        True on success. Never raises.
+        """
+        try:
+            return self.upsert_edge(edge)
+        except Exception as e:
+            log.warning("add_edge failed: %s", e)
+            return False
+
+    def add_event(self, *, event_type: str, actor: str | None = None,
+                  task_id: str | None = None, project: str | None = None,
+                  agent: str | None = None, source: str | None = None,
+                  payload: dict | None = None) -> None:
+        """Public wrapper around append_event with optional node+edge emit.
+
+        In addition to the audit event, if `task_id` is provided and a
+        `task:<task_id>` node exists, this method is a no-op for nodes
+        (it doesn't double-upsert). Use `add_node` separately if you
+        want a fresh node written.
+        """
+        try:
+            self.append_event(
+                event_type=event_type,
+                actor=actor,
+                task_id=task_id,
+                project=project,
+                agent=agent,
+                source=source,
+                payload=payload or {},
+            )
+        except Exception as e:
+            log.warning("add_event failed: %s", e)
+
+    def reset_view(self) -> dict:
+        """MC-LIVE-MEMORY-GRAPH-1: visual-only reset.
+
+        The 'Reset View' button in the UI calls this. The DB is
+        **never** touched — no DELETE, no reseed, no sample import.
+        We just record a `view_reset` event for the audit trail and
+        return the current graph shape. The frontend receives the
+        200 response and resets the 3D camera on its end.
+
+        This is a strict, observable change from the previous
+        `reset()` behaviour (which wiped everything). Keeping the old
+        `reset()` method around for tests / explicit admin tools.
+        """
+        with self._lock:
+            self.append_event(
+                event_type="view_reset",
+                actor="user",
+                task_id=None,
+                project=None,
+                agent=None,
+                source="reset_view_endpoint",
+                payload={
+                    "note": "Reset View clicked — camera returned to origin, DB untouched",
+                    "node_count": self.node_count(),
+                    "edge_count": self.edge_count(),
+                },
+            )
+        return self.load_scoped()
+
+    def reset(self, *, reseed: bool = False) -> dict:
+        """ADMIN: hard reset. Wipes nodes/edges/events.
+
+        MC-LIVE-MEMORY-GRAPH-1 (2026-06-19): The user-facing
+        /api/memory-graph/reset endpoint no longer calls this. The
+        'Reset View' button calls `reset_view()` instead. This method
+        is preserved for explicit admin/destructive use (tests, ops).
+        Default `reseed=False` to make the destructive intent obvious.
+
+        Returns the new (post-reset) graph shape (a scope='all' dict).
         """
         with self._lock:
             self._conn.execute("DELETE FROM nodes")
@@ -711,20 +1428,17 @@ class GlobalMemoryGraphStore:
                             self._upsert_edge_row(e)
             n_after = self.node_count()
             e_after = self.edge_count()
-            # Use the real audit-event API (append_event_log doesn't
-            # exist on the global store — that was a copy-paste from
-            # the legacy module).
             self.append_event(
-                event_type="graph_reset",
+                event_type="graph_reset_admin",
                 actor="forge",
                 task_id=None,
                 project=None,
                 agent=None,
                 source="reset_endpoint",
                 payload={
-                    "note": (f"Reset to clean sample ({n_after} nodes / {e_after} edges)"
+                    "note": (f"ADMIN reset ({n_after} nodes / {e_after} edges)"
                              if reseed and sample_graph is not None
-                             else "Hard reset (no reseed)"),
+                             else "ADMIN hard reset (no reseed)"),
                     "node_count": n_after,
                     "edge_count": e_after,
                     "reseed": bool(reseed),

@@ -4,7 +4,7 @@ title: Roguelike V1 — Stage 1: Game Concept and MVP Scope
 project: roguelike-v1
 created_by: nofi
 assigned_to: thor
-status: complete
+status: done
 priority: high
 created_at: "2026-06-11T23:15:00+00:00"
 updated_at: "2026-06-11T23:55:00+00:00"

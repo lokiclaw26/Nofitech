@@ -1,0 +1,93 @@
+{
+  "ts": "2026-06-19T10:39:12+00:00",
+  "url": "http://127.0.0.1:8767/kanban",
+  "checks": [
+    {
+      "name": "L1: API /api/data/kanban returns 200",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "L1: Done column has tasks",
+      "ok": true,
+      "detail": "count=86"
+    },
+    {
+      "name": "L1: Every done card has status=done (cascade worked)",
+      "ok": true,
+      "detail": "mismatched=0"
+    },
+    {
+      "name": "L1: Every done card has kanban_status=done",
+      "ok": true,
+      "detail": "mismatched=0"
+    },
+    {
+      "name": "L2: Top card in Done column is in the DOM",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "L2: Done card has .card-status-pill.status-done element",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "L2: Pill text contains 'done' (not 'in progress')",
+      "ok": true,
+      "detail": "pill_text='done'"
+    },
+    {
+      "name": "L3: Done card opacity is 1.0 (not faded)",
+      "ok": true,
+      "detail": "opacity=1"
+    },
+    {
+      "name": "L3: Done card border-left is green",
+      "ok": true,
+      "detail": "border-left-color=rgb(63, 185, 80)"
+    },
+    {
+      "name": "L3: Pill text color is green",
+      "ok": true,
+      "detail": "color=rgb(63, 185, 80)"
+    },
+    {
+      "name": "L3: Pill border color is green",
+      "ok": true,
+      "detail": "border=rgb(63, 185, 80)"
+    },
+    {
+      "name": "L3: Top done card is in the viewport (not scrolled off)",
+      "ok": true,
+      "detail": "bbox={'x': 1622, 'y': 313.5, 'width': 256, 'height': 106.1875}"
+    },
+    {
+      "name": "L2: Column 'triage' still renders (regression)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "L2: Column 'todo' still renders (regression)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "L2: Column 'ready' still renders (regression)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "L2: Column 'running_now' still renders (regression)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "L2: Column 'blocked' still renders (regression)",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "failed": [],
+  "verdict": "PASS"
+}

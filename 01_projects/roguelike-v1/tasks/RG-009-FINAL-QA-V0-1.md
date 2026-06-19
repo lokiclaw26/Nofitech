@@ -4,7 +4,7 @@ title: Roguelike V1 — Stage 9: Final Playable QA Pass and v0.1 Prototype Check
 project: roguelike-v1
 created_by: nofi
 assigned_to: thor
-status: complete
+status: done
 priority: high
 created_at: "2026-06-12T04:00:00+00:00"
 updated_at: "2026-06-12T04:30:00+00:00"

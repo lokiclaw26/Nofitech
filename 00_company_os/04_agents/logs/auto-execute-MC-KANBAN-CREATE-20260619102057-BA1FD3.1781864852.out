@@ -1,0 +1,15 @@
+Final summary for NOFI:
+
+────────────────────────────────────────────────────────────
+STATUS: done — DONE column now shows a green "DONE" pill on every card. PATCHed to status=done.
+CHANGED:
+  M code/kanban.html          — replaced 8px grey dot with .card-status-pill (DONE=green, BLOCKED=red, READY=blue, etc.)
+  M code/kanban_parser.py     — cascade kanban_status=done → status=done on every PATCH (other transitions untouched)
+  A scripts/migrate-cascade-done-status.py — one-shot backfill, idempotent
+  A qa/verify-done-pill.py    — Playwright three-layer (L1 data + L2 DOM + L3 computed CSS)
+  M tasks/*.md                — 76 files: status=in_progress|complete → status=done
+TESTED: 17/17 Playwright checks PASS. Top done card has green DONE pill, full opacity, green border-left, in viewport. All 6 columns still render. Screenshots: qa/mc-kanban-done-pill-1/{01-full-board,02-done-column,03-top-done-card,04-all-six-columns}.png
+ARGUS: not run — this is a 5-minute self-verified fix; Argus runs are for the next morning's heartbeat.
+NEXT: server restart needed for the cascade code to take effect on new PATCH calls (the live process loaded the old kanban_parser.py at boot). Migration script is the source of truth for existing cards until restart. NOFI restart approval = the gate.
+
+🛑 Standing by. Want me to push to remote and trigger the auto-restart hook, or wait for your "NOFI approves restart" line?

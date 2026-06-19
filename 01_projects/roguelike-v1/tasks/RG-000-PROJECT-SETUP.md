@@ -4,7 +4,7 @@ title: Roguelike V1 — Stage 0: Project setup + stack confirmation
 project: roguelike-v1
 created_by: nofi
 assigned_to: forge
-status: complete
+status: done
 priority: high
 created_at: "2026-06-11T18:45:00+00:00"
 updated_at: "2026-06-11T23:10:00+00:00"

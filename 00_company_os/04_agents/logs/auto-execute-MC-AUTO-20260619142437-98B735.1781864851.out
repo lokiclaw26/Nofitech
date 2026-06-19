@@ -1,0 +1,11 @@
+Task is in DONE column. The card will now show **DONE** in green pill even though raw `status` is still `in_progress` — exactly what NOFI asked for.
+
+STATUS: done
+CHANGED: 01_projects/mission-control/code/kanban.html (DONE pill + green dot) + log + screenshots + commit eed7ee5
+TESTED: 3 layers — API (84 done cards), DOM (84 pills attached), CSS (rgb(63,185,80), uppercase, opacity 1.0)
+ARGUS: self-verified via Playwright + 3 screenshots in 00_company_os/qa/mc-kanban-done-pill-1/. Note: prior session left the diff uncommitted; forge committed + added log + ran end-to-end verify.
+NEXT: nothing — task complete, task PATCHed to done, event logged
+
+Done column now shows prominent green **DONE** pill on every card. Visible at http://192.168.0.29:8767/kanban → Done column → all 84 cards. The misleading "(in_progress)" raw-status text is demoted to a small grey note that only appears when project status diverges from kanban status, so the green DONE pill is what NOFI sees at a glance.
+
+🛑 Standing by — any further tweaks to the pill (size, color, position)?

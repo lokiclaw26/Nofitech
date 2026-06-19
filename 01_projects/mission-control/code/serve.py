@@ -1697,6 +1697,59 @@ def get_kanban_task_result(task_id: str) -> tuple[int, dict]:
 
 
 
+def _emit_live_task_node(task_id: str, new_status: str,
+                        project: str | None = None,
+                        label: str | None = None) -> None:
+    """MC-LIVE-MEMORY-GRAPH-1 (2026-06-19): live auto-emit from
+    kanban/agent/event hot paths. Idempotent on `id`. Never raises.
+    """
+    try:
+        from memory_graph_global import get_global_store, init_global_store
+        try:
+            store = get_global_store()
+        except RuntimeError:
+            store = init_global_store()
+        tid_safe = re.sub(r"[^A-Za-z0-9._\-]+", "-", (task_id or "").strip())
+        if not tid_safe:
+            return
+        proj_safe = re.sub(r"[^A-Za-z0-9._\-]+", "-", (project or "mission-control").strip()) or "mission-control"
+        nid = f"task:{tid_safe}"
+        store.add_node({
+            "id": nid,
+            "kind": "task",
+            "label": (label or task_id)[:200],
+            "summary": f"Kanban task {task_id} → {new_status}",
+            "importance": 0.7,
+            "confidence": 0.9,
+            "status": str(new_status or "active"),
+            "tags": ["kanban", "task", new_status or "active"],
+            "source": "serve.py:live_emit",
+            "project": proj_safe,
+        })
+        # Edge: task belongs to project
+        store.add_edge({
+            "id": f"edge-project:{proj_safe}-{nid}-contains",
+            "source": f"project:{proj_safe}",
+            "target": nid,
+            "kind": "contains",
+            "weight": 0.7,
+            "metadata": {"via": "live_emit", "status": new_status},
+        })
+        # Audit event
+        store.add_event(
+            event_type="kanban.status_change",
+            actor="serve.py",
+            task_id=task_id,
+            project=proj_safe,
+            agent=None,
+            source="serve.py:patch_kanban_task",
+            payload={"new_status": str(new_status), "label": label},
+        )
+    except Exception:
+        # never break the user-facing op
+        pass
+
+
 def patch_kanban_task(task_id: str, new_status: str) -> tuple[int, dict]:
     """PATCH /api/data/kanban/task/:id — update task's `kanban_status` on disk.
 
@@ -1733,6 +1786,9 @@ def patch_kanban_task(task_id: str, new_status: str) -> tuple[int, dict]:
     except Exception as _mg_emit_err:
         # Never let memory graph errors break the kanban op
         pass
+    # MC-LIVE-MEMORY-GRAPH-1 (2026-06-19): direct live emit to the global
+    # store (no event-bridge hop). Surfaces in the graph within ~1s.
+    _emit_live_task_node(task_id, new_status, project="mission-control")
     return 200, {
         "ok": True,
         "task_id": task_id,
@@ -1971,6 +2027,8 @@ def create_kanban_task(payload: dict) -> tuple[int, dict]:
         emit_kanban_memory_event(task_id, "triage")
     except Exception:
         pass
+    # MC-LIVE-MEMORY-GRAPH-1 (2026-06-19): direct live emit.
+    _emit_live_task_node(task_id, "triage", project="mission-control", label=title)
     return 201, {
         "ok": True,
         "task_id": task_id,
@@ -2255,6 +2313,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             # ---- MC-MEMORY-GRAPH-3A-BACKEND: admin reset (auth + module) ----
             if p.path == "/api/memory-graph/reset":
                 status, body = _mg_api.post_reset(self)
+                return self._json(body, status)
+
+            # ---- MC-LIVE-MEMORY-GRAPH-1 (2026-06-19): admin destructive reset.
+            # NOT wired to the UI; kept for explicit ops use.
+            if p.path == "/api/memory-graph/admin-reset":
+                status, body = _mg_api.post_admin_reset(self)
                 return self._json(body, status)
 
             # ---- MC-MEMORY-GRAPH-REBUILD-1 (2026-06-18): admin rebuild ----
