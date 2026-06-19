@@ -12,3 +12,45 @@ kanban-auto-done: [2026-06-19T11:56:31+04:00] MOVED MC-KANBAN-DONE-VISIBLE-1-VER
 kanban-auto-done: [2026-06-19T11:56:31+04:00] === auto-done tick end moved=1 dedup=0 pid=0 errors=0 ===
 kanban-auto-done: [2026-06-19T11:57:42+04:00] === auto-done tick start ===
 kanban-auto-done: [2026-06-19T11:57:42+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T11:58:27+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T11:58:27+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T12:00:26+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T12:00:27+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T12:00:26+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T12:00:27+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T12:02:27+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T12:02:27+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T12:04:27+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T12:04:27+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T12:05:10+04:00] PAUSED kill switch present at /home/nofidofi/NofiTech-Ind/00_company_os/04_agents/.auto-done-paused
+kanban-auto-done: [2026-06-19T12:06:27+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T12:06:27+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T12:08:27+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T12:08:27+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T12:09:29+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T12:09:29+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T12:10:27+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T12:10:27+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T12:11:32+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T12:11:32+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T12:12:11+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T12:12:11+04:00] SKIP-PID  SMOKE-TEST-AUTO-DONE-1 reason=child-done:MC-AUTO-20260618005252-D64D48.md subagent-running
+kanban-auto-done: [2026-06-19T12:12:11+04:00] === auto-done tick end moved=0 dedup=0 pid=1 errors=0 ===
+kanban-auto-done: [2026-06-19T12:12:27+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T12:12:27+04:00] SKIP-PID  SMOKE-TEST-AUTO-DONE-1 reason=child-done:MC-AUTO-20260618005252-D64D48.md subagent-running
+kanban-auto-done: [2026-06-19T12:12:27+04:00] === auto-done tick end moved=0 dedup=0 pid=1 errors=0 ===
+kanban-auto-done: [2026-06-19T12:12:47+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T12:12:47+04:00] SKIP-PID  SMOKE-TEST-AUTO-DONE-1 reason=child-done:MC-AUTO-20260619120811-E2BCC8 subagent-running
+kanban-auto-done: [2026-06-19T12:12:47+04:00] === auto-done tick end moved=0 dedup=0 pid=1 errors=0 ===
+kanban-auto-done: [2026-06-19T12:14:28+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T12:14:31+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T12:14:28+04:00] SKIP-PID  SMOKE-TEST-AUTO-DONE-1 reason=child-done:MC-AUTO-20260619120811-E2BCC8 subagent-running
+kanban-auto-done: [2026-06-19T12:14:28+04:00] === auto-done tick end moved=0 dedup=0 pid=1 errors=0 ===
+kanban-auto-done: [2026-06-19T12:14:31+04:00] SKIP-PID  SMOKE-TEST-AUTO-DONE-1 reason=child-done:MC-AUTO-20260619120811-E2BCC8 subagent-running
+kanban-auto-done: [2026-06-19T12:14:31+04:00] === auto-done tick end moved=0 dedup=0 pid=1 errors=0 ===
+kanban-auto-done: [2026-06-19T12:15:36+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T12:16:08+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T12:16:08+04:00] MOVED SMOKE-TEST-AUTO-DONE-1 running_now->done reason=child-done:MC-AUTO-20260619120811-E2BCC8 http=200
+kanban-auto-done: [2026-06-19T12:16:08+04:00] === auto-done tick end moved=1 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T12:16:28+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T12:16:28+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===

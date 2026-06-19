@@ -133,9 +133,10 @@ but the *process* was broken. This rule fixes the process.
 - `~/.hermes/scripts/kanban-auto-process.sh` — triage → ready (cron 2m)
 - `~/.hermes/scripts/kanban-auto-dispatch.sh` — ready → spawn MC-AUTO-* child (cron 60s)
 - `~/.hermes/scripts/kanban-auto-execute.sh` — running_now → real subagent via `hermes -z` (cron 2m, NEW 2026-06-18)
+- `~/.hermes/scripts/kanban-auto-done.sh` — running_now → done via PATCH when has_result:true / completion event / orphan (cron 1m, NEW 2026-06-19)
 - `00_company_os/auto-kanban-rule.md` — this file
 
-## Full pipeline (locked 2026-06-18)
+## Full pipeline (locked 2026-06-18, extended 2026-06-19)
 ```
 [card in kanban]
    ↓ kanban-auto-process.sh (2m)
@@ -144,8 +145,8 @@ but the *process* was broken. This rule fixes the process.
 [ready → running_now + MC-AUTO-* child spawned]
    ↓ kanban-auto-execute.sh (2m)
 [running_now MC-AUTO-* → hermes -z → real subagent]
-   ↓
-[subagent does work, writes log, PATCHes task to done]
+   ↓ kanban-auto-done.sh (1m)  ← NEW 2026-06-19
+[running_now → done when has_result:true, completion event, or orphan>30m]
 ```
 End-to-end: card drop to task done, ~30-60s, zero human input.
 
