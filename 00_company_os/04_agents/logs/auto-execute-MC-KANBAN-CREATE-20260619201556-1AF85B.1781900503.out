@@ -1,0 +1,82 @@
+ARGUS VERIFICATION — MC-KANBAN-CREATE-20260619201556-1AF85B
+SHINING STAR ON LATEST MEMORY NODE
+================================================================
+
+STATUS: SUCCESS — task complete, log written, kanban PATCHed, event appended.
+
+CHANGED
+-------
+/home/nofidofi/NofiTech-Ind/01_projects/mission-control/code/memory-graph.html
+  +292 / -2 lines, commit c8a0f43
+  - pickLatestNodeId() — picks most recent node by `created` timestamp,
+    excluding persistent entity/project/tool/session/file kinds
+  - getStarTexture() — 128px canvas, 4-point star with radial gradient
+    and additive spikes, cached
+  - makeShiningNodeObject() — THREE.Group containing core sprite (white,
+    additive, scale 28-44) + halo sprite (warm gold, additive, scale 60-110)
+  - startShinePulse() — rAF loop, 1.4s sine pulse on scale + opacity
+  - setShiningNode(id) + flyCameraToNode(id, ms) — bumps shiningNodeId,
+    re-evaluates nodeThreeObject, auto-flies camera (polling rAF up to 30
+    frames until d3 simulation assigns x/y/z on initial load)
+  - nodeColor/nodeVal/nodeThreeObject overrides on the ForceGraph3D instance
+  - #shine-banner DOM element (top-right under live-count), click or
+    Enter/Space to re-fly camera
+  - CSS for .shine-banner + @media (max-width: 640px) shrink
+  - window.__mc debug hook for Playwright introspection
+
+TESTED
+------
+Playwright + headless Chrome at 1400x900:
+
+  TEST 1 initial load      PASS  star group attached, camera at (100,116,216),
+                                 controls.target pinned to star node, banner
+                                 shows "task:MC-KANBAN-CREATE-20260619..."
+  TEST 2 pulse             PASS  core scale 43.6 -> 43.9, halo opacity 0.79 -> 0.80
+                                 between two samples 700ms apart
+  TEST 3 one star only     PASS  1 star node out of 781 visible (excludes
+                                 entity/project/etc. correctly)
+  TEST 4 click banner      PASS  camera re-flew to within 82.4 units of star
+
+Logic tests for pickLatestNodeId: 6/6 PASS
+  - 3 tasks different times -> newest
+  - entity newer than task -> task wins (entity excluded)
+  - task with no `created` -> other task wins
+  - empty array -> null
+  - only excluded kinds -> null
+  - mixed non-excluded kinds -> most recent
+
+ARGUS
+-----
+/home/nofidofi/NofiTech-Ind/00_company_os/04_agents/logs/2026-06-20/
+argus-MC-KANBAN-CREATE-20260619201556-1AF85B.md  (written, result: success)
+
+Visual evidence at:
+  /tmp/shine-final-1.png           load + auto-fly (mid-pulse)
+  /tmp/shine-final-2.png           700ms later, scale changed
+  /tmp/shine-final-4-after-click.png  after banner click — full-screen
+                                     golden 4-point star with radiating
+                                     directional particles
+
+KANBAN
+------
+PATCH http://127.0.0.1:8767/api/data/kanban/task/MC-KANBAN-CREATE-
+20260619201556-1AF85B  ->  {"ok":true,"new_status":"done"} (HTTP 200)
+Task file frontmatter updated: status: done, kanban_status: done
+events.jsonl appended: event_type=task_completed
+
+NEXT
+----
+Open http://127.0.0.1:8767/memory-graph in a browser — the most recent
+node (this task itself) should appear as a glowing gold 4-point star
+with a pulsing halo. Click the "⭐ Latest task:MC-KANBAN-..." banner
+top-right to re-fly the camera if you've orbited away.
+
+What I could not test visually: phone-width <640px layout (CSS rule
+exists but wasn't rendered in my Playwright run), and the live
+transition when a NEW node becomes latest (would require admin token
+to POST a fake event; the code path was exercised on initial load
+and via banner click).
+
+🛑 Standing by. Do you want me to also stage the working tree for a
+git push, or dispatch an Argus visual-followup task for the phone
+layout?
