@@ -78,6 +78,23 @@
   .live-count .num { color: #d4af37; font-weight: bold; }
   .live-count .pulse { color: #2ecc71; }
   .live-count .stale { color: #e74c3c; }
+  /* MC-MEMORY-GRAPH-SHINING-STAR (2026-06-20): small banner that names the
+     currently-shining node. Sits under the live-count chip. */
+  .shine-banner {
+    position: fixed; top: 50px; right: 12px; z-index: 50;
+    background: rgba(20,20,20,0.92);
+    border: 1px solid #2a2a2a; border-radius: 4px;
+    padding: 6px 10px; font-size: 11px; font-family: monospace;
+    color: #d4af37; box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    display: flex; gap: 8px; align-items: center; max-width: 320px;
+  }
+  .shine-banner .shine-lbl { color: #d4af37; font-weight: bold; white-space: nowrap; }
+  .shine-banner .shine-id  { color: #888; word-break: break-all; }
+  .shine-banner.clickable  { cursor: pointer; transition: background 0.15s, border-color 0.15s; }
+  .shine-banner.clickable:hover { background: rgba(40,40,40,0.95); border-color: #d4af37; }
+  @media (max-width: 640px) {
+    .shine-banner { top: 48px; right: 6px; max-width: 200px; font-size: 10px; }
+  }
   .scope-banner.scope-mission-control { background: #0f1a1a; color: #4a9eff; }
   .scope-banner.scope-project { background: #0f1a0f; color: #2ecc71; }
   .scope-banner.scope-agent { background: #1a0f1a; color: #9b59b6; }
@@ -121,6 +138,14 @@
       <span><span class="lbl">nodes</span> <span class="num" id="lc-nodes">0</span></span>
       <span><span class="lbl">edges</span> <span class="num" id="lc-edges">0</span></span>
       <span class="pulse" id="lc-pulse">●</span>
+    </div>
+    <!-- MC-MEMORY-GRAPH-SHINING-STAR (2026-06-20): the id of the currently
+         shining node (most recently created). Sits below the live-count
+         chip so users can see which node is the focus. Click to fly the
+         3D camera back to the star if the user has panned away. -->
+    <div id="shine-banner" class="shine-banner clickable" title="Click to fly to the star" role="button" tabindex="0">
+      <span class="shine-lbl">⭐ Latest</span>
+      <span class="shine-id" id="shine-target">—</span>
     </div>
     <header>
       <h1>Memory Graph <span class="subtitle">Hermes working memory</span></h1>
@@ -238,6 +263,218 @@
     let lastRenderedNodeJson = null;
     let currentGraphInitialized = false;
     let resizeDebounce = null;
+    // MC-MEMORY-GRAPH-SHINING-STAR (2026-06-20): exactly one node "shines" at
+    // any time — the most-recently-created node in the visible graph. When a
+    // newer node arrives, the previous star dims and the new one lights up.
+    let shiningNodeId = null;
+    let shineStartedAt = 0;       // performance.now() of last change
+    let shineFrameCb = null;      // requestAnimationFrame loop
+
+    // Persistent entity / project / tool nodes have been in the graph since
+    // import. We exclude them from "latest" so the star always lands on a
+    // freshly-emitted node (task / memory / decision / message etc.).
+    const SHINE_EXCLUDED_KINDS = new Set(['entity', 'project', 'tool', 'session', 'file']);
+    function pickLatestNodeId(nodes) {
+      let bestId = null;
+      let bestTs = -1;
+      for (const n of nodes) {
+        if (!n || !n.id) continue;
+        if (SHINE_EXCLUDED_KINDS.has(n.kind)) continue;
+        const ts = n.created || n.updated || '';
+        if (!ts) continue;
+        // Coerce to ms epoch for ordering (works for ISO 8601 strings).
+        const ms = Date.parse(ts);
+        if (Number.isNaN(ms)) continue;
+        if (ms > bestTs) { bestTs = ms; bestId = n.id; }
+      }
+      return bestId;
+    }
+
+    // Build a glowing star texture once and reuse it for every "shining" node.
+    // 4-point star with radial gradient + outer glow, additive blending.
+    let _starTexture = null;
+    function getStarTexture() {
+      if (_starTexture && typeof THREE !== 'undefined') return _starTexture;
+      if (typeof THREE === 'undefined') return null;
+      const SIZE = 128;
+      const c = document.createElement('canvas');
+      c.width = SIZE; c.height = SIZE;
+      const ctx = c.getContext('2d');
+      const cx = SIZE / 2, cy = SIZE / 2;
+      // Outer glow (additive-friendly: dark → bright cyan/gold)
+      const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, SIZE / 2);
+      grd.addColorStop(0.00, 'rgba(255, 255, 220, 1.0)');
+      grd.addColorStop(0.10, 'rgba(255, 230, 130, 0.95)');
+      grd.addColorStop(0.30, 'rgba(255, 200, 60, 0.55)');
+      grd.addColorStop(0.65, 'rgba(255, 160, 30, 0.15)');
+      grd.addColorStop(1.00, 'rgba(255, 140, 0, 0.0)');
+      ctx.fillStyle = grd;
+      ctx.fillRect(0, 0, SIZE, SIZE);
+      // 4-point star spikes (white-hot core)
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.translate(cx, cy);
+      for (let i = 0; i < 4; i++) {
+        ctx.rotate(Math.PI / 2);
+        const g = ctx.createLinearGradient(0, 0, 0, SIZE / 2);
+        g.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+        g.addColorStop(0.4, 'rgba(255, 240, 180, 0.4)');
+        g.addColorStop(1.0, 'rgba(255, 200, 60, 0.0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.moveTo(0, -4);
+        ctx.lineTo(3, -SIZE * 0.45);
+        ctx.lineTo(0, 0);
+        ctx.lineTo(-3, -SIZE * 0.45);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      _starTexture = tex;
+      return tex;
+    }
+
+    function makeShiningNodeObject() {
+      const tex = getStarTexture();
+      if (!tex) return undefined;
+      const group = new THREE.Group();
+      // Inner sprite (the bright body)
+      const spriteMat = new THREE.SpriteMaterial({
+        map: tex,
+        color: 0xffffff,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        depthTest: true
+      });
+      const sprite = new THREE.Sprite(spriteMat);
+      // Scales are intentionally large so the star reads clearly even when the
+      // 3D camera is far from the latest node (typical default zoom level).
+      sprite.scale.set(36, 36, 1);
+      sprite.userData.role = 'star-core';
+      group.add(sprite);
+      // Outer halo (slightly larger, fainter — gives the bloom look)
+      const haloMat = new THREE.SpriteMaterial({
+        map: tex,
+        color: 0xfff4c8,
+        transparent: true,
+        opacity: 0.55,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        depthTest: true
+      });
+      const halo = new THREE.Sprite(haloMat);
+      halo.scale.set(80, 80, 1);
+      halo.userData.role = 'star-halo';
+      group.add(halo);
+      // Mark the group so the pulse loop can find it.
+      group.userData.isShiningStar = true;
+      group.userData.core = sprite;
+      group.userData.halo = halo;
+      return group;
+    }
+
+    function startShinePulse() {
+      if (shineFrameCb) return;
+      const tick = () => {
+        if (!Graph || !shiningNodeId) { shineFrameCb = null; return; }
+        // Find the latest node's threeObject across the engine's internal graphData.
+        const gd = Graph.graphData ? Graph.graphData() : null;
+        if (gd && gd.nodes) {
+          const node = gd.nodes.find(n => n && n.id === shiningNodeId);
+          const obj = node && node.__threeObj;
+          if (obj && obj.userData && obj.userData.isShiningStar) {
+            // Pulse: sine wave on a 1.4s cycle, scale 1.0 -> 1.55 -> 1.0.
+            const elapsed = (performance.now() - shineStartedAt) / 1000;
+            const phase = (Math.sin(elapsed * (Math.PI * 2 / 1.4)) + 1) / 2; // 0..1
+            const haloScale = 60 + phase * 50;          // 60 .. 110
+            const coreScale = 28 + phase * 16;          // 28 .. 44
+            const haloOpacity = 0.35 + phase * 0.45;    // 0.35 .. 0.80
+            const coreOpacity = 0.85 + phase * 0.15;    // 0.85 .. 1.00
+            if (obj.userData.halo && obj.userData.halo.material) {
+              obj.userData.halo.scale.set(haloScale, haloScale, 1);
+              obj.userData.halo.material.opacity = haloOpacity;
+            }
+            if (obj.userData.core && obj.userData.core.material) {
+              obj.userData.core.scale.set(coreScale, coreScale, 1);
+              obj.userData.core.material.opacity = coreOpacity;
+            }
+          }
+        }
+        shineFrameCb = requestAnimationFrame(tick);
+      };
+      shineFrameCb = requestAnimationFrame(tick);
+    }
+
+    function setShiningNode(newId) {
+      if (newId === shiningNodeId) return;
+      const previousShining = shiningNodeId;
+      // Force the graph to re-evaluate nodeThreeObject by re-sending the data
+      // (even when the id set is unchanged, e.g. when the API returns the same
+      // node but a different one is now the newest). The 3d-force-graph
+      // library re-runs nodeThreeObject only when graphData() is called with
+      // a fresh array reference, so we splice a no-op.
+      shiningNodeId = newId;
+      shineStartedAt = performance.now();
+      if (Graph && currentGraphInitialized) {
+        const gd = Graph.graphData();
+        if (gd && gd.nodes && gd.nodes.length) {
+          // Touch each node so the engine re-evaluates its threeObject.
+          const touched = gd.nodes.map(n => Object.assign({}, n));
+          Graph.graphData({ nodes: touched, links: gd.links || [] });
+        }
+      }
+      // Surface the change in the footer count chip area (re-purpose live-count).
+      const el = document.getElementById('shine-target');
+      if (el) {
+        el.textContent = newId
+          ? '⭐ ' + (newId.length > 32 ? newId.slice(0, 30) + '…' : newId)
+          : '⭐ —';
+        el.style.color = newId ? '#d4af37' : '#555';
+      }
+      startShinePulse();
+      // MC-MEMORY-GRAPH-SHINING-STAR (2026-06-20): auto-fly the camera to the
+      // new star so the user sees it land. The simulation may not have
+      // assigned x/y/z yet on the very first detection, so we poll briefly
+      // (max 30 frames ~500ms) before giving up.
+      if (newId && Graph && currentGraphInitialized) {
+        flyCameraToNode(newId, previousShining ? 1100 : 1400);
+      }
+    }
+
+    function flyCameraToNode(nodeId, durationMs) {
+      let attempts = 0;
+      const MAX_ATTEMPTS = 30;
+      const tryFly = () => {
+        attempts++;
+        if (!Graph || !shiningNodeId || shiningNodeId !== nodeId) return;
+        const gd = Graph.graphData();
+        const node = (gd && gd.nodes) ? gd.nodes.find(n => n && n.id === nodeId) : null;
+        if (!node || !Number.isFinite(node.x)) {
+          if (attempts < MAX_ATTEMPTS) {
+            requestAnimationFrame(tryFly);
+          } else {
+            console.warn('shine: node x/y/z never assigned for', nodeId);
+          }
+          return;
+        }
+        try {
+          Graph.cameraPosition(
+            { x: node.x, y: node.y, z: node.z + 90 },
+            { x: node.x, y: node.y, z: node.z },
+            durationMs
+          );
+          const ctrls = Graph.controls && Graph.controls();
+          if (ctrls && ctrls.target && ctrls.target.set) {
+            try { ctrls.target.set(node.x, node.y, node.z); } catch (e) {}
+          }
+        } catch (e) {
+          console.warn('shine: camera fly-to failed', e.message);
+        }
+      };
+      requestAnimationFrame(tryFly);
+    }
 
     // MC-MEMORY-GRAPH-3A (2026-06-17): LAN writes (e.g. /api/memory-graph/reset)
     // require MC_ADMIN_TOKEN. The browser cannot read the server's env, so the
@@ -584,6 +821,14 @@
         }
         updateScopeBanner(raw, data);
         applyFilters();
+        // MC-MEMORY-GRAPH-SHINING-STAR (2026-06-20): detect a newer node and
+        // move the star. This must happen AFTER applyFilters() so the
+        // nodeThreeObject callback evaluates against the new shiningNodeId
+        // when applyFilters() forces a graphData() rebuild.
+        const latest = pickLatestNodeId(rawNodes);
+        if (latest && latest !== shiningNodeId) {
+          setShiningNode(latest);
+        }
       } catch (err) {
         lastError = err.message;
         document.getElementById('conn-dot').classList.add('error');
@@ -669,9 +914,26 @@
         .backgroundColor('#0a0a0a')
         .nodeId('id')
         .nodeLabel(n => n.label || n.id || '?')
-        .nodeColor(n => KIND_COLORS[n.kind] || 0x888888)
-        .nodeVal(n => 1 + (n.importance || 0) * 8)
+        .nodeColor(n => {
+          // The "shining" latest node gets a bright white-gold so it reads
+          // as the visual focus even before the halo sprite lands.
+          if (shiningNodeId && n && n.id === shiningNodeId) return 0xfff4c8;
+          return KIND_COLORS[n.kind] || 0x888888;
+        })
+        .nodeVal(n => {
+          // The shining node is bigger so it pulls the eye in 3D too.
+          if (shiningNodeId && n && n.id === shiningNodeId) return 12 + (n.importance || 0) * 10;
+          return 1 + (n.importance || 0) * 8;
+        })
         .nodeRelSize(4)
+        // MC-MEMORY-GRAPH-SHINING-STAR (2026-06-20): the latest-created node
+        // gets a custom THREE.Group containing a star sprite + halo. All
+        // other nodes fall back to the engine's default sphere.
+        .nodeThreeObject(n => {
+          if (!shiningNodeId || !n || n.id !== shiningNodeId) return undefined;
+          return makeShiningNodeObject();
+        })
+        .nodeThreeObjectExtend(false)
         .linkSource('source')
         .linkTarget('target')
         .linkColor(() => 'rgba(212, 175, 55, 0.4)')
@@ -688,6 +950,16 @@
       // Initial size + camera
       setGraphSize();
       try { Graph.cameraPosition({ x: 0, y: 0, z: 250 }); } catch (e) {}
+
+      // MC-MEMORY-GRAPH-SHINING-STAR (2026-06-20): expose a tiny debug hook
+      // on window so Argus / Playwright can introspect the live state without
+      // having to scrape the THREE scene tree. Read-only references.
+      window.__mc = {
+        get Graph() { return Graph; },
+        get shiningNodeId() { return shiningNodeId; },
+        get rawNodeCount() { return rawNodes.length; },
+        get latestNodeId() { return pickLatestNodeId(rawNodes); }
+      };
 
       // ResizeObserver on the container (Fix 3) — debounced.
       const container = document.querySelector('.graph-container');
@@ -757,10 +1029,28 @@
 
     // Polling
     setInterval(fetchGraph, 5000);
+
+    // MC-MEMORY-GRAPH-SHINING-STAR (2026-06-20): click the "Latest" banner
+    // to fly the 3D camera back to the shining star (in case the user
+    // orbited/zoomed away from it).
+    function wireShineBanner() {
+      const banner = document.getElementById('shine-banner');
+      if (!banner) return;
+      const handler = (ev) => {
+        if (!shiningNodeId || !Graph) return;
+        try { ev.preventDefault(); } catch (e) {}
+        try { flyCameraToNode(shiningNodeId, 900); } catch (e) {}
+      };
+      banner.addEventListener('click', handler);
+      banner.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' || ev.key === ' ') handler(ev);
+      });
+    }
     setInterval(fetchEvents, 5000);
 
     // Init
     initGraph();
+    wireShineBanner();
     fetchGraph().then(() => fetchEvents());
   </script>
 </body>
