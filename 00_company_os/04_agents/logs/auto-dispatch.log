@@ -25,3 +25,4 @@
 2026-06-19T23:58:09+04:00  MC-TEST-DISPATCH-NOCLONE  assignee=forge priority=normal  title='TEST noclone-dispatch — should not create MC-AUTO-* clone'  patch_ok=1
 2026-06-20T00:00:47+04:00  MC-KANBAN-CREATE-20260619195653-5E5B0E  assignee=argus priority=low  title='FORGE-TEST-NO-CLONE-1'  patch_ok=1
 2026-06-20T00:02:10+04:00  MC-TEST-DISPATCH-NOCLONE  assignee=forge priority=normal  title='TEST noclone-dispatch — should not create MC-AUTO-* clone'  patch_ok=1
+2026-06-20T00:08:47+04:00  MC-KANBAN-CREATE-20260619200609-E6D084  assignee=argus priority=low  title='FORGE-FIX-VERIFY-NO-CLONE-1781899569'  patch_ok=1

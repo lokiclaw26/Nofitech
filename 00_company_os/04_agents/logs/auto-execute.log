@@ -27,3 +27,4 @@
 2026-06-19T23:45:42+04:00  kanban-auto-execute: dispatch  MC-KANBAN-CREATE-20260619194031-2DA608  agent=forge  title='check and find the 3 blocked tasks and report what are they'  priority=high
 2026-06-19T23:54:42+04:00  kanban-auto-execute: dispatch  MC-KANBAN-CREATE-DUP-1  agent=forge  title='Fix kanban-create creating 2 tasks + auto-clone stuck in running_now after parent completes'  priority=high
 2026-06-20T00:03:42+04:00  kanban-auto-execute: dispatch  MC-KANBAN-CREATE-20260619195653-5E5B0E  agent=argus  title='FORGE-TEST-NO-CLONE-1'  priority=low
+2026-06-20T00:09:42+04:00  kanban-auto-execute: dispatch  MC-KANBAN-CREATE-20260619200609-E6D084  agent=argus  title='FORGE-FIX-VERIFY-NO-CLONE-1781899569'  priority=low

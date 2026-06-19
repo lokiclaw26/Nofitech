@@ -1,0 +1,17 @@
+Everything succeeded:
+- PATCH to done returned `ok: true` (cascaded status=done)
+- Event appended to events.jsonl
+- Final board state: `running_now: 1` (just MC-KANBAN-CREATE-DUP-1), `blocked: 0`, `done: 96` (was 95, +1 for my task)
+
+All done. Now reporting back:
+
+STATUS: success
+CHANGED: PATCH task MC-AUTO-20260619234250-328F2A → done (kanban now done=96/blocked=0); event appended to events.jsonl; log written.
+TESTED: GET /api/data/kanban — blocked=0 confirmed; GET /api/data/overview — warnings=0 confirmed (breakdown: blocked_tasks=0, log_warns=0).
+ARGUS: skipped (read-only audit + duplicate of prior verify).
+FINDING: There are **0 currently blocked tasks** on the live kanban. NOFI's "3 blocked tasks" comes from a stale fix-order event recorded at 2026-06-17T20:46:56 UTC (warning_id `blocked::2026-06-17T20:46:28.000336+00:00`, order_id `order-3c1ab6ae`). All 3 cards that triggered that warning have since been resolved to `done`. NOTE: This is a duplicate dispatch — task MC-KANBAN-CREATE-20260619194031-2DA608 answered the same question 4 min earlier. Both tasks are now closed.
+NEXT: If NOFI still sees a "3 blocked" badge in the dashboard, it's stale browser cache — recommend hard refresh.
+
+Log: /home/nofidofi/NofiTech-Ind/00_company_os/04_agents/logs/2026-06-19/forge-MC-AUTO-20260619234250-328F2A.md
+
+result: success
