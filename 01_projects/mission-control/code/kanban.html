@@ -1220,8 +1220,13 @@ function wireKanbanCard(cardEl) {
     if (!tid) return;
     if (_kanbanOpenCards.has(tid)) _kanbanOpenCards.delete(tid);
     else _kanbanOpenCards.add(tid);
+    const isOpen = _kanbanOpenCards.has(tid);
     const body = cardEl.querySelector(".card-body");
-    if (body) body.style.display = _kanbanOpenCards.has(tid) ? "block" : "none";
+    if (body) body.style.display = isOpen ? "block" : "none";
+    // MC-KANBAN-ARCHIVE-1: also toggle the archive-actions row so it appears
+    // when the card is expanded (matches the card-body behavior).
+    const archiveActions = cardEl.querySelector(".card-archive-actions");
+    if (archiveActions) archiveActions.style.display = isOpen ? "flex" : "none";
   });
   // MC-KANBAN-ASSIGN-1: wire each assign button on this card. The click
   // handler stops propagation so it doesn't also toggle the card body.
@@ -1354,17 +1359,15 @@ function renderKanbanCard(t, agentById) {
         ${assignBtns}
       </div>
       ${esc(body) || '<span class="muted">(no body)</span>'}
-    </div>${t.has_result ? `
-    <div class="result-teaser">${esc(t.result_teaser || '')}</div>
-    <button type="button" class="result-button" data-action="view-result" data-task-id="${esc(t.task_id)}">📋 Result</button>` : ''}
-    ${isOpen ? `
-    <div class="card-archive-actions">
-      ${ks === 'archived'
-        ? `<button type="button" class="unarchive-btn" data-action="unarchive-task" data-task-id="${esc(t.task_id)}" title="Move this card back to Done (it will show again when 'show archived' is off)">↩ Unarchive</button>`
-        : (ks === 'done'
-            ? `<button type="button" class="archive-btn" data-action="archive-task" data-task-id="${esc(t.task_id)}" title="Hide this card from the default view. It can be restored via 'show archived' + Unarchive.">📦 Archive</button>`
-            : '')}
-    </div>` : ''}
+      ${t.has_result ? `
+      <div class="result-teaser">${esc(t.result_teaser || '')}</div>
+      <button type="button" class="result-button" data-action="view-result" data-task-id="${esc(t.task_id)}">📋 Result</button>` : ''}
+      <div class="card-archive-actions" style="display:${isOpen ? 'flex' : 'none'}">
+        ${ks === 'archived'
+          ? `<button type="button" class="unarchive-btn" data-action="unarchive-task" data-task-id="${esc(t.task_id)}" title="Move this card back to Done (it will show again when 'show archived' is off)">↩ Unarchive</button>`
+          : `<button type="button" class="archive-btn" data-action="archive-task" data-task-id="${esc(t.task_id)}" title="Hide this card from the default view. It can be restored via 'show archived' + Unarchive.">🗄 Archive</button>`}
+      </div>
+    </div>
   </div>`;
 }
 
