@@ -1,0 +1,94 @@
+{
+  "checks": [
+    {
+      "name": "L1.api/columns-present",
+      "pass": true,
+      "detail": "counts={'triage': 0, 'todo': 0, 'ready': 0, 'running_now': 3, 'blocked': 0, 'done': 77}"
+    },
+    {
+      "name": "L1.api/running_now-count",
+      "pass": true,
+      "detail": "running_now=3 (3 expected: 2 argus dispatch + maybe archive child)"
+    },
+    {
+      "name": "L1.api/done-nonempty",
+      "pass": true,
+      "detail": "done=77"
+    },
+    {
+      "name": "L1.api/no-stuck-running",
+      "pass": true,
+      "detail": "running_now and triage are different counts (no stuck-in-wrong-col)"
+    },
+    {
+      "name": "L2.dom/running-col-attached",
+      "pass": true,
+      "detail": "running_col.count=1"
+    },
+    {
+      "name": "L2.dom/has-running-cards",
+      "pass": true,
+      "detail": "running_cards.count=3"
+    },
+    {
+      "name": "L2.dom/done-col-attached",
+      "pass": true,
+      "detail": "done_col.count=1"
+    },
+    {
+      "name": "L2.dom/has-done-cards",
+      "pass": true,
+      "detail": "done_cards.count=77"
+    },
+    {
+      "name": "L3.visibility/done-opacity-1.0",
+      "pass": true,
+      "detail": "opacity=1.0"
+    },
+    {
+      "name": "L3.visibility/done-green-border",
+      "pass": true,
+      "detail": "borderLeftColor=rgb(63, 185, 80)"
+    },
+    {
+      "name": "L3.visibility/done-card-in-viewport",
+      "pass": true,
+      "detail": "bbox.y=313.5"
+    },
+    {
+      "name": "L2.dom/smoke-moved-past-running",
+      "pass": false,
+      "detail": "smoke_in_running=True, smoke_in_done=False, smoke_in_triage=False"
+    },
+    {
+      "name": "L2.dom/old-stuck-task-moved-to-done",
+      "pass": false,
+      "detail": "stuck_in_done=False, stuck_in_running=False"
+    },
+    {
+      "name": "L2.dom/archive-task-not-in-running",
+      "pass": true,
+      "detail": "archive_in_done=True, archive_in_running=False (orphan/move confirmation)"
+    },
+    {
+      "name": "console/no-real-errors",
+      "pass": true,
+      "detail": "errors=[]"
+    }
+  ],
+  "screenshots": [
+    "02-board-full.png",
+    "03-done-column.png",
+    "04-top-done-card.png",
+    "05-running-now-column.png"
+  ],
+  "console_errors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "summary": {
+    "total": 15,
+    "passed": 13,
+    "failed": 2
+  },
+  "verdict": "FAIL"
+}

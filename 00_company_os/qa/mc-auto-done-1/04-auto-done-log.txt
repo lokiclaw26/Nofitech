@@ -1,0 +1,23 @@
+kanban-auto-done: [2026-06-19T11:48:52+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T11:48:52+04:00] SKIP-PID  MC-KANBAN-DONE-VISIBLE-1-VERIFY (has_result:true, but subagent still running)
+kanban-auto-done: [2026-06-19T11:48:52+04:00] === auto-done tick end: moved=0 skip-dedup=0 skip-pid=1 errors=0 ===
+kanban-auto-done: [2026-06-19T11:49:52+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T11:49:52+04:00] ERROR   MC-KANBAN-DONE-VISIBLE-1-VERIFY  reason=has_result:true  http=403  body={
+  "error": "unauthorized: missing or invalid MC_ADMIN_TOKEN",
+  "how": "Provide Authorization: Bearer *** or X-MC-Admin-Token: <token>"
+}
+kanban-auto-done: [2026-06-19T11:49:52+04:00] === auto-done tick end: moved=0 skip-dedup=0 skip-pid=0 errors=1 ===
+kanban-auto-done: [2026-06-19T11:56:31+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T11:56:31+04:00] MOVED MC-KANBAN-DONE-VISIBLE-1-VERIFY running_now->done reason=has_result:true http=200
+kanban-auto-done: [2026-06-19T11:56:31+04:00] === auto-done tick end moved=1 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T11:57:42+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T11:57:42+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T11:58:27+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T11:58:27+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T12:00:26+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T12:00:27+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T12:00:26+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T12:00:27+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T12:02:27+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-19T12:02:27+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-19T12:04:27+04:00] === auto-done tick start ===

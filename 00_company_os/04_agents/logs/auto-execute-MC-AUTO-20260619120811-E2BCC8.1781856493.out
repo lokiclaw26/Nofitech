@@ -1,0 +1,20 @@
+All steps completed successfully:
+
+STATUS: PATCH returned HTTP 200, `new_status: "done"`, and the board now shows my task in the **Done** column (count=77, first entry in done list = MC-AUTO-20260619120811-E2BCC8).
+
+CHANGED:
+- /home/nofidofi/NofiTech-Ind/00_company_os/04_agents/logs/2026-06-19/argus-MC-AUTO-20260619120811-E2BCC8.md (1282 bytes, with `result: success`)
+- /home/nofidofi/NofiTech-Ind/01_projects/mission-control/tasks/MC-AUTO-20260619120811-E2BCC8.md (PATCHed via API)
+- /home/nofidofi/NofiTech-Ind/00_company_os/events.jsonl (appended `task_completed` one-liner)
+
+TESTED:
+- API endpoint reachable (GET → 405 with allowed=PATCH confirms live)
+- PATCH /api/data/kanban/task/{id} with X-MC-Admin-Token + JSON body → HTTP 200, `{"ok": true, "new_status": "done"}`
+- Task appears in Done column on the board
+- events.jsonl tail shows the new task_completed line after the prior task_assigned + work_started events
+
+ARGUS: Auto-done pipeline confirmed end-to-end. Task created → dispatched → subagent ran → PATCH to done → board updated → event logged. The pipeline (kanban-auto-process → kanban-auto-dispatch → kanban-auto-execute → hermes subagent → API PATCH) works.
+
+NEXT: None — task complete.
+
+result: success

@@ -13,7 +13,7 @@ blocker: ""
 data_source: manual
 description: "Argus verify with Playwright + log file inspection. Argus runs the e2e test, confirms the log file appears with the expected content, and writes a verdict."
 source: manual.argus
-kanban_status: done
+kanban_status: archived
 ---
 
 # ARGUS-VERIFY-AUTO-EXECUTE: verify the auto-execute cron end-to-end

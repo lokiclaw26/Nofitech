@@ -3,7 +3,7 @@ task_id: MC-KANBAN-CREATE-20260618223315-BDFCC1
 title: do a quick research and give me 5 ideas for a DIY electronics idea with ESP32 and TFT display....make it to be innovative and fun
 project: mission-control
 status: done
-kanban_status: done
+kanban_status: archived
 priority: high
 created: 2026-06-18T22:33:15+00:00
 created_by: thor

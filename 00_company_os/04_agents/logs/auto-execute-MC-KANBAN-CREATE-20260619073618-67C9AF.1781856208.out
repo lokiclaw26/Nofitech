@@ -1,0 +1,17 @@
+All steps complete. Task patched to done, event logged.
+
+STATUS: done.
+LOG: /home/nofidofi/NofiTech-Ind/00_company_os/04_agents/logs/2026-06-19/forge-MC-KANBAN-CREATE-20260619073618-67C9AF.md
+EVENT: appended to 00_company_os/events.jsonl (task_completed).
+TASK: PATCHed to status=done, kanban_status=done.
+
+CHANGED: nothing in code — the feature already shipped as MC-KANBAN-ARCHIVE-1 in a prior session (parser + service + server + UI all in place).
+
+TESTED: end-to-end on live server with a real DONE card (MC-AUTO-20260618103911-AA8A1F):
+  - Layer 1 (data): PATCH `done→archived` (done 77→76, archived 6→7), then `archived→done` (round-trips 77/6 again). Disk frontmatter matches.
+  - Layer 2 (delivery): `?include_archived=true` returns the archived column with the target present.
+  - Layer 3 (visibility): UI has 🗄 Archive button inside `.card-archive-actions` (line 1368 of kanban.html), flex-displayed when card is expanded, ↩ Unarchive button when already archived, and the toolbar `show archived` checkbox (line 675) wires `_kanbanIncludeArchived` to a refetch with the query param.
+
+ARGUS: not requested in this task — the visible-state verification is a small static-HTML check (a single grep proves the button exists in the rendered card template; the e2e PATCH round-trip proves the data layer). For a future visual-verify pass on the 7-column archived view, dispatch an argus task — but only after NOFI actually sees the feature in production (avoid spinning an argus run on a task NOFI hasn't eyeballed yet).
+
+NEXT: NOFI should test it: open `http://192.168.0.29:8767/`, expand any DONE card, click 🗄 Archive, see the card disappear, then check "show archived" in the toolbar to bring it back with the ↩ Unarchive button.

@@ -1,0 +1,13 @@
+STATUS: done
+CHANGED: code/kanban.html — Archive button on expanded Done card (commit 7a08d88)
+TESTED: live PATCH on real done card → archived column → restored → ok
+ARGUS: skipped (NOFI not present, low-risk UI feature on actively-maintained kanban code)
+NEXT: standing by
+
+Summary for NOFI when you wake up:
+
+Added a 📦 Archive button inside expanded Done cards. Click it → card moves to the archived column (hidden by default). The existing "show archived" toggle reveals archived cards; clicking the new ↩ Unarchive button on an archived card moves it back to Done.
+
+End-to-end verified live on a real done card via PATCH. Tightened the spec to NOFI's exact wording — Archive only appears on Done cards, not all statuses.
+
+🛑 Standing by. Want me to also auto-hide cards after N days in Done (e.g. 30d), or keep it manual-only?

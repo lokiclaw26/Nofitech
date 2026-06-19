@@ -669,12 +669,211 @@ class GlobalMemoryGraphStore:
             )
             return {r[0]: int(r[1]) for r in cur.fetchall()}
 
-    def reset(self) -> None:
-        """Hard wipe (nodes/edges/events). Used only by tests."""
+    def reset(self, *, reseed: bool = True) -> dict:
+        """Wipe nodes/edges/events, then re-seed from sample-graph.json.
+
+        This matches the legacy `MemoryGraphStore.reset()` contract — the
+        user-facing "Reset to clean sample data" button must leave the page
+        in a populated state, not an empty one.
+
+        Returns the new (post-reset) graph shape (a scope='all' dict with
+        node_count / edge_count / last_updated / nodes / edges / metadata).
+        If ``reseed`` is False the database is left empty (used for tests).
+        The reset operation itself is recorded as a single 'graph_reset'
+        event so the audit trail shows when it happened and how many rows
+        landed in the post-reset graph.
+
+        MC-MEMORY-GRAPH-RESET-FIX-1 (2026-06-19): NOFI clicked "Reset Graph"
+        and the page went blank. Root cause: the global store's reset()
+        was a hard-wipe with no reseed, while the button label promised
+        "Reset to clean sample data". Thor's first-pass draft got the
+        intent right but used column names (created_at / updated_at, plus
+        a non-existent 'label' column on edges) that don't match the
+        schema created in __init__ — every INSERT would have failed with
+        "table nodes has 14 columns but 12 values were supplied". Forge
+        reviewed the draft, rewrote the upserters against the real
+        schema, and routed the audit event through the real
+        `append_event` API. This is the shipped version.
+        """
         with self._lock:
             self._conn.execute("DELETE FROM nodes")
             self._conn.execute("DELETE FROM edges")
             self._conn.execute("DELETE FROM events")
+            sample_graph: dict | None = None
+            if reseed:
+                sample_graph = self._load_sample_for_migration()
+                if sample_graph is not None:
+                    for n in sample_graph.get("nodes") or []:
+                        if isinstance(n, dict) and n.get("id"):
+                            self._upsert_node_row(n)
+                    for e in sample_graph.get("edges") or []:
+                        if isinstance(e, dict) and e.get("id"):
+                            self._upsert_edge_row(e)
+            n_after = self.node_count()
+            e_after = self.edge_count()
+            # Use the real audit-event API (append_event_log doesn't
+            # exist on the global store — that was a copy-paste from
+            # the legacy module).
+            self.append_event(
+                event_type="graph_reset",
+                actor="forge",
+                task_id=None,
+                project=None,
+                agent=None,
+                source="reset_endpoint",
+                payload={
+                    "note": (f"Reset to clean sample ({n_after} nodes / {e_after} edges)"
+                             if reseed and sample_graph is not None
+                             else "Hard reset (no reseed)"),
+                    "node_count": n_after,
+                    "edge_count": e_after,
+                    "reseed": bool(reseed),
+                    "sample_loaded": sample_graph is not None,
+                },
+            )
+        return self.load_scoped()
+
+    def _load_sample_for_migration(self) -> dict | None:
+        """Load sample-graph.json if it exists in any of the well-known
+        locations. Returns the parsed graph dict (with 'nodes' and 'edges'
+        arrays) or None if not found.
+        """
+        candidates: list[Path] = []
+        # 1. data/sample-graph.json next to the company root
+        candidates.append(Path("/home/nofidofi/NofiTech-Ind/data/sample-graph.json"))
+        # 2. 01_projects/mission-control/data/sample-graph.json
+        candidates.append(Path("/home/nofidofi/NofiTech-Ind/01_projects/mission-control/data/sample-graph.json"))
+        # 3. alongside the SQLite file
+        try:
+            candidates.append(self.db_path.parent / "sample-graph.json")
+        except Exception:
+            pass
+        # 4. anywhere under the project root
+        try:
+            for p in Path("/home/nofidofi/NofiTech-Ind").rglob("sample-graph.json"):
+                candidates.append(p)
+        except Exception:
+            pass
+        for p in candidates:
+            try:
+                if p.is_file():
+                    return json.loads(p.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+        return None
+
+    def _upsert_node_row(self, n: dict) -> None:
+        """Insert-or-replace a single node row from a sample dict.
+
+        Column list MUST match the `nodes` table created in __init__'s
+        SCHEMA constant. As of 2026-06-19 the table is:
+
+            id, kind, label, summary, status, importance, confidence,
+            tags, metadata, source, project, agent, created, updated
+
+        Note: columns are `created` and `updated` (NOT `created_at` /
+        `updated_at`). Sample rows from the seed JSON already carry
+        `created` / `updated` ISO strings, so we pass them through
+        unchanged. Tolerates extra keys (silently ignored).
+        """
+        nid = n.get("id") or ""
+        if not nid:
+            return
+        try:
+            importance = self._clamp01(n.get("importance"), 0.5)
+        except (TypeError, ValueError):
+            importance = 0.5
+        try:
+            confidence = self._clamp01(n.get("confidence"), 0.5)
+        except (TypeError, ValueError):
+            confidence = 0.5
+        metadata_json = json.dumps(n.get("metadata") or {}, ensure_ascii=False)
+        tags_json = json.dumps(n.get("tags") or [], ensure_ascii=False)
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT INTO nodes (id, kind, label, summary, status,
+                                   importance, confidence, tags, metadata,
+                                   source, project, agent, created, updated)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                  kind=excluded.kind,
+                  label=excluded.label,
+                  summary=excluded.summary,
+                  status=excluded.status,
+                  importance=excluded.importance,
+                  confidence=excluded.confidence,
+                  tags=excluded.tags,
+                  metadata=excluded.metadata,
+                  source=COALESCE(excluded.source, nodes.source),
+                  project=COALESCE(excluded.project, nodes.project),
+                  agent=COALESCE(excluded.agent, nodes.agent),
+                  updated=COALESCE(NULLIF(excluded.updated, ''), nodes.updated)
+                """,
+                (
+                    nid,
+                    n.get("kind", "concept") or "concept",
+                    n.get("label", "") or "",
+                    n.get("summary", "") or "",
+                    n.get("status", "active") or "active",
+                    importance,
+                    confidence,
+                    tags_json,
+                    metadata_json,
+                    n.get("source") or "sample-seed",
+                    n.get("project"),
+                    n.get("agent"),
+                    n.get("created") or self._now_iso(),
+                    (n.get("updated") or "").strip() or None,
+                ),
+            )
+
+    def _upsert_edge_row(self, e: dict) -> None:
+        """Insert-or-replace a single edge row from a sample dict.
+
+        Column list MUST match the `edges` table created in __init__'s
+        SCHEMA constant. As of 2026-06-19 the table is:
+
+            id, source, target, kind, weight, metadata, created
+
+        Note: there is NO `label` column on edges (the draft copy-pasted
+        from the node shape). The timestamp column is `created` (NOT
+        `created_at`). Tolerates `from`/`to` as aliases for source/target
+        and missing `id` (auto-generated).
+        """
+        src = e.get("source") or e.get("from") or ""
+        dst = e.get("target") or e.get("to") or ""
+        if not src or not dst:
+            return
+        eid = (e.get("id") or "").strip() or f"edge-{src}-{dst}-{e.get('kind', 'relates_to')}"
+        try:
+            weight = self._clamp01(e.get("weight"), 0.5)
+        except (TypeError, ValueError):
+            weight = 0.5
+        metadata_json = json.dumps(e.get("metadata") or {}, ensure_ascii=False)
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT INTO edges (id, source, target, kind, weight,
+                                   metadata, created)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                  source=excluded.source,
+                  target=excluded.target,
+                  kind=excluded.kind,
+                  weight=excluded.weight,
+                  metadata=excluded.metadata
+                """,
+                (
+                    eid,
+                    src,
+                    dst,
+                    e.get("kind", "relates_to") or "relates_to",
+                    weight,
+                    metadata_json,
+                    e.get("created") or self._now_iso(),
+                ),
+            )
 
     def close(self) -> None:
         try:

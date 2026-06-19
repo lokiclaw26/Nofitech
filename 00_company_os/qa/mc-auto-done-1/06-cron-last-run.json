@@ -1,0 +1,19 @@
+{
+  "note": "Path /home/nofidofi/.hermes/cron-output/kanban-auto-done/last_run.json does not exist.",
+  "checked_path": "/home/nofidofi/.hermes/cron-output/kanban-auto-done/last_run.json",
+  "checked_at_dubai": "2026-06-19T12:04+04:00",
+  "parent_dir_contents": [],
+  "explanation": "kanban-auto-done is a no_agent cron that runs /home/nofidofi/.hermes/scripts/kanban-auto-done.sh every 60s. The script does NOT write to ~/.hermes/cron-output/<job>/last_run.json — it writes all output to /home/nofidofi/NofiTech-Ind/00_company_os/04_agents/logs/auto-done.log. Confirmed by inspecting jobs.json (no_agent=true) and the script's tail. Evidence of success is therefore in auto-done.log (see 04-auto-done-log.txt), which shows the last tick at 12:04:27+04:00 with moved=0 dedup=0 pid=0 errors=0 — successful tick, nothing to move at that moment.",
+  "alternative_cron_jobs_with_last_run_json": {
+    "github-push-nofitech": "writes last_run.json (success at 2026-06-19T07:42:05Z)"
+  },
+  "last_successful_tick_evidence": {
+    "ts_dubai": "2026-06-19T12:04:27+04:00",
+    "moved": 0,
+    "dedup": 0,
+    "pid": 0,
+    "errors": 0,
+    "log_line": "kanban-auto-done: [2026-06-19T12:04:27+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===",
+    "outcome": "success"
+  }
+}

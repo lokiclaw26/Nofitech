@@ -13,7 +13,7 @@ blocker: ""
 data_source: manual
 description: "Drops a fresh card with assigned_to: forge. The auto-execute cron (every 2m) should pick it up and spawn a subagent within ~2 min. Subagent's job: write a hello log file and mark this task done."
 source: manual.e2e
-kanban_status: done
+kanban_status: archived
 ---
 
 # E2E-AUTO-EXECUTE: e2e verification of the auto-execute cron
