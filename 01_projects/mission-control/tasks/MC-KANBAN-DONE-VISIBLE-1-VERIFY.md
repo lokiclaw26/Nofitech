@@ -12,7 +12,7 @@ current_stage: verify
 blocker: ""
 data_source: thor-direct
 description: "MC-KANBAN-DONE-VISIBLE-1 (commit 455221f): make Done column visible. CSS opacity 0.75→1.0, border grey→green, sort done DESC by updated. Need Playwright screenshots proving: (1) Done column shows recent task at top in solid green, (2) your task MC-AUTO-20260619023628-C86507 (ESP32+TFT DIY ideas) is visible at the top of the done column, (3) no regression on the other 5 columns."
-kanban_status: running_now
+kanban_status: archived
 has_result: true
 ---
 ## Result
