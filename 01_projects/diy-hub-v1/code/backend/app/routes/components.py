@@ -32,11 +32,12 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import text
@@ -270,6 +271,66 @@ def download_image(image_url: str, slug: str) -> Optional[Dict[str, Any]]:
         "size_bytes": len(data),
         "mime_type": f"image/{'jpeg' if ext == 'jpg' else ext}",
     }
+
+
+# ---------------------------------------------------------------------------
+# DIY-015 (Stage 13): Manual image upload helpers
+# ---------------------------------------------------------------------------
+
+# Whitelist of accepted image extensions for manual uploads.
+_ALLOWED_EXTS = {"jpg", "jpeg", "png", "gif", "webp"}
+_MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
+
+# Content-Types we'll accept when downloading a URL.
+_URL_ALLOWED_CT = {"image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"}
+
+# Filename extension normaliser.
+_EXT_FROM_CT = {
+    "image/jpeg": "jpg",
+    "image/jpg": "jpg",
+    "image/png": "png",
+    "image/gif": "gif",
+    "image/webp": "webp",
+}
+
+
+def _ext_from_filename(name: str) -> Optional[str]:
+    """Return the canonical extension for an uploaded filename, or None if not allowed."""
+    if not name:
+        return None
+    # Strip any query string and pull the last ".xxx".
+    base = name.split("?", 1)[0].split("#", 1)[0]
+    if "." not in base:
+        return None
+    ext = base.rsplit(".", 1)[-1].lower()
+    if ext == "jpeg":
+        ext = "jpg"
+    return ext if ext in _ALLOWED_EXTS else None
+
+
+def _save_bytes_to_images_dir(component_id: int, data: bytes, ext: str) -> Dict[str, str]:
+    """Write ``data`` to ``data/images/<component-id>-<uuid>.<ext>``.
+
+    Returns the public-shape fields for the response.
+    """
+    images_dir = Path(get_images_dir())
+    images_dir.mkdir(parents=True, exist_ok=True)
+    safe_id = int(component_id)
+    short_uuid = uuid.uuid4().hex[:8]
+    filename = f"{safe_id}-{short_uuid}.{ext}"
+    abs_path = images_dir / filename
+    abs_path.write_bytes(data)
+    rel_path = str(abs_path.relative_to(_project_root()))
+    return {"file_path": rel_path, "filename": filename}
+
+
+def _validate_uploaded_bytes(data: bytes) -> Optional[str]:
+    """Quick sanity check on uploaded bytes; returns an error message or None."""
+    if not data:
+        return "uploaded file is empty"
+    if len(data) > _MAX_UPLOAD_BYTES:
+        return f"file too large ({len(data)} bytes; max {_MAX_UPLOAD_BYTES})"
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -594,6 +655,169 @@ def update_component(component_id: int, req: UpdateComponentRequest) -> Dict[str
                 {"notes": json.dumps(existing_blob, ensure_ascii=False), "updated_at": now, "id": component_id},
             )
 
+        row = conn.execute(
+            text("SELECT * FROM components WHERE id = :id"),
+            {"id": component_id},
+        ).one()
+
+    return _row_to_dict(row)
+
+
+@router.post("/{component_id}/image")
+async def upload_component_image(
+    component_id: int,
+    request: Request,
+    image: Optional[UploadFile] = File(None),
+    source_url: Optional[str] = Form(None),
+) -> Dict[str, Any]:
+    """DIY-015 (Stage 13): manually attach an image to an existing component.
+
+    Two content-types are supported on the same URL:
+
+    1. ``multipart/form-data`` with a file field named ``image`` and an
+       optional ``source_url`` string field. NOFI picks a JPEG/PNG/etc.
+       from disk and sends it.
+    2. ``application/json`` with body ``{"url": "https://..."}``. The
+       server downloads the URL with ``urllib``, validates the
+       content-type, and stores it. Used when NOFI has the image hosted
+       somewhere else.
+
+    Storage layout: ``data/images/<component-id>-<uuid8>.<ext>`` so
+    multiple uploads never collide and the audit trail is clear.
+
+    Updates the component row's ``image_path``, ``image_source`` (one
+    of ``user_uploaded`` / ``user_url``), and ``image_uploaded_at``
+    (ISO timestamp).
+    """
+    # 1) Verify the component exists.
+    with engine.connect() as conn:
+        existing = conn.execute(
+            text("SELECT id FROM components WHERE id = :id"),
+            {"id": component_id},
+        ).first()
+    if not existing:
+        raise HTTPException(
+            status_code=404, detail=f"component {component_id} not found"
+        )
+
+    content_type = (request.headers.get("content-type") or "").lower()
+
+    image_source: Optional[str] = None
+    saved: Optional[Dict[str, str]] = None
+
+    if "multipart/form-data" in content_type:
+        # Path A: file upload.
+        if image is None or not image.filename:
+            raise HTTPException(
+                status_code=400,
+                detail="multipart upload requires a file field named 'image'",
+            )
+        ext = _ext_from_filename(image.filename or "")
+        if ext is None:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "unsupported file extension; allowed: "
+                    + ", ".join(sorted(_ALLOWED_EXTS))
+                ),
+            )
+        data = image.file.read()
+        err = _validate_uploaded_bytes(data)
+        if err:
+            raise HTTPException(status_code=400, detail=err)
+        saved = _save_bytes_to_images_dir(component_id, data, ext)
+        image_source = "user_uploaded"
+
+    elif "application/json" in content_type:
+        # Path B: URL paste.
+        try:
+            body = await request.json()
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(
+                status_code=400, detail=f"invalid JSON body: {exc}"
+            ) from exc
+        if not isinstance(body, dict):
+            raise HTTPException(
+                status_code=400, detail="JSON body must be an object"
+            )
+        url = (body.get("url") or "").strip()
+        if not url:
+            raise HTTPException(
+                status_code=400, detail="JSON body must include a non-empty 'url' field"
+            )
+        if not (url.startswith("http://") or url.startswith("https://")):
+            raise HTTPException(
+                status_code=400, detail="'url' must be an http(s) URL"
+            )
+
+        try:
+            req = urllib.request.Request(
+                url,
+                headers={
+                    "User-Agent": "DIYHubV1/0.1 (https://github.com/nofidofi; contact: nofidofi@local) Python-urllib",
+                    "Accept": "image/*",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=_DOWNLOAD_TIMEOUT) as resp:
+                data = resp.read()
+                remote_ct = (resp.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as exc:
+            raise HTTPException(
+                status_code=400, detail=f"failed to download URL: {exc}"
+            ) from exc
+
+        err = _validate_uploaded_bytes(data)
+        if err:
+            raise HTTPException(status_code=400, detail=err)
+
+        ext: Optional[str] = _EXT_FROM_CT.get(remote_ct)
+        if ext is None:
+            # Fall back to URL extension.
+            path_part = urllib.parse.urlparse(url).path
+            ext = _ext_from_filename(path_part)
+        if ext is None:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"URL content-type {remote_ct!r} not allowed; need one of "
+                    + ", ".join(sorted(_URL_ALLOWED_CT))
+                ),
+            )
+        saved = _save_bytes_to_images_dir(component_id, data, ext)
+        image_source = "user_url"
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "unsupported Content-Type; expected multipart/form-data or "
+                "application/json"
+            ),
+        )
+
+    assert saved is not None and image_source is not None  # noqa: S101
+
+    # 2) Update the component row.
+    now = _now_iso()
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                UPDATE components
+                SET image_path = :image_path,
+                    image_source = :image_source,
+                    image_uploaded_at = :image_uploaded_at,
+                    updated_at = :updated_at
+                WHERE id = :id
+                """
+            ),
+            {
+                "image_path": saved["file_path"],
+                "image_source": image_source,
+                "image_uploaded_at": now,
+                "updated_at": now,
+                "id": component_id,
+            },
+        )
         row = conn.execute(
             text("SELECT * FROM components WHERE id = :id"),
             {"id": component_id},

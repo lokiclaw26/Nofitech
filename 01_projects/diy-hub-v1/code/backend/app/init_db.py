@@ -22,14 +22,28 @@ _STAGE5_ALTERS: tuple[tuple[str, str], ...] = (
     ("datasheet_url", "TEXT"),
 )
 
+# DIY-015 (Stage 13): track whether an image was auto-fetched from a live
+# source, manually uploaded by NOFI (file upload), or fetched from a URL
+# NOFI pasted. ``image_uploaded_at`` records the ISO timestamp of any image
+# write (file or URL) for audit / debugging.
+_STAGE13_ALTERS: tuple[tuple[str, str], ...] = (
+    ("image_source", "TEXT"),
+    ("image_uploaded_at", "TEXT"),
+)
+
 
 def _add_missing_columns(conn: sqlite3.Connection) -> None:
-    """Add Stage 5 columns to ``components`` if they aren't there yet."""
+    """Add Stage 5 + Stage 13 columns to ``components`` if they aren't there yet."""
     existing = {
         row["name"]
         for row in conn.execute("PRAGMA table_info(components)").fetchall()
     }
     for col_name, col_type in _STAGE5_ALTERS:
+        if col_name not in existing:
+            conn.execute(
+                f'ALTER TABLE components ADD COLUMN "{col_name}" {col_type}'
+            )
+    for col_name, col_type in _STAGE13_ALTERS:
         if col_name not in existing:
             conn.execute(
                 f'ALTER TABLE components ADD COLUMN "{col_name}" {col_type}'
