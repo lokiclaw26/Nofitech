@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import ManualImageInput from "@/components/ManualImageInput"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -29,6 +30,7 @@ interface Candidate {
   datasheet_url?: string
   source_url?: string
   image_url?: string | null
+  image_path?: string | null
   image_source?: string | null
   image_attribution?: { author?: string; license?: string; source_url?: string } | null
   // Stage 5: live-source provenance
@@ -170,6 +172,13 @@ export default function AddComponent() {
   // opens in its own dialog (showManual).
   const [showManual, setShowManual] = useState(false)
   const [manualSaving, setManualSaving] = useState(false)
+
+  // DIY-016: manual image attach state. The "Add image" button on each
+  // image-less candidate opens this dialog. The chosen candidate is held
+  // here so ManualImageInput can target its component id.
+  const [imageModalOpen, setImageModalOpen] = useState(false)
+  const [imageModalCandidate, setImageModalCandidate] = useState<Candidate | null>(null)
+
   // Manual form fields (per NOFI Stage 7 brief)
   const [manualName, setManualName] = useState("")
   const [manualModel, setManualModel] = useState("")
@@ -531,65 +540,98 @@ export default function AddComponent() {
                 </div>
                 <div className="p-4 max-h-[60vh] overflow-y-auto">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {searchResults.map((c) => (
-                      <motion.button
-                        key={c.id}
-                        type="button"
-                        variants={cardVariants}
-                        initial="initial"
-                        animate="animate"
-                        whileHover="hover"
-                        whileTap="tap"
-                        onClick={() => {
-                          setPickedCandidate(c)
-                          setShowModelPicker(false)
-                          setShowConfirm(true)
-                        }}
-                        className="text-left p-3 border border-slate-200 rounded-lg hover:border-slate-400 hover:shadow-sm bg-white"
-                      >
-                        <div className="flex gap-3 items-center">
-                          <CandidateImage
-                            url={c.image_url ?? null}
-                            source={c.image_source ?? null}
-                            attribution={c.image_attribution ?? null}
-                            size={48}
-                          />
-                          <div className="min-w-0 flex-1">
-                            <div className="font-medium text-sm truncate">
-                              {c.name}
-                            </div>
-                            <div className="text-xs text-slate-500 truncate">
-                              {c.model_number ?? "Unknown"} &middot; {c.category ?? "Other"}
-                            </div>
-                            {c.matched_sources && c.matched_sources.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {c.matched_sources.slice(0, 3).map((src) => (
-                                  <span
-                                    key={src}
-                                    className="inline-block px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-medium"
-                                  >
-                                    {src}
-                                  </span>
-                                ))}
-                                {c.confidence != null && (
-                                  <span
-                                    className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                      c.confidence >= 0.7
-                                        ? "bg-green-100 text-green-800"
-                                        : c.confidence >= 0.4
-                                        ? "bg-amber-100 text-amber-800"
-                                        : "bg-red-100 text-red-800"
-                                    }`}
-                                  >
-                                    {Math.round(c.confidence * 100)}%
-                                  </span>
-                                )}
+                    {searchResults.map((c) => {
+                      const hasImage = !!(c.image_url ?? c.image_path)
+                      return (
+                        // Outer wrapper is a div (not a button) so we can
+                        // legally nest the "Add image" button inside without
+                        // invalid <button><button></button></button> markup.
+                        <motion.div
+                          key={c.id}
+                          role="button"
+                          tabIndex={0}
+                          variants={cardVariants}
+                          initial="initial"
+                          animate="animate"
+                          whileHover="hover"
+                          whileTap="tap"
+                          onClick={() => {
+                            setPickedCandidate(c)
+                            setShowModelPicker(false)
+                            setShowConfirm(true)
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault()
+                              setPickedCandidate(c)
+                              setShowModelPicker(false)
+                              setShowConfirm(true)
+                            }
+                          }}
+                          className="text-left p-3 border border-slate-200 rounded-lg hover:border-slate-400 hover:shadow-sm bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-400"
+                        >
+                          <div className="flex gap-3 items-center">
+                            <CandidateImage
+                              url={c.image_url ?? null}
+                              source={c.image_source ?? null}
+                              attribution={c.image_attribution ?? null}
+                              size={48}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium text-sm truncate">
+                                {c.name}
                               </div>
-                            )}
+                              <div className="text-xs text-slate-500 truncate">
+                                {c.model_number ?? "Unknown"} &middot; {c.category ?? "Other"}
+                              </div>
+                              {c.matched_sources && c.matched_sources.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {c.matched_sources.slice(0, 3).map((src) => (
+                                    <span
+                                      key={src}
+                                      className="inline-block px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-medium"
+                                    >
+                                      {src}
+                                    </span>
+                                  ))}
+                                  {c.confidence != null && (
+                                    <span
+                                      className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                        c.confidence >= 0.7
+                                          ? "bg-green-100 text-green-800"
+                                          : c.confidence >= 0.4
+                                          ? "bg-amber-100 text-amber-800"
+                                          : "bg-red-100 text-red-800"
+                                      }`}
+                                    >
+                                      {Math.round(c.confidence * 100)}%
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </motion.button>
-                    ))}
+
+                          {/* DIY-016: Add image affordance for image-less candidates. */}
+                          {!hasImage && (
+                            <div className="mt-2 flex justify-end">
+                              <Button
+                                data-testid="btn-add-image"
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setImageModalCandidate(c)
+                                  setImageModalOpen(true)
+                                }}
+                              >
+                                Add image
+                              </Button>
+                            </div>
+                          )}
+                        </motion.div>
+                      )
+                    })}
                   </div>
                 </div>
                 <div className="p-4 border-t border-slate-200 flex justify-between flex-wrap gap-2">
@@ -1192,6 +1234,30 @@ export default function AddComponent() {
           )}
         </AnimatePresence>
       </Dialog>
+
+      {/* ------------------- DIY-016: Manual image attach dialog ------------------- */}
+      {imageModalOpen && imageModalCandidate && (
+        <ManualImageInput
+          componentId={Number(imageModalCandidate.id) || 0}
+          currentImagePath={imageModalCandidate.image_path ?? imageModalCandidate.image_url ?? null}
+          onSaved={(newPath) => {
+            const target = imageModalCandidate
+            // Patch the matching candidate in local state so the card
+            // immediately shows the new image without a re-search.
+            setSearchResults((prev) =>
+              prev.map((c) =>
+                c === target ? { ...c, image_path: newPath, image_url: newPath } : c,
+              ),
+            )
+            setImageModalOpen(false)
+            setImageModalCandidate(null)
+          }}
+          onCancel={() => {
+            setImageModalOpen(false)
+            setImageModalCandidate(null)
+          }}
+        />
+      )}
     </div>
   )
 }
