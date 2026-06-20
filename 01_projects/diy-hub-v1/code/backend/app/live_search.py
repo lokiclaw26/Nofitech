@@ -62,7 +62,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 # -----------------------------------------------------------------------
 # Constants
@@ -145,28 +145,57 @@ def search(query: str) -> Dict[str, Any]:
     if q in _CACHE and (now - _CACHE[q][0]) < _CACHE_TTL:
         return _CACHE[q][1]
 
+    # Stage 12 (DIY-012 rule 10): check the verified cache FIRST. A hit
+    # returns immediately with match_level='exact' and high confidence.
+    # We still classify the query so the response shape stays consistent.
+    from .identity import classify_query, platformio_allowed  # late import
+    from .identity_cache import (
+        get_rejected_signatures,
+        get_verified,
+        query_signature,
+    )
+
+    component_type = classify_query(q)
+    pio_allowed = platformio_allowed(component_type)
+    qsig = query_signature(q)
+
+    verified_hit = get_verified(q)
+    if verified_hit is not None:
+        return _verified_cache_response(q, qsig, component_type, pio_allowed, verified_hit)
+
     # Run all 5 sources in parallel (plus 2 vendor sources — see below)
     sources_status: Dict[str, Dict[str, Any]] = {}
     partials: List[Dict[str, Any]] = []
 
     with ThreadPoolExecutor(max_workers=7) as pool:
-        futures = {
-            pool.submit(_fetch_commons, q): "commons",
-            pool.submit(_fetch_wikidata, q): "wikidata",
-            pool.submit(_fetch_wikipedia, q): "wikipedia",
-            pool.submit(_fetch_platformio, q): "platformio",
-            pool.submit(_fetch_github, q): "github",
-            # Stage 6: vendor scrapers (Adafruit, Pololu)
-            pool.submit(_fetch_adafruit, q): "adafruit",
-            pool.submit(_fetch_pololu, q): "pololu",
-        }
+        futures = {}
+        futures[pool.submit(_fetch_commons, q)] = "commons"
+        futures[pool.submit(_fetch_wikidata, q)] = "wikidata"
+        futures[pool.submit(_fetch_wikipedia, q)] = "wikipedia"
+        if pio_allowed:
+            futures[pool.submit(_fetch_platformio, q)] = "platformio"
+        else:
+            # Per DIY-012 rule 3: explicitly record that PlatformIO was
+            # skipped for non-board queries, so the UI / logs make it
+            # obvious why it didn't appear.
+            sources_status["platformio"] = {
+                "status": "skipped",
+                "n": 0,
+                "note": f"PlatformIO gated: component_type={component_type!r} not in dev_board",
+            }
+        futures[pool.submit(_fetch_github, q)] = "github"
+        # Stage 6: vendor scrapers (Adafruit, Pololu)
+        futures[pool.submit(_fetch_adafruit, q)] = "adafruit"
+        futures[pool.submit(_fetch_pololu, q)] = "pololu"
         for fut in as_completed(futures, timeout=_REQUEST_TIMEOUT + 1):
             name = futures[fut]
             try:
                 rows, status = fut.result(timeout=0.1)
             except Exception as exc:  # noqa: BLE001
                 rows, status = [], {"status": "error", "error": str(exc), "n": 0}
-            sources_status[name] = status
+            # Don't overwrite the platformio-skipped status
+            if name not in sources_status:
+                sources_status[name] = status
             partials.extend(rows)
 
     # Merge by (commons_filename, wikidata_id) or by normalized name
@@ -180,19 +209,163 @@ def search(query: str) -> Dict[str, Any]:
     from .quality import rank_and_filter  # late import to avoid heavy dep at module load
     ranked = rank_and_filter(candidates, q)
 
+    # Stage 12 (DIY-012): enrich with identity-engine fields, re-rank by
+    # match_level (exact > variant > related > image_only), drop rejected
+    # queries, and apply the 0.85 auto-confirm threshold.
+    final = _apply_identity_engine(ranked["candidates"], q, component_type)
+
     result: Dict[str, Any] = {
         "query": q,
-        "candidates": ranked["candidates"],
-        "rejected_count": ranked["rejected_count"],
+        "candidates": final,
+        "rejected_count": ranked["rejected_count"] + (
+            len(ranked["candidates"]) - len(final)
+        ),
         "quality_threshold": ranked["quality_threshold"],
+        "auto_confirm_threshold": _AUTO_CONFIRM_THRESHOLD,
         "best_confidence": ranked["best_confidence"],
+        "component_type": component_type,
+        "platformio_allowed": pio_allowed,
+        "query_signature": qsig,
         "sources": sources_status,
-        "error": None if ranked["candidates"] else "no reliable match found",
+        "error": None if final else "no reliable match found",
     }
 
     # Cache the result
     _CACHE[q] = (now, result)
     return result
+
+
+# Stage 12: hard 0.85 threshold from NOFI brief 5A.
+_AUTO_CONFIRM_THRESHOLD = 0.85
+
+
+def _verified_cache_response(
+    q: str,
+    qsig: str,
+    component_type: str,
+    pio_allowed: bool,
+    hit: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Build a search response for a verified-components cache hit.
+
+    The cached row becomes the only candidate, with match_level='exact',
+    confidence=0.95, confidence_reason mentioning the verified cache.
+    """
+    cached_candidate = {
+        "id": f"verified:{hit.get('id', '')}",
+        "name": hit.get("canonical_name", q),
+        "model_number": hit.get("model_number") or "Unknown",
+        "category": hit.get("component_type") or component_type or "Other",
+        "manufacturer": hit.get("manufacturer") or "",
+        "description": hit.get("description") or "",
+        "voltage": hit.get("voltage") or "",
+        "interfaces": hit.get("interfaces") or [],
+        "key_specs": list((hit.get("specs") or {}).items()) if isinstance(hit.get("specs"), dict) else [],
+        "image_url": hit.get("image_url") or None,
+        "image_source": "verified_cache" if hit.get("image_url") else None,
+        "datasheet_url": hit.get("datasheet_url") or "",
+        "source_url": (hit.get("source_urls") or [None])[0],
+        "tags": ["verified_cache", component_type],
+        "matched_sources": ["verified_cache"],
+        "source_quality": "vendor",
+        "match_level": "exact",
+        "confidence": 0.95,
+        "confidence_reason": (
+            f"From local verified cache (query signature {qsig!r}). "
+            f"Verified by {hit.get('verified_by', 'nofi')!r} at "
+            f"{hit.get('verified_at', 'unknown')}."
+        ),
+        "verified_cache": True,
+    }
+    response = {
+        "query": q,
+        "candidates": [cached_candidate],
+        "rejected_count": 0,
+        "quality_threshold": 0.50,
+        "auto_confirm_threshold": _AUTO_CONFIRM_THRESHOLD,
+        "best_confidence": 0.95,
+        "component_type": component_type,
+        "platformio_allowed": pio_allowed,
+        "query_signature": qsig,
+        "sources": {
+            "verified_cache": {
+                "status": "hit",
+                "n": 1,
+                "note": f"verified_components.query_signature={qsig}",
+            },
+        },
+        "error": None,
+        "verified_cache_hit": True,
+    }
+    # Cache the result so we don't repeat the DB lookup
+    _CACHE[q] = (time.time(), response)
+    return response
+
+
+def _apply_identity_engine(
+    candidates: List[Dict[str, Any]],
+    query: str,
+    component_type: str,
+) -> List[Dict[str, Any]]:
+    """Apply Stage 12 identity engine: enrich, re-rank, drop platformio-pollution.
+
+    Steps:
+      1. Filter out candidates with ``platformio_url`` when component_type is
+         NOT ``dev_board`` (PlatformIO pollution guard, rule 3).
+      2. Drop candidates whose signature is in the rejected_components cache
+         (rule 5: "Rejected queries never return that candidate again").
+      3. Compute ``match_level``, ``confidence_reason``, ``source_quality``,
+         ``matched_sources`` via identity.enrich_candidate().
+      4. Re-rank using identity.rank_key() (exact > variant > related > image_only).
+      5. Drop ``match_level == "rejected"`` (none produced today, but the
+         future reject-list path may add them).
+    """
+    from .identity import enrich_candidate, rank_key  # late import
+    from .identity_cache import (
+        candidate_signature,
+        get_rejected_signatures,
+    )
+    rejected_sigs = set(get_rejected_signatures(query))
+    out: List[Dict[str, Any]] = []
+    for c in candidates:
+        # Rule 5: drop candidates the operator has previously rejected.
+        csig = candidate_signature(c)
+        if csig in rejected_sigs:
+            continue
+        # Rule 3: PlatformIO gate on OUTPUTS, not just on the fetch step.
+        # If the component_type is not dev_board, drop any candidate whose
+        # ONLY identity source is platformio. (Other sources still allowed.)
+        # We deliberately check matched_sources (not source_url, which can
+        # also be a platformio URL) so a candidate with a wikidata_id AND
+        # a platformio_url is still kept.
+        if component_type != "dev_board" and c.get("platformio_url"):
+            sources_l = {s.lower() for s in (c.get("matched_sources") or [])}
+            non_pio_sources = sources_l - {"platformio"}
+            if not non_pio_sources:
+                # Only PlatformIO. Drop.
+                continue
+        # Filter out clearly-wrong rejects that snuck past quality.py
+        # (e.g. identity reject-list is checked here).
+        c["query"] = query
+        enriched = enrich_candidate(c, component_type=component_type)
+        if enriched.get("match_level") == "rejected":
+            continue
+        # Re-anchor confidence using match_level priority.
+        # The new ranking uses (match_level, source_quality, confidence, image)
+        # and replaces the pure confidence sort. We keep the Stage 11
+        # confidence number for the threshold / "needs review" check, but
+        # the SORT order is now identity-first.
+        # Apply the variant-mismatch penalty from enrich_candidate by
+        # adjusting the displayed confidence (UI threshold still works).
+        boost = enriched.get("confidence_boost")
+        if boost is not None:
+            new_conf = max(0.0, min(1.0, float(enriched.get("confidence", 0.0)) + float(boost)))
+            enriched["confidence"] = round(new_conf, 3)
+        enriched.pop("confidence_boost", None)
+        out.append(enriched)
+    # Final sort: match_level > source_quality > confidence > has_image
+    out.sort(key=rank_key, reverse=True)
+    return out
 
 
 def get_detail(candidate: Dict[str, Any]) -> Dict[str, Any]:
@@ -769,14 +942,52 @@ def _extract_meta(html: str, prop: str) -> Optional[str]:
 
 # --- Adafruit ----------------------------------------------------------------
 
+_ADAFRUIT_MAX_RESULTS = 10  # DIY-012 rule 8: inspect at least 5, up to 10
+
+
+def _adafruit_extract_product_links(html: str) -> List[Tuple[str, str]]:
+    """Pull all product hrefs from an Adafruit search page.
+
+    Returns a list of (href, product_id) pairs in the order they appear.
+    De-duplicates by product_id.
+    """
+    out: List[Tuple[str, str]] = []
+    seen_ids: Set[str] = set()
+    for m in re.finditer(
+        r'<a[^>]+href="(/product/(\d+)[^"]*)"[^>]*>(.*?)</a>',
+        html,
+        re.IGNORECASE | re.DOTALL,
+    ):
+        href = m.group(1)
+        pid = m.group(2)
+        if pid in seen_ids:
+            continue
+        seen_ids.add(pid)
+        out.append((href, pid))
+    return out
+
+
+def _adafruit_title_token_match(query: str, title: str) -> int:
+    """Return count of query tokens that appear in the title (lowercased)."""
+    q_tokens = set(re.findall(r"[a-z0-9]+", query.lower()))
+    t_tokens = set(re.findall(r"[a-z0-9]+", title.lower()))
+    return len(q_tokens & t_tokens)
+
+
 def _fetch_adafruit(query: str) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """Search Adafruit for products matching the query.
 
-    Returns up to 1 partial candidate (only the first product page is fetched,
-    per the polite-crawler policy: max 2 HTTP requests per query per vendor).
+    Stage 12 (DIY-012 rule 8): inspect up to ``_ADAFRUIT_MAX_RESULTS`` results
+    (not just the first), rank by exact token match + variant compatibility,
+    and return the top results in a stable, relevance-ordered list.
 
-    robots.txt: Allow: /, only disallows /api/, /ajax/, /cache/, /download/,
-    /i/, /includes/, /tmp/. We scrape /search and /product/<id>, both allowed.
+    Polite-crawler policy still applies: 1-second minimum pause per vendor,
+    1-hour cache per (vendor, query), and we cap to 5 product-page fetches
+    per query (the search-page + up to 4 product pages).
+
+    robots.txt allows /search and /product/<id>. The first 5 product links
+    are inspected; we then fetch the top 1 (best match) to get the rich
+    metadata. The rest are returned as partials using search-page metadata.
     """
     status: Dict[str, Any] = {"status": "ok", "n": 0}
     cached = _vendor_cached("adafruit", query)
@@ -792,73 +1003,115 @@ def _fetch_adafruit(query: str) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         return [], {"status": "timeout", "error": "adafruit search", "n": 0}
 
     html = body.decode("utf-8", errors="replace")
-    # Find the first product link in the search results
-    # Pattern: <a href="/product/1234" ...>Title</a>
-    product_link = re.search(
-        r'<a[^>]+href="(/product/(\d+)[^"]*)"[^>]*>(.*?)</a>',
-        html, re.IGNORECASE | re.DOTALL,
-    )
-    if not product_link:
+    product_links = _adafruit_extract_product_links(html)
+    if not product_links:
         return [], {"status": "ok", "n": 0}
 
-    product_path = product_link.group(1)
-    product_id = product_link.group(2)
-    product_url = f"https://www.adafruit.com{product_path}"
+    # Cap to top N
+    product_links = product_links[:_ADAFRUIT_MAX_RESULTS]
 
-    # 2) Fetch the product page (1 request max)
-    body2 = _http_get_vendor("adafruit", product_url)
-    if body2 is None:
-        return [], {"status": "timeout", "error": "adafruit product", "n": 0}
+    # 2) Quickly score each link by extracting the anchor text (the title
+    #    on the search page) and counting token overlap with the query.
+    #    Then fetch the TOP 1 product page (per polite-crawler policy) to
+    #    get rich metadata.
+    scored: List[Tuple[int, int, Tuple[str, str]]] = []  # (score, idx, link)
+    for idx, (href, pid) in enumerate(product_links):
+        m = re.search(
+            rf'<a[^>]+href="{re.escape(href)}"[^>]*>(.*?)</a>',
+            html,
+            re.IGNORECASE | re.DOTALL,
+        )
+        anchor = m.group(1) if m else ""
+        anchor_text = re.sub(r"<[^>]+>", " ", anchor)
+        anchor_text = re.sub(r"\s+", " ", anchor_text).strip()
+        score = _adafruit_title_token_match(query, anchor_text)
+        # Heavily penalize variant mismatches: a title that contains Pro/Plus
+        # but the query doesn't is demoted
+        q_norm = query.lower()
+        for bad in ("pro", "plus", "lite", "v2", "v3", "v4", "s2", "s3", "c3", "h2"):
+            if bad in anchor_text.lower() and bad not in q_norm:
+                score -= 1
+        scored.append((score, idx, (href, pid)))
+    scored.sort(key=lambda t: (-t[0], t[1]))  # higher score first; stable on idx
 
-    html2 = body2.decode("utf-8", errors="replace")
-    title = _extract_meta(html2, "og:title")
-    image_url = _extract_meta(html2, "og:image")
-    description = _extract_meta(html2, "og:description")
+    # 3) Fetch the top 1 product page (1 request) to get rich metadata.
+    top_score, _, (top_href, top_pid) = scored[0]
+    top_url = f"https://www.adafruit.com{top_href}"
+    body2 = _http_get_vendor("adafruit", top_url)
+    rich: Dict[str, Any] = {}
+    if body2 is not None:
+        html2 = body2.decode("utf-8", errors="replace")
+        title = _extract_meta(html2, "og:title")
+        image_url = _extract_meta(html2, "og:image")
+        description = _extract_meta(html2, "og:description")
+        if not title:
+            m2 = re.search(r"<title>([^<]+)</title>", html2, re.IGNORECASE)
+            if m2:
+                title = m2.group(1).split(":", 1)[0].strip()
+        if description and len(description) > 500:
+            description = description[:497] + "..."
+        # Datasheet link
+        ds_match = re.search(
+            r'<a[^>]+href="([^"]+)"[^>]*>[^<]*[Dd]atasheet[^<]*</a>',
+            html2,
+        )
+        datasheet_url = ""
+        if ds_match:
+            datasheet_url = ds_match.group(1)
+            if datasheet_url.startswith("/"):
+                datasheet_url = f"https://www.adafruit.com{datasheet_url}"
+        rich = {
+            "title": title or "",
+            "image_url": image_url,
+            "description": description or "",
+            "datasheet_url": datasheet_url,
+        }
 
-    if not title:
-        # Fallback: parse from <title>
-        m = re.search(r"<title>([^<]+)</title>", html2, re.IGNORECASE)
-        if m:
-            title = m.group(1).split(":", 1)[0].strip()
-    if not title:
-        return [], {"status": "ok", "n": 0}
+    # 4) Build the top candidate (rich)
+    top_title = rich.get("title") or _title_case(top_href.replace("-", " ").split("/")[-1])
+    partials: List[Dict[str, Any]] = [
+        {
+            "id": f"adafruit:{top_pid}",
+            "name": _title_case(top_title),
+            "model_number": top_pid,
+            "category": _guess_category_from_query(query),
+            "description": rich.get("description", ""),
+            "image_url": rich.get("image_url"),
+            "image_source": "adafruit",
+            "image_attribution": {
+                "license": "see vendor page",
+                "source_url": top_url,
+            },
+            "source_url": top_url,
+            "datasheet_url": rich.get("datasheet_url", ""),
+            "tags": ["adafruit", "vendor"],
+        }
+    ]
 
-    # Truncate description to 500 chars
-    if description and len(description) > 500:
-        description = description[:497] + "..."
-
-    # Find a datasheet link in the page body
-    datasheet_url = ""
-    ds_match = re.search(
-        r'<a[^>]+href="([^"]+)"[^>]*>[^<]*[Dd]atasheet[^<]*</a>',
-        html2,
-    )
-    if ds_match:
-        datasheet_url = ds_match.group(1)
-        # Make absolute
-        if datasheet_url.startswith("/"):
-            datasheet_url = f"https://www.adafruit.com{datasheet_url}"
-
-    partial = {
-        "id": f"adafruit:{product_id}",
-        "name": _title_case(title),
-        "model_number": product_id,
-        "category": _guess_category_from_query(query),
-        "description": description or "",
-        "image_url": image_url,
-        "image_source": "adafruit",
-        "image_attribution": {
-            "license": "see vendor page",
+    # 5) Add the remaining 4 product links as partial candidates (no rich
+    #    metadata, but the URL is enough to rank them as alternates).
+    for score, idx, (href, pid) in scored[1:5]:
+        product_url = f"https://www.adafruit.com{href}"
+        m = re.search(
+            rf'<a[^>]+href="{re.escape(href)}"[^>]*>(.*?)</a>',
+            html,
+            re.IGNORECASE | re.DOTALL,
+        )
+        anchor_text = m.group(1) if m else ""
+        anchor_text = re.sub(r"<[^>]+>", " ", anchor_text)
+        anchor_text = re.sub(r"\s+", " ", anchor_text).strip()
+        partials.append({
+            "id": f"adafruit:{pid}",
+            "name": _title_case(anchor_text) or _title_case(href.replace("-", " ").split("/")[-1]),
+            "model_number": pid,
+            "category": _guess_category_from_query(query),
             "source_url": product_url,
-        },
-        "source_url": product_url,
-        "datasheet_url": datasheet_url,
-        "tags": ["adafruit", "vendor"],
-    }
-    rows = [partial]
-    _vendor_store("adafruit", query, rows)
-    status["n"] = 1
-    return rows, status
+            "tags": ["adafruit", "vendor"],
+        })
+
+    _vendor_store("adafruit", query, partials)
+    status["n"] = len(partials)
+    return partials, status
 
 
 # --- Pololu ------------------------------------------------------------------

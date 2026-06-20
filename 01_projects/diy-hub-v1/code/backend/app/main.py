@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from . import init_db  # noqa: F401
 from .db import get_db_path, get_images_dir
 from .routes import components  # noqa: F401  # Stage 2: Add Component flow
+from .routes import identity as identity_routes  # noqa: F401  # Stage 12: verify + reject endpoints
 
 PAGES = ["Dashboard", "Add Component", "Inventory", "Idea Lab", "Settings"]
 
@@ -24,6 +25,9 @@ app = FastAPI(
 
 # Stage 2: Add Component flow (search, save, list).
 app.include_router(components.router)
+
+# Stage 12: Component Identity Engine — verified cache + rejection endpoints.
+app.include_router(identity_routes.router)
 
 # Stage 3: serve the downloaded real images out of data/images/ at
 # /api/images/<basename> so the Inventory page (and the GET /api/components

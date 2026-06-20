@@ -73,6 +73,11 @@ class CreateComponentRequest(BaseModel):
     ``manufacturer``, ``release_year``, ``confidence``, ``datasheet_url``.
     All are stored as direct columns (no longer packed into the notes
     JSON blob).
+
+    Stage 12 (DIY-012) added: ``query`` so the verified_components cache
+    can be seeded with the original free-text query that produced this
+    candidate. The frontend sends it alongside the rest of the create
+    payload.
     """
 
     name: str
@@ -97,6 +102,9 @@ class CreateComponentRequest(BaseModel):
     # If the operator picked the offline mock fallback, this is "mock_fallback"
     # so we can tell, later, which records came from real live data.
     source: Optional[str] = "live"
+    # Stage 12: the original free-text query that produced this candidate.
+    # Used to seed the verified_components cache.
+    query: Optional[str] = None
 
 
 class UpdateComponentRequest(BaseModel):
@@ -400,6 +408,43 @@ def create_component(req: CreateComponentRequest) -> Dict[str, Any]:
         "source": req.source or "live",  # "live" or "mock_fallback"
     }
     notes_json = json.dumps(notes_blob, ensure_ascii=False)
+
+    # Stage 12 (DIY-012): if we have the original free-text query, also
+    # write to the verified_components cache. The frontend may or may not
+    # send the query; if not, we just skip the cache write.
+    # The query comes through the `req.query` if the frontend sent it.
+    original_query = getattr(req, "query", None) or ""
+    if original_query.strip() and req.source == "live":
+        try:
+            from .. import identity_cache as _id_cache
+            from ..identity import classify_query
+            component_type = classify_query(req.name or "") or classify_query(original_query)
+            source_urls = []
+            if req.source_url:
+                source_urls.append(req.source_url)
+            if req.datasheet_url:
+                source_urls.append(req.datasheet_url)
+            if req.wikidata_id:
+                source_urls.append(f"https://www.wikidata.org/wiki/{req.wikidata_id}")
+            _id_cache.put_verified(
+                query=original_query,
+                canonical_name=req.name or "",
+                manufacturer=req.manufacturer or None,
+                model_number=req.model_number or None,
+                component_type=component_type,
+                description=req.description or None,
+                voltage=req.voltage or None,
+                interfaces=list(req.interfaces or []),
+                specs={"key_specs": list(req.key_specs or [])},
+                datasheet_url=req.datasheet_url or None,
+                image_url=req.image_url or None,
+                source_urls=source_urls,
+                confidence=req.confidence,
+                verified_by="nofi",
+            )
+        except Exception as exc:  # noqa: BLE001
+            # Cache write is best-effort; do not fail the save.
+            print(f"[create_component] verified cache write failed: {exc}", file=sys.stderr)
 
     # 3) Insert into SQLite. If the image download failed, image_rel_path
     #    is None and the column is null — the save still succeeds.

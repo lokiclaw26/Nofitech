@@ -63,3 +63,42 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT,
   updated_at TEXT NOT NULL
 );
+
+-- DIY-012 (Stage 12): Component Identity Engine verified cache.
+-- When the operator confirms a component, NOFI -> save, the row goes here.
+-- Future searches consult this table BEFORE hitting the network. A hit
+-- returns immediately with match_level='exact' and high confidence.
+CREATE TABLE IF NOT EXISTS verified_components (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  query_signature TEXT UNIQUE NOT NULL,
+  canonical_name TEXT NOT NULL,
+  manufacturer TEXT,
+  model_number TEXT,
+  component_type TEXT,
+  description TEXT,
+  voltage TEXT,
+  interfaces TEXT,    -- JSON list
+  specs TEXT,         -- JSON object
+  datasheet_url TEXT,
+  image_url TEXT,
+  source_urls TEXT,   -- JSON list
+  confidence REAL,
+  verified_at TEXT NOT NULL,
+  verified_by TEXT    -- 'thor' | 'forge' | 'argus' | 'nofi'
+);
+
+-- DIY-012: rejected components. When the operator clicks "Wrong result" on
+-- a candidate, we record (query_signature, candidate_signature) here.
+-- Future searches for the same query never return the same candidate.
+CREATE TABLE IF NOT EXISTS rejected_components (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  query_signature TEXT NOT NULL,
+  candidate_signature TEXT NOT NULL,
+  reason TEXT,
+  rejected_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_verified_signature
+  ON verified_components(query_signature);
+CREATE INDEX IF NOT EXISTS idx_rejected_lookup
+  ON rejected_components(query_signature, candidate_signature);
