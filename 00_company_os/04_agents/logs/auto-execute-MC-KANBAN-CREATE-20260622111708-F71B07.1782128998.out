@@ -1,0 +1,15 @@
+All 6 steps done. Quick recap:
+
+STATUS:    MC-KANBAN-CREATE-20260622111708-F71B07 processed
+CHANGED:   PATCH done -> 200 ok (cascaded status=done, result_persisted=false since prior Result section preserved)
+TESTED:    GET /api/data/kanban -> task in Done column (count 110), removed from Running Now
+ARGUS:     idempotent re-dispatch — earlier run at 15:23:30 had already completed it; this run re-verified + appended log + events.jsonl
+NEXT:      none — task closed, cron pipeline confirmed healthy
+
+Log: /home/nofidofi/NofiTech-Ind/00_company_os/04_agents/logs/2026-06-22/argus-MC-KANBAN-CREATE-20260622111708-F71B07.md
+events.jsonl: appended 1 line (task_completed, ts 15:50:30)
+result: success
+
+all good — kanban round-trip confirmed again on re-dispatch.
+
+🛑 Standing by. One observation: the cron re-dispatched an already-done task. That's the auto-execute leg firing without checking the previous result — want me to add a "skip if already done" guard to the auto-dispatch cron, or leave it idempotent for now?

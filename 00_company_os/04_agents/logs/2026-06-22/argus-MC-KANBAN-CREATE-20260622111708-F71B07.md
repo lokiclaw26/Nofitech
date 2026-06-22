@@ -42,3 +42,16 @@ The task was a smoke test of the kanban auto-execute pipeline (auto-process cron
 - `/home/nofidofi/NofiTech-Ind/00_company_os/events.jsonl` — task_completed event appended.
 
 ## result: success
+
+---
+
+## Re-dispatch (cron, 2026-06-22T15:49:57+04:00)
+
+Task was re-dispatched by `kanban-auto-execute` cron at 2026-06-22T15:48:57+04:00 (auto-dispatch event visible in events.jsonl tail). Earlier `kanban-auto-execute` run at 15:23:30 had already completed it. Idempotent re-run:
+
+1. Read task file again — frontmatter still `status: done / kanban_status: done`, Result section intact (date 2026-06-22T15:23:30, by argus, success).
+2. Verified board state via `GET /api/data/kanban` — task is in the Done column (count: 110), no longer in Running Now (count: 1, that 1 is MC-RESULT-VISIBLE-1).
+3. Issued `PATCH /api/data/kanban/task/MC-KANBAN-CREATE-20260622111708-F71B07` with `{"status":"done","kanban_status":"done"}` — server returned `{"ok":true,"new_status":"done","reason":"ok (cascaded status=done)","result_persisted":false}` (result already persisted on the prior run, hence not persisted again — correct).
+4. Appended this block to the log + a new `task_completed` line to events.jsonl.
+
+result: success

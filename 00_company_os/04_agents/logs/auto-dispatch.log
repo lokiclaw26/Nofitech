@@ -34,3 +34,4 @@
 2026-06-22T13:44:54+04:00  MC-SESSION-BUDGET-1  assignee=forge priority=high  title='MC-SESSION-BUDGET-1 — per-session token budget + compression audit'  patch_ok=1
 2026-06-22T15:20:56+04:00  MC-KANBAN-CREATE-20260622111708-F71B07  assignee=argus priority=high  title='test ,, if ok write back all good'  patch_ok=1
 2026-06-22T15:34:56+04:00  MC-RESULT-VISIBLE-1  assignee=forge priority=high  title='MC-RESULT-VISIBLE-1 — make agent results visible on kanban cards'  patch_ok=1
+2026-06-22T15:48:57+04:00  MC-KANBAN-CREATE-20260622111708-F71B07  assignee=argus priority=high  title='test ,, if ok write back all good'  patch_ok=1
