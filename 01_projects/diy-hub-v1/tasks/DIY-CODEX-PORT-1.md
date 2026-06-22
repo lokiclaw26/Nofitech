@@ -1,13 +1,20 @@
 ---
 title: "DIY-CODEX-PORT-1 — port useful UX improvements from diy-hub-codex to diy-hub-v1"
-status: in_progress
-kanban_status: running_now
+status: done
+kanban_status: done
 priority: high
 assigned_to: forge
 created_at: 2026-06-22T16:30+04:00
 project: diy-hub-v1
 ---
 
+
+## Result
+**Date:** 2026-06-22T12:43:25+00:00
+**By:** unknown
+**Status:** success
+
+DIY-CODEX-PORT-1 complete. Ported Dashboard.tsx, IdeaLab.tsx, Settings.tsx, NavBar.tsx, lib/inventory.ts from diy-hub-codex to diy-hub-v1 verbatim (v1 lib/url.ts already exported API_BASE matching codex imports). npm run build passes (tsc -b clean, vite build 2104 modules, 1.43s). Backend /api/health + /api/components 200. All 5 routes load on dev server :5173. AddComponent + ManualImageInput (DIY-016) still resolve — no regression. Pre-existing TS errors in pages/Inventory.tsx (duplicate const API_BASE shadowing import, unused btnCls) removed as dead-code cleanup; no behavior change. Commit 65315ed pushed to origin/main. No backend changes, no node_modules/dist/.db committed.
 
 ## Research started (auto-process)
 
