@@ -66,5 +66,18 @@ After:
 ## NEXT RECOMMENDATION
 Wire `should_hard_refuse` into the gateway preflight (likely in `gateway/run.py` near the existing token-budget check) so NOFI's Telegram session actually responds with "send /new" when input exceeds 90K tokens instead of attempting the API call and burning more tokens. This closes the loop on the original `MC-SESSION-INVESTIGATE-1` finding. Filed as `MC-SESSION-BUDGET-2` (TBD).
 
+## COMMIT
+- Local commit `29218c6` on `main`: "MC-SESSION-BUDGET-1: per-session token budget + compression audit".
+- 5 files changed, 288 insertions, 1 deletion.
+
+## PUSH
+- DEFERRED. The configured push remote `https://github.com/lokiclaw26/Nofitech.git`
+  requires credentials that aren't available in this session (no stored
+  `~/.netrc`, no `gh` CLI auth, no `GITHUB_*` env token exposed).
+- Per NOFI's standing rule (6h auto-sync via cron), the commit will be
+  picked up on the next auto-sync tick. If that fails too, file
+  `MC-SESSION-BUDGET-1-push-retry` and use the documented `git push
+  <token-url>` pattern.
+
 ## RESULT
 result: success
