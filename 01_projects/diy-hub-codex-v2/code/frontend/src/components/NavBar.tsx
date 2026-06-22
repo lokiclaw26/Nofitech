@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom"
-import { Boxes, LayoutDashboard, Lightbulb, Moon, Plus, Settings, Sun, Zap } from "lucide-react"
+import { Boxes, Hammer, LayoutDashboard, Lightbulb, Moon, Plus, Settings, Sun, Zap } from "lucide-react"
 import { AppLogo } from "@/components/AppLogo"
 import { cn } from "@/lib/utils"
 
@@ -8,6 +8,7 @@ const links = [
   { to: "/inventory", label: "Inventory", icon: Boxes },
   { to: "/add", label: "Add", icon: Plus },
   { to: "/ideas", label: "Idea Lab", icon: Lightbulb },
+  { to: "/build", label: "Build Studio", icon: Hammer },
   { to: "/settings", label: "Settings", icon: Settings },
 ]
 
@@ -36,7 +37,7 @@ export function NavBar({
                   cn(
                     "group inline-flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-semibold transition",
                     isActive
-                      ? "bg-slate-950 text-white shadow-[0_10px_24px_rgba(15,23,42,0.2)]"
+                      ? "bg-slate-950 text-white shadow-[0_10px_24px_rgba(15,23,42,0.2)] dark:bg-white dark:text-slate-950 dark:shadow-[0_0_0_1px_rgba(45,212,191,0.22),0_12px_30px_rgba(0,0,0,0.42)]"
                       : "text-slate-600 hover:-translate-y-0.5 hover:bg-white hover:text-slate-950 hover:shadow-sm dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white",
                   )
                 }

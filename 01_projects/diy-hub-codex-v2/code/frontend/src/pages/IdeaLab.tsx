@@ -257,10 +257,18 @@ export default function IdeaLab() {
                       </span>
                     )}
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => saveIdea(template.title)} className="gap-2">
-                    <Save className="h-4 w-4" />
-                    Save idea
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" onClick={() => saveIdea(template.title)} className="gap-2">
+                      <Save className="h-4 w-4" />
+                      Save idea
+                    </Button>
+                    <Button asChild size="sm" className="gap-2 bg-amber-500 text-slate-950 hover:bg-amber-400">
+                      <Link to={`/build?idea=${encodeURIComponent(template.title)}`}>
+                        <Rocket className="h-4 w-4" />
+                        BUILD IT
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
               </div>
             </motion.article>

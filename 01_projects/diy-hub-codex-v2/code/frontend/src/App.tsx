@@ -5,6 +5,7 @@ import Dashboard from "@/pages/Dashboard"
 import AddComponent from "@/pages/AddComponent"
 import Inventory from "@/pages/Inventory"
 import IdeaLab from "@/pages/IdeaLab"
+import BuildStudio from "@/pages/BuildStudio"
 import Settings from "@/pages/Settings"
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
           <Route path="/add" element={<AddComponent />} />
           <Route path="/inventory" element={<Inventory />} />
           <Route path="/ideas" element={<IdeaLab />} />
+          <Route path="/build" element={<BuildStudio />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </main>
