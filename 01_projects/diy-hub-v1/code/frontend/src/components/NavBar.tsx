@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom"
-import { Boxes, Cpu, LayoutDashboard, Lightbulb, Plus, Settings } from "lucide-react"
+import { Boxes, Hammer, LayoutDashboard, Lightbulb, Moon, Plus, Settings, Sun, Zap } from "lucide-react"
+import { AppLogo } from "@/components/AppLogo"
 import { cn } from "@/lib/utils"
 
 const links = [
@@ -7,18 +8,22 @@ const links = [
   { to: "/inventory", label: "Inventory", icon: Boxes },
   { to: "/add", label: "Add", icon: Plus },
   { to: "/ideas", label: "Idea Lab", icon: Lightbulb },
+  { to: "/build", label: "Build Studio", icon: Hammer },
   { to: "/settings", label: "Settings", icon: Settings },
 ]
 
-export function NavBar() {
+export function NavBar({
+  darkMode,
+  onToggleDarkMode,
+}: {
+  darkMode: boolean
+  onToggleDarkMode: () => void
+}) {
   return (
-    <nav className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3">
-        <NavLink to="/" className="flex min-w-0 items-center gap-2 pr-2">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-slate-950 text-white">
-            <Cpu className="h-5 w-5" />
-          </span>
-          <span className="hidden font-semibold text-slate-950 sm:inline">DIY Hub</span>
+    <nav className="sticky top-0 z-40 border-b border-slate-900/10 bg-[#f8f8f1]/90 backdrop-blur-xl transition-colors duration-500 dark:border-white/10 dark:bg-slate-950/80">
+      <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-2">
+        <NavLink to="/" className="flex min-w-0 items-center pr-2">
+          <AppLogo />
         </NavLink>
         <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
           {links.map((link) => {
@@ -30,23 +35,41 @@ export function NavBar() {
                 end={link.to === "/"}
                 className={({ isActive }) =>
                   cn(
-                    "inline-flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors",
+                    "group inline-flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-semibold transition",
                     isActive
-                      ? "bg-slate-950 text-white"
-                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
+                      ? "bg-slate-950 text-white shadow-[0_10px_24px_rgba(15,23,42,0.2)] dark:bg-white dark:text-slate-950 dark:shadow-[0_0_0_1px_rgba(45,212,191,0.22),0_12px_30px_rgba(0,0,0,0.42)]"
+                      : "text-slate-600 hover:-translate-y-0.5 hover:bg-white hover:text-slate-950 hover:shadow-sm dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white",
                   )
                 }
                 title={link.label}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4 transition group-hover:rotate-[-6deg]" />
                 <span className="hidden sm:inline">{link.label}</span>
               </NavLink>
             )
           })}
         </div>
-        <span className="hidden rounded-md bg-teal-50 px-2.5 py-1 text-xs font-medium text-teal-700 md:inline">
-          Personal workshop
+        <span className="hidden items-center gap-1.5 rounded-md border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-800 md:inline-flex">
+          <Zap className="h-3.5 w-3.5" />
+          Live workshop
         </span>
+        <button
+          type="button"
+          onClick={onToggleDarkMode}
+          className="group relative flex h-10 w-16 shrink-0 items-center rounded-full border border-slate-900/10 bg-white p-1 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-slate-900"
+          title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+          aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+          aria-pressed={darkMode}
+        >
+          <span
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-full bg-slate-950 text-white shadow-md transition duration-300 group-hover:rotate-12 dark:bg-amber-300 dark:text-slate-950",
+              darkMode && "translate-x-6",
+            )}
+          >
+            {darkMode ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+          </span>
+        </button>
       </div>
     </nav>
   )

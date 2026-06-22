@@ -1,7 +1,19 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { motion } from "framer-motion"
-import { CheckCircle2, Lightbulb, Plus, Save, Sparkles, Wrench, XCircle } from "lucide-react"
+import {
+  CheckCircle2,
+  CircleDashed,
+  Clock3,
+  Lightbulb,
+  Plus,
+  Rocket,
+  Save,
+  Sparkles,
+  Trophy,
+  Wrench,
+  XCircle,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { componentText, fetchInventory, type ComponentItem } from "@/lib/inventory"
 
@@ -76,6 +88,12 @@ function matchesNeed(components: ComponentItem[], need: string) {
   })
 }
 
+function readinessTone(score: number) {
+  if (score >= 85) return "from-teal-500 to-emerald-400"
+  if (score >= 55) return "from-amber-400 to-orange-400"
+  return "from-rose-400 to-fuchsia-400"
+}
+
 export default function IdeaLab() {
   const [components, setComponents] = useState<ComponentItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -120,6 +138,8 @@ export default function IdeaLab() {
     [components],
   )
 
+  const topIdea = ideas[0]
+
   function saveIdea(title: string) {
     setSaved((current) => {
       if (current.some((idea) => idea.title === title)) return current
@@ -129,118 +149,159 @@ export default function IdeaLab() {
 
   return (
     <div className="mx-auto max-w-7xl p-4 sm:p-6">
-      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
-          <p className="text-sm font-medium uppercase tracking-wide text-teal-700">Idea Lab</p>
-          <h1 className="mt-1 text-3xl font-bold text-slate-950">Project ideas from your parts</h1>
-          <p className="mt-2 max-w-2xl text-sm text-slate-600">
-            Suggestions are matched against your inventory so you can start with what is already in your drawers.
-          </p>
-        </motion.div>
-        <Button asChild>
-          <Link to="/add">
-            <Plus className="mr-2 h-4 w-4" />
-            Add more parts
-          </Link>
-        </Button>
-      </div>
+      <section className="mb-5 overflow-hidden rounded-lg border border-slate-900/10 bg-slate-950 text-white shadow-[0_24px_80px_rgba(15,23,42,0.22)]">
+        <div className="grid gap-5 p-5 sm:p-7 lg:grid-cols-[1fr_320px]">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
+            <p className="inline-flex items-center gap-2 rounded-md bg-white/10 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-amber-100">
+              <Sparkles className="h-3.5 w-3.5" />
+              Idea Lab
+            </p>
+            <h1 className="mt-4 max-w-3xl text-4xl font-black leading-tight sm:text-5xl">
+              Pick a build mission from the parts on your bench.
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
+              Each idea scores itself against your inventory, calls out missing pieces, and gives you a short build path.
+            </p>
+          </motion.div>
+          <div className="rounded-lg border border-white/10 bg-white/10 p-4">
+            <div className="flex items-center gap-2 text-sm font-bold text-slate-200">
+              <Trophy className="h-4 w-4 text-amber-300" />
+              Best match right now
+            </div>
+            <div className="mt-4 text-2xl font-black">{loading || !topIdea ? "Scanning..." : topIdea.template.title}</div>
+            <div className="mt-3 h-2 rounded-full bg-white/10">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${topIdea?.score ?? 0}%` }}
+                transition={{ duration: 0.5 }}
+                className={`animate-meter h-2 rounded-full bg-gradient-to-r ${readinessTone(topIdea?.score ?? 0)}`}
+              />
+            </div>
+            <div className="mt-2 text-xs font-semibold text-slate-400">{topIdea?.score ?? 0}% ready with inventory</div>
+          </div>
+        </div>
+      </section>
 
       {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-        <section className="space-y-4">
-          {ideas.map(({ template, owned, optionalOwned, score }) => (
+        <section className="space-y-4 self-start">
+          {ideas.map(({ template, owned, optionalOwned, score }, ideaIndex) => (
             <motion.article
               key={template.title}
-              initial={{ opacity: 0, y: 6 }}
+              initial={{ opacity: 1, y: 0 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2 }}
-              className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+              whileHover={{ y: -4 }}
+              transition={{ duration: 0.2, delay: ideaIndex * 0.03 }}
+              className="group overflow-hidden rounded-lg border border-slate-900/10 bg-white/90 shadow-[0_12px_34px_rgba(15,23,42,0.08)] backdrop-blur dark:border-white/10 dark:bg-slate-900/80"
             >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-lg font-semibold text-slate-950">{template.title}</h2>
-                    <span className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-600">{template.difficulty}</span>
-                    <span className="rounded-md bg-teal-50 px-2 py-1 text-xs text-teal-700">{template.time}</span>
+              <div className={`animate-meter h-1.5 bg-gradient-to-r ${readinessTone(score)}`} />
+              <div className="p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-xl font-black text-slate-950 dark:text-white">{template.title}</h2>
+                      <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">{template.difficulty}</span>
+                      <span className="inline-flex items-center gap-1 rounded-md bg-teal-50 px-2 py-1 text-xs font-bold text-teal-700">
+                        <Clock3 className="h-3.5 w-3.5" />
+                        {template.time}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">{template.goal}</p>
                   </div>
-                  <p className="mt-2 text-sm text-slate-600">{template.goal}</p>
+                  <div className="shrink-0 rounded-lg bg-slate-950 px-4 py-3 text-left text-white sm:text-right">
+                    <div className="text-3xl font-black">{loading ? "..." : `${score}%`}</div>
+                    <div className="text-xs font-semibold text-slate-400">ready</div>
+                  </div>
                 </div>
-                <div className="shrink-0 text-left sm:text-right">
-                  <div className="text-2xl font-semibold text-slate-950">{loading ? "..." : `${score}%`}</div>
-                  <div className="text-xs text-slate-500">ready with inventory</div>
-                </div>
-              </div>
 
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <div>
-                  <h3 className="mb-2 text-sm font-semibold text-slate-900">Parts Check</h3>
-                  <div className="space-y-2">
-                    {template.needs.map((need, index) => {
-                      const item = owned[index]
-                      return (
-                        <div key={need} className="flex items-start gap-2 text-sm">
-                          {item ? <CheckCircle2 className="mt-0.5 h-4 w-4 text-teal-600" /> : <XCircle className="mt-0.5 h-4 w-4 text-slate-300" />}
-                          <div>
-                            <div className="font-medium text-slate-800">{need.split("|").join(" / ")}</div>
-                            <div className="text-xs text-slate-500">{item ? `${item.name}${item.location ? `, ${item.location}` : ""}` : "Not found in inventory"}</div>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <div>
+                    <h3 className="mb-2 text-sm font-black text-slate-900 dark:text-white">Parts Check</h3>
+                    <div className="space-y-2">
+                      {template.needs.map((need, index) => {
+                        const item = owned[index]
+                        return (
+                          <div key={need} className="flex items-start gap-2 rounded-md bg-slate-50 p-2 text-sm transition group-hover:translate-x-1 dark:bg-white/5">
+                            {item ? <CheckCircle2 className="mt-0.5 h-4 w-4 text-teal-600" /> : <XCircle className="mt-0.5 h-4 w-4 text-rose-400" />}
+                            <div>
+                              <div className="font-bold text-slate-800 dark:text-slate-200">{need.split("|").join(" / ")}</div>
+                              <div className="text-xs text-slate-500 dark:text-slate-400">{item ? `${item.name}${item.location ? `, ${item.location}` : ""}` : "Missing from inventory"}</div>
+                            </div>
                           </div>
-                        </div>
-                      )
-                    })}
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="mb-2 text-sm font-black text-slate-900 dark:text-white">Build Path</h3>
+                    <ol className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                      {template.steps.map((step) => (
+                        <li key={step} className="flex gap-2 rounded-md bg-white p-2 transition group-hover:-translate-x-1 dark:bg-white/5">
+                          <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                          <span>{step}</span>
+                        </li>
+                      ))}
+                    </ol>
                   </div>
                 </div>
-                <div>
-                  <h3 className="mb-2 text-sm font-semibold text-slate-900">Build Path</h3>
-                  <ol className="space-y-2 text-sm text-slate-600">
-                    {template.steps.map((step) => (
-                      <li key={step} className="flex gap-2">
-                        <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-                        <span>{step}</span>
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              </div>
 
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
-                <div className="flex flex-wrap gap-2 text-xs text-slate-500">
-                  {optionalOwned.length > 0 ? (
-                    <span className="rounded-md bg-indigo-50 px-2 py-1 text-indigo-700">{optionalOwned.length} optional upgrades owned</span>
-                  ) : (
-                    <span className="rounded-md bg-slate-100 px-2 py-1">No optional upgrades found yet</span>
-                  )}
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-900/10 pt-3 dark:border-white/10">
+                  <div className="flex flex-wrap gap-2 text-xs font-bold">
+                    {optionalOwned.length > 0 ? (
+                      <span className="rounded-md bg-indigo-50 px-2 py-1 text-indigo-700">{optionalOwned.length} optional upgrades owned</span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-slate-500">
+                        <CircleDashed className="h-3.5 w-3.5" />
+                        Optional upgrades not found yet
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" onClick={() => saveIdea(template.title)} className="gap-2">
+                      <Save className="h-4 w-4" />
+                      Save idea
+                    </Button>
+                    <Button asChild size="sm" className="gap-2 bg-amber-500 text-slate-950 hover:bg-amber-400">
+                      <Link to={`/build?idea=${encodeURIComponent(template.title)}`}>
+                        <Rocket className="h-4 w-4" />
+                        BUILD IT
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
-                <Button size="sm" variant="outline" onClick={() => saveIdea(template.title)}>
-                  <Save className="mr-2 h-4 w-4" />
-                  Save idea
-                </Button>
               </div>
             </motion.article>
           ))}
         </section>
 
         <aside className="space-y-4">
-          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="panel-surface rounded-lg p-4">
             <div className="mb-3 flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-teal-700" />
-              <h2 className="text-base font-semibold text-slate-950">How matching works</h2>
+              <Rocket className="h-5 w-5 text-teal-700" />
+              <h2 className="text-base font-black text-slate-950 dark:text-white">Matching Engine</h2>
             </div>
-            <p className="text-sm text-slate-600">
-              Each idea searches names, models, categories, tags, specs, and interfaces. Better inventory notes make better ideas.
+            <p className="text-sm leading-6 text-slate-600 dark:text-slate-400">
+              Better names, tags, interfaces, and specs make the suggestions sharper. The app searches the whole component text, not just category.
             </p>
+            <Button asChild className="mt-4 w-full gap-2 bg-teal-700 hover:bg-teal-800">
+              <Link to="/add">
+                <Plus className="h-4 w-4" />
+                Add more parts
+              </Link>
+            </Button>
           </div>
 
-          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="panel-surface rounded-lg p-4">
             <div className="mb-3 flex items-center gap-2">
               <Lightbulb className="h-5 w-5 text-amber-600" />
-              <h2 className="text-base font-semibold text-slate-950">Saved Drafts</h2>
+              <h2 className="text-base font-black text-slate-950 dark:text-white">Saved Queue</h2>
             </div>
             <div className="space-y-2">
               {saved.map((idea) => (
-                <div key={idea.title} className="rounded-md bg-slate-50 p-3">
-                  <div className="text-sm font-medium text-slate-900">{idea.title}</div>
-                  <div className="mt-1 text-xs text-slate-500">Saved {new Date(idea.savedAt).toLocaleDateString()}</div>
+                <div key={idea.title} className="rounded-md border border-slate-900/10 bg-white p-3 dark:border-white/10 dark:bg-white/5">
+                  <div className="text-sm font-bold text-slate-900 dark:text-white">{idea.title}</div>
+                  <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Saved {new Date(idea.savedAt).toLocaleDateString()}</div>
                 </div>
               ))}
               {saved.length === 0 && (
