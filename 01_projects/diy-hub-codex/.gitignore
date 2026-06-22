@@ -1,0 +1,39 @@
+# Node / Vite
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+*.log
+.npm/
+.eslintcache
+
+# Python / venv
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+pip-log.txt
+
+# SQLite (the DB file is data, not code — track only schema.sql)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Local env
+.env
+.env.local
+.env.*.local
+
+# Backend runtime artifacts
+logs/*.log
+logs/*.pid
