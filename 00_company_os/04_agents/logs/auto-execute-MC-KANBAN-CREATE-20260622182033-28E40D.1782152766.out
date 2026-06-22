@@ -1,0 +1,24 @@
+Task file frontmatter confirms `status: done`, `kanban_status: done`. Everything in place.
+
+══════════════════════════════════════
+DONE — MC-KANBAN-CREATE-20260622182033-28E40D
+══════════════════════════════════════
+
+STATUS:    success
+CHANGED:   created `01_projects/diy-hub-v1/results/` with 4 logo concepts (each as .svg + 512×512 .png); updated task frontmatter to status=done; appended task_completed event to events.jsonl; wrote forge log
+TESTED:    rendered all 4 SVGs to PNG via cairosvg; visually verified each via vision (caught + fixed clipping bug on Option 4 wordmark — widened background square)
+ARGUS:     n/a (visual self-check sufficient for static assets; deferred to Argus for final pick if NOFI wants)
+NEXT:      NOFI reviews 4 options and picks one (or requests more variants / direction change)
+
+DELIVERABLES at /home/nofidofi/NofiTech-Ind/01_projects/diy-hub-v1/results/:
+  logo-option-1-chip-hand.{svg,png}     teal microchip + orange spark
+  logo-option-2-toolbox-bolt.{svg,png}  indigo toolbox + yellow lightning
+  logo-option-3-hex-h.{svg,png}         hexagonal "H" with cyan circuits
+  logo-option-4-wordmark.{svg,png}      dark app-icon, LED-dot-i + circuit-B
+
+NOTES:
+- "resupts" treated as "results" — typo, no such directory existed, created one
+- `image_generate` (Codex) failed (no OAuth) — fell back to programmatic SVG, which is actually better for logos (vector, editable, no auth dep). If you want pixel-perfect AI rendering later, run `hermes auth codex`
+- SVGs are flat-vector and easy to iterate: change palette / swap wordmark / add dark-mode variants cheaply
+
+🛑 Standing by. Which direction do you want to push (pick one, ask for variants, or hand off to Argus for design review)?

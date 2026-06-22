@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Concept 3: Hexagonal honeycomb forming an "H" -->
+  <rect width="512" height="512" fill="#ffffff"/>
+  <g transform="translate(256 256)">
+    <!-- 7-hex cluster shaped as H:
+         positions (hex flat-top, radius 60):
+         Top row: (-90,-90) (-30,-90) (90,-90)
+         Middle row: (-30,-90+103) wait — let me use a cleaner layout.
+         Use 7 hexes in classic H:
+            ▢ ▢ ▢
+            ▢     ▢
+            ▢ ▢ ▢
+         Coords (pointy-top, r=55, dx=95.26, dy=55+47.6):
+    -->
+    <!-- Left column: top, mid, bottom -->
+    <g fill="none" stroke="#1f2937" stroke-width="6">
+      <!-- Top-left -->
+      <polygon points="-90,-130 -40,-130 -15,-83 -40,-37 -90,-37 -115,-83"/>
+      <!-- Mid-left -->
+      <polygon points="-90,-25 -40,-25 -15,22 -40,69 -90,69 -115,22"/>
+      <!-- Bot-left -->
+      <polygon points="-90,80 -40,80 -15,127 -40,174 -90,174 -115,127"/>
+      <!-- Bot-mid -->
+      <polygon points="20,80 70,80 95,127 70,174 20,174 -5,127"/>
+      <!-- Bot-right -->
+      <polygon points="130,80 180,80 205,127 180,174 130,174 105,127"/>
+      <!-- Mid-right -->
+      <polygon points="130,-25 180,-25 205,22 180,69 130,69 105,22"/>
+      <!-- Top-right -->
+      <polygon points="130,-130 180,-130 205,-83 180,-37 130,-37 105,-83"/>
+    </g>
+    <!-- Circuit traces inside hexes (cyan accent on key ones) -->
+    <g fill="none" stroke="#06b6d4" stroke-width="4" stroke-linecap="round">
+      <!-- Top-left circuit dots -->
+      <circle cx="-65" cy="-100" r="3" fill="#06b6d4"/>
+      <circle cx="-65" cy="-65" r="3" fill="#06b6d4"/>
+      <line x1="-65" y1="-100" x2="-65" y2="-65"/>
+      <!-- Mid-right circuit -->
+      <circle cx="155" cy="0" r="3" fill="#06b6d4"/>
+      <circle cx="155" cy="35" r="3" fill="#06b6d4"/>
+      <line x1="155" y1="0" x2="155" y2="35"/>
+      <!-- Bottom-center -->
+      <circle cx="45" cy="127" r="3" fill="#06b6d4"/>
+      <line x1="45" y1="100" x2="45" y2="155"/>
+      <circle cx="45" cy="155" r="3" fill="#06b6d4"/>
+    </g>
+    <!-- Center hex (the crossbar of H) -->
+    <polygon points="20,-25 70,-25 95,22 70,69 20,69 -5,22" fill="#1f2937"/>
+    <!-- Wordmark -->
+    <text x="0" y="240" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="36" font-weight="700" fill="#1f2937" letter-spacing="2">DIY HUB</text>
+  </g>
+</svg>

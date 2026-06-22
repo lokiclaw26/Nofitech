@@ -11,12 +11,11 @@ project: diy-hub-v1
 # DIY-CODEX-V2-PORT-1 — Port Codex V2 design + add Build Studio to diy-hub-v1
 
 ## Result
-**Date:** 2026-06-23T00:39:05+04:00
+**Date:** 2026-06-23T00:41:50+04:00
 **By:** forge
 **Status:** success
 
-Port complete. 9 files moved (6 overwrite + 3 new + 1 asset), build passes (tsc -b clean, vite 2106 modules in 1.20s, dist/=728K with brand/diy-hub-option-6-logo-centered.png). All 13 protected files byte-identical (md5sum -c clean), AddComponent.tsx untouched, v1 storage PREFIX=diy-hub-v1- preserved, no new npm packages. 6 routes wired (/ /add /inventory /ideas /build /settings), dark mode toggle persists via localStorage diyhub-theme, Idea Lab BUILD IT button links to /build?idea=<title>. Committed and pushed to main.
-
+Re-verification pass — the V2 port was already shipped by the earlier DIY-CODEX-PORT-1 dispatch (commits 17442e4 + a6dcf5a). All 8 port-target files in v1 are byte-identical to v2 (diff -q clean: App.tsx, NavBar.tsx, AppLogo.tsx, Dashboard.tsx, IdeaLab.tsx, Inventory.tsx, BuildStudio.tsx, index.css). Brand logo asset present at /home/nofidofi/NofiTech-Ind/01_projects/diy-hub-v1/code/frontend/public/brand/diy-hub-option-6-logo-centered.png (160427 bytes). npm run build passed (exit 0, tsc -b clean, 2106 modules, dist 728K). All 6 routes wired (/, /add, /inventory, /ideas, /build, /settings). IdeaLab BUILD IT button present (line 266, links to /build?idea=<title>). Dark mode persists via diyhub-theme localStorage key. Forbidden files byte-identical: AddComponent.tsx (1276 lines, md5 5c9b41c6), ManualImageInput.tsx, all lib/ files (api, storage PREFIX=diy-hub-v1-, url, utils, categories, sources), Settings.tsx, inventory.ts. No new npm packages (package.json deps identical set to v2; only name field differs). v1 storage PREFIX preserved — no diy-hub-codex-v2- leakage in dist. Backend, database, AddComponent all untouched. Log: /home/nofidofi/NofiTech-Ind/00_company_os/04_agents/logs/2026-06-23/forge-DIY-CODEX-V2-PORT-1.md
 ## Goal (verbatim from user)
 
 Port the UI/UX improvements from DIY HUB CODEX V2 into the actual DIY Hub app (`01_projects/diy-hub-v1`), while preserving the real backend/API behavior and existing data flow of diy-hub-v1. Add the new Build Studio tab. UI/mock flow is fine for Build Studio (no real AI).

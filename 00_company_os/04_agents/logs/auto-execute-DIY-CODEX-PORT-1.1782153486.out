@@ -1,0 +1,26 @@
+Result section emitted with fresh timestamp. Status frontmatter is `done`, kanban_status `done`. All steps complete.
+
+---
+
+FORGE / DIY-CODEX-PORT-1 / 3rd dispatch (redo2)
+
+STATUS: 3rd re-dispatch handled — port already shipped in commit `65315ed` (on origin/main @ HEAD `3c19ed7`); nothing to port this run.
+
+CHANGED: none (code already byte-identical between v1 and codex).
+
+ADDED:
+- `/home/nofidofi/NofiTech-Ind/00_company_os/04_agents/logs/2026-06-22/forge-DIY-CODEX-PORT-1-redo2.md` (forge log)
+- new `## Result` section in `01_projects/diy-hub-v1/tasks/DIY-CODEX-PORT-1.md` (via PATCH)
+- new `task_completed` line in `00_company_os/events.jsonl`
+
+TESTED:
+- `npm run build` → exit 0 (2104 modules, 467.91 kB JS, 25.98 kB CSS, built 1.19s)
+- md5 parity re-checked: all 5 target files identical to codex
+- Live curl: `/api/health`=200, `/`=200, `/add`=200, `/inventory`=200, `/ideas`=200, `/settings`=200
+- `/api/components` returns `{components:[...], total:N}` shape (consumed by ported pages)
+
+ARGUS: skipped — task is closed (status=done) and shipping the same code that's already on origin/main would be a no-op.
+
+NEXT: not blocked; recommend follow-up ticket `MC-DISPATCH-DEDUPE-1` — `auto-execute` cron keeps re-dispatching a closed task (3 dispatches for the same task in ~6h) which is the real reason this run happened. Out of scope here per Thor's off-limits-org-rules note.
+
+🛑 Standing by. Approve `MC-DISPATCH-DEDUPE-1` follow-up ticket, or move on?

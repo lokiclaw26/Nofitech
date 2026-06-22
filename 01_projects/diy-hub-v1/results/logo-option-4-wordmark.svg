@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Concept 4: Bold wordmark with LED-dot-i and circuit-trace-B -->
+  <rect width="512" height="512" fill="#ffffff"/>
+  <g transform="translate(256 256)">
+    <!-- Background rounded square (app icon) - widened to fit "DIY HUB" -->
+    <rect x="-240" y="-180" width="480" height="360" rx="60" fill="#0f172a"/>
+    <!-- Wordmark "DIY HUB" — centered, tighter spacing -->
+    <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif" font-weight="900" font-size="110" fill="#ffffff" letter-spacing="-1">
+      <text x="-220" y="40">DIY</text>
+      <text x="20" y="40">HUB</text>
+    </g>
+    <!-- LED dot on the "i" of DIY (positioned over the i in DIY) -->
+    <g transform="translate(-130 -75)">
+      <!-- LED body -->
+      <circle cx="0" cy="0" r="14" fill="#fb923c"/>
+      <!-- LED glow -->
+      <circle cx="0" cy="0" r="22" fill="#fb923c" opacity="0.35"/>
+      <!-- LED tip legs (resistor-style) -->
+      <line x1="-8" y1="14" x2="-12" y2="28" stroke="#fb923c" stroke-width="3" stroke-linecap="round"/>
+      <line x1="8" y1="14" x2="12" y2="28" stroke="#fb923c" stroke-width="3" stroke-linecap="round"/>
+    </g>
+    <!-- Circuit trace inside the B of HUB (positioned over B at ~x=160) -->
+    <g fill="none" stroke="#fb923c" stroke-width="3" stroke-linecap="round">
+      <path d="M 175 -50 L 175 30"/>
+      <circle cx="175" cy="-50" r="3" fill="#fb923c"/>
+      <circle cx="175" cy="30" r="3" fill="#fb923c"/>
+      <path d="M 175 -10 L 195 -10"/>
+      <path d="M 175 10 L 195 10"/>
+    </g>
+    <!-- Tagline -->
+    <text x="0" y="120" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="18" font-weight="500" fill="#94a3b8" letter-spacing="6">INVENTORY · IDEAS</text>
+  </g>
+</svg>

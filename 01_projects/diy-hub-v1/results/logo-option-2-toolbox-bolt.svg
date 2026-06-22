@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Concept 2: Toolbox + Lightning Bolt -->
+  <rect width="512" height="512" fill="#ffffff"/>
+  <g transform="translate(256 256)">
+    <!-- Toolbox body -->
+    <rect x="-130" y="-50" width="260" height="160" rx="18" fill="#4f46e5"/>
+    <!-- Toolbox lid -->
+    <rect x="-140" y="-90" width="280" height="60" rx="14" fill="#6366f1"/>
+    <!-- Handle -->
+    <path d="M -50 -90 Q -50 -130 0 -130 Q 50 -130 50 -90" fill="none" stroke="#4f46e5" stroke-width="14" stroke-linecap="round"/>
+    <!-- Latch -->
+    <rect x="-15" y="-55" width="30" height="14" rx="3" fill="#facc15"/>
+    <!-- Lightning bolt emerging -->
+    <path d="M 20 -90 L -30 10 L 5 10 L -20 90 L 40 -10 L 5 -10 Z" fill="#facc15" stroke="#1f2937" stroke-width="3" stroke-linejoin="round"/>
+    <!-- Wordmark -->
+    <text x="0" y="160" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="36" font-weight="700" fill="#1f2937" letter-spacing="2">DIY HUB</text>
+  </g>
+</svg>
