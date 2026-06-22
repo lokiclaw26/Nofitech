@@ -2302,16 +2302,35 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def _serve_company_file(self, rel_path: str):
         """MC-RESULT-IMAGES-1 (2026-06-22): GET /api/file?path=<rel-path>
 
-        Auth-gated file server for assets referenced by kanban task results.
-        All paths must be relative to COMPANY_ROOT and resolve to a regular
-        file inside it. Caps payload at 25 MiB (413 if larger). Sets a
-        `Cache-Control: public, max-age=3600` header so the browser can
-        cache asset thumbnails during a session.
-        """
-        # ---- Auth: same gate as PATCH endpoints ----
-        if not is_authorized(self):
-            return self._json(auth_required_error(), 401)
+        File server for assets referenced by kanban task results (logos,
+        screenshots, generated images, demo videos). Two access tiers:
 
+        AUTHENTICATED (anywhere): if the request carries a valid admin token
+        (same gate as PATCH endpoints), we serve any regular file under
+        COMPANY_ROOT that passes the path-traversal / size / symlink checks.
+        Use case: agent logs, source files, internal assets.
+
+        PUBLIC (image/video only, restricted dirs): if NO token is provided
+        (or the token is invalid), we still serve the file BUT only when ALL
+        of the following are true:
+          - File extension is in a hard-coded image/video MIME whitelist
+            (png, jpg, jpeg, gif, webp, svg, avif, bmp, ico, mp4, webm, mov)
+          - Path is under 01_projects/<project>/results/ OR
+                  01_projects/<project>/public/  OR
+                  01_projects/<project>/assets/
+            (other dirs like /code/ or /tasks/ stay gated)
+          - File is <= 25 MiB and is a regular file (not a dir/symlink)
+          - Resolved path is contained within COMPANY_ROOT (no traversal)
+
+        Why this design: <img src> tags in the result modal CANNOT send
+        custom auth headers, so an auth-required endpoint makes all thumbnails
+        render as broken images. The restricted-public tier covers the common
+        case (asset deliverables in results/public/assets dirs) while keeping
+        source code, configs, logs, and task files gated behind auth.
+
+        Path-traversal protection, symlink checks, and the 25 MiB cap apply
+        to BOTH tiers.
+        """
         rel_path = (rel_path or "").strip()
         # Reject empty / absolute / traversal paths early.
         if not rel_path or rel_path.startswith("/") or ".." in rel_path.split("/"):
@@ -2340,13 +2359,34 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if not target.is_file():
             return self._json({"error": "not a regular file", "path": str(target)}, 400)
 
-        # 25 MiB cap.
+        # 25 MiB cap (applies to both tiers).
         try:
             size = target.stat().st_size
         except Exception as e:
             return self._json({"error": "stat failed", "detail": str(e)}, 500)
         if size > 25 * 1024 * 1024:
             return self._json({"error": "file too large", "size_bytes": size, "max_bytes": 25 * 1024 * 1024}, 413)
+
+        # ---- Decide which tier this request falls into ----
+        authed = is_authorized(self)
+        if not authed:
+            ext = target.suffix.lower().lstrip(".")
+            # Image/video MIME whitelist (keep tight — these are types the
+            # browser can render inline. Adding new types is a deliberate
+            # choice because each type has a different risk profile.)
+            PUBLIC_EXTS = {"png", "jpg", "jpeg", "gif", "webp", "svg", "avif",
+                           "bmp", "ico", "mp4", "webm", "mov"}
+            if ext not in PUBLIC_EXTS:
+                return self._json(auth_required_error(), 401)
+            # Path must be under 01_projects/<project>/<safe-dir>/
+            # safe-dir = results | public | assets
+            try:
+                rel = target.relative_to(COMPANY_ROOT)
+            except ValueError:
+                return self._json({"error": "path not under company root"}, 400)
+            parts = rel.parts  # e.g. ('01_projects', 'diy-hub-v1', 'results', 'foo.png')
+            if len(parts) < 4 or parts[0] != "01_projects" or parts[2] not in ("results", "public", "assets"):
+                return self._json(auth_required_error(), 401)
 
         # Content-Type via mimetypes (stdlib).
         ctype, _enc = mimetypes.guess_type(str(target))
