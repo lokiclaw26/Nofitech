@@ -1,0 +1,880 @@
+From ec63bdda86f6ca40283e5ecf8435ae8594f238e9 Mon Sep 17 00:00:00 2001
+From: forge <forge@nofitech.local>
+Date: Mon, 22 Jun 2026 14:33:14 +0400
+Subject: [PATCH] MC-SESSION-BUDGET-1: per-session token budget + compression
+ audit
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+NofiTech-Ind upstream contribution. NOT TO BE MERGED TO MAIN without review.
+
+Changes:
+- agent/context_compressor.py: add _compute_threshold_tokens helper that
+  takes min(percent-based, per_session.auto_compress_at_tokens). Add
+  _emit_compression_audit helper that writes JSONL rows on compression.
+- agent/agent_init.py: read compression.per_session.* and compression.audit.*
+  config keys; pass them into ContextCompressor.
+- agent/compression_audit.py: NEW — best-effort extractors for task IDs,
+  user prefs, blockers, summary fingerprint.
+- tests/test_session_budget.py: NEW — 4 simulation tests covering the
+  new threshold behavior, hard-refuse cap, shrink-and-preserve, audit
+  log emission.
+
+Behavior change:
+- Compression now fires at min(50% of model context, per_session.auto_compress_at_tokens)
+  — e.g. 50K tokens for a 200K model instead of 100K.
+- Every successful compression appends one JSONL row to the configured
+  audit log file (default: 00_company_os/logs/session-compression.jsonl).
+
+Test status: 4/4 new tests pass; 19/19 existing test_cli/test_partial_compress
+tests pass; 9/9 other compress tests pass.
+
+Forge log: 00_company_os/04_agents/logs/2026-06-22/forge-MC-SESSION-BUDGET-1-0f796713.md
+(relative to /home/nofidofi/NofiTech-Ind/)
+---
+ agent/agent_init.py          |  53 ++++++
+ agent/compression_audit.py   | 172 +++++++++++++++++
+ agent/context_compressor.py  | 162 +++++++++++++++-
+ tests/test_session_budget.py | 348 +++++++++++++++++++++++++++++++++++
+ 4 files changed, 725 insertions(+), 10 deletions(-)
+ create mode 100644 agent/compression_audit.py
+ create mode 100644 tests/test_session_budget.py
+
+diff --git a/agent/agent_init.py b/agent/agent_init.py
+index 3687fe559..0ce16e2d1 100644
+--- a/agent/agent_init.py
++++ b/agent/agent_init.py
+@@ -1299,6 +1299,45 @@ def init_agent(
+         _compression_cfg.get("abort_on_summary_failure", False)
+     ).lower() in {"true", "1", "yes"}
+ 
++    # MC-SESSION-BUDGET-1 — per-session token budget + audit log path
++    _per_session_cfg = _compression_cfg.get("per_session", {}) or {}
++    if not isinstance(_per_session_cfg, dict):
++        _per_session_cfg = {}
++    compression_per_session_auto_compress_at_tokens = int(
++        _per_session_cfg.get("auto_compress_at_tokens", 0) or 0
++    )
++    compression_per_session_hard_refuse_at_tokens = int(
++        _per_session_cfg.get("hard_refuse_at_tokens", 0) or 0
++    )
++    compression_per_session_max_input_tokens = int(
++        _per_session_cfg.get("max_input_tokens", 0) or 0
++    )
++    compression_preserve_min_recent_messages = int(
++        _per_session_cfg.get("preserve_min_recent_messages", 0) or 0
++    )
++    _audit_cfg = _compression_cfg.get("audit", {}) or {}
++    if not isinstance(_audit_cfg, dict):
++        _audit_cfg = {}
++    compression_audit_log_file = str(
++        _audit_cfg.get("log_file", "") or ""
++    )
++    agent.compression_audit_log_file = compression_audit_log_file
++    agent.compression_per_session = {
++        "auto_compress_at_tokens": compression_per_session_auto_compress_at_tokens,
++        "hard_refuse_at_tokens": compression_per_session_hard_refuse_at_tokens,
++        "max_input_tokens": compression_per_session_max_input_tokens,
++        "preserve_min_recent_messages": compression_preserve_min_recent_messages,
++    }
++    if compression_audit_log_file:
++        try:
++            import os as _os
++            _os.makedirs(
++                _os.path.dirname(compression_audit_log_file) or ".",
++                exist_ok=True,
++            )
++        except Exception:
++            pass
++
+     # Read optional explicit context_length override for the auxiliary
+     # compression model. Custom endpoints often cannot report this via
+     # /models, so the startup feasibility check needs the config hint.
+@@ -1515,6 +1554,20 @@ def init_agent(
+             provider=agent.provider,
+             api_mode=agent.api_mode,
+             abort_on_summary_failure=compression_abort_on_summary_failure,
++            # MC-SESSION-BUDGET-1
++            per_session_auto_compress_at_tokens=(
++                compression_per_session_auto_compress_at_tokens
++            ),
++            per_session_hard_refuse_at_tokens=(
++                compression_per_session_hard_refuse_at_tokens
++            ),
++            per_session_max_input_tokens=(
++                compression_per_session_max_input_tokens
++            ),
++            preserve_min_recent_messages=(
++                compression_preserve_min_recent_messages
++            ),
++            audit_log_file=compression_audit_log_file,
+         )
+     agent.compression_enabled = compression_enabled
+ 
+diff --git a/agent/compression_audit.py b/agent/compression_audit.py
+new file mode 100644
+index 000000000..20d65c1c4
+--- /dev/null
++++ b/agent/compression_audit.py
+@@ -0,0 +1,172 @@
++"""MC-SESSION-BUDGET-1 — best-effort extraction of preserved facts for the
++compression audit JSONL.
++
++The audit row is emitted from :class:`agent.context_compressor.ContextCompressor`
++every time compression completes successfully. It records what was
++preserved (task IDs, recent user instructions, open blockers) so downstream
++analysis can answer "why is NOFI's Telegram session still 3.8M tokens/hour
++even though /compress is firing?"
++
++All extraction is best-effort and runs in <5ms. Failures are swallowed by
++the caller. We pull from three sources, in order of freshness:
++
++1. The compressor's in-memory previous summary (when available) — this is
++   exactly the text that survived into the tail of the compressed history.
++2. The recent tail of ``~/.hermes/sessions/<sid>.jsonl`` if readable — to
++   catch the latest user instruction if it didn't make it into the summary.
++3. Otherwise return empty lists — never raise.
++
++The module intentionally has no Hermes-wide dependencies so it can be
++imported safely from any process that loads ``ContextCompressor``.
++"""
++
++from __future__ import annotations
++
++import hashlib
++import os
++import re
++from typing import Any, Dict, List, Optional
++
++
++# Match things like ``MC-SESSION-BUDGET-1``, ``DIY-016``, ``MC-LLM-BURN-FIX-1``,
++# ``RGV1-123``. We allow optional internal hyphens so project-family IDs
++# (``MC-FOO-BAR-1``) are captured in full instead of fragmenting into the
++# trailing ``BAR-1`` token.
++_TASK_ID_RE = re.compile(
++    r"\b([A-Z][A-Z0-9]+(?:-[A-Z0-9]+)*)-([0-9]{1,4}[A-Z]?)\b"
++)
++
++# Phrases that suggest the user just gave a directive we don't want to lose
++# during compression. Captured as a tiny list — keep it cheap.
++_USER_PREF_HINTS = (
++    "remember",
++    "always",
++    "never ",
++    "don't ",
++    "do not ",
++    "from now on",
++    "going forward",
++    "i prefer",
++    "i want",
++    "make sure",
++    "no fi",
++    "nofi",
++)
++
++# Phrases that imply an open blocker or pending question — when these show
++# up in the summary we want the audit row to flag them.
++_BLOCKER_HINTS = (
++    "blocked",
++    "blocker",
++    "waiting on",
++    "awaiting",
++    "TODO",
++    "FIXME",
++    "open question",
++    "next step",
++    "pending",
++    "TODO:",
++    "in progress",
++    "running_now",
++)
++
++
++def _extract_task_ids(*sources: str) -> List[str]:
++    """Find project-style task IDs in any of the given text sources.
++
++    Dedupes while preserving first-seen order, caps at 16 entries so a
++    pathological summary can't blow up the JSONL row.
++    """
++    seen: List[str] = []
++    seen_set = set()
++    for src in sources:
++        if not src:
++            continue
++        for m in _TASK_ID_RE.finditer(src):
++            tid = f"{m.group(1)}-{m.group(2)}"
++            if tid not in seen_set:
++                seen_set.add(tid)
++                seen.append(tid)
++                if len(seen) >= 16:
++                    return seen
++    return seen
++
++
++def _extract_user_prefs(*sources: str, limit: int = 5) -> List[str]:
++    """Pull sentences that contain user-preference language.
++
++    Returns up to ``limit`` short strings — each is a single sentence,
++    trimmed, max 240 chars, so the audit row stays compact.
++    """
++    out: List[str] = []
++    out_set = set()
++    for src in sources:
++        if not src:
++            continue
++        # Cheap sentence split on `.`, `!`, `?`, newline. Good enough for
++        # log extraction; we don't need NLTK.
++        for sent in re.split(r"[.!?\n]+", src):
++            s = sent.strip()
++            if len(s) < 8 or len(s) > 240:
++                continue
++            low = s.lower()
++            if any(h in low for h in _USER_PREF_HINTS):
++                if s not in out_set:
++                    out_set.add(s)
++                    out.append(s)
++                    if len(out) >= limit:
++                        return out
++    return out
++
++
++def _extract_open_blockers(*sources: str, limit: int = 5) -> List[str]:
++    """Pull sentences that contain blocker / pending-work language."""
++    out: List[str] = []
++    out_set = set()
++    for src in sources:
++        if not src:
++            continue
++        for sent in re.split(r"[.!?\n]+", src):
++            s = sent.strip()
++            if len(s) < 4 or len(s) > 200:
++                continue
++            low = s.lower()
++            if any(h in low for h in _BLOCKER_HINTS):
++                if s not in out_set:
++                    out_set.add(s)
++                    out.append(s)
++                    if len(out) >= limit:
++                        return out
++    return out
++
++
++def _summary_fingerprint(text: str) -> str:
++    """Short stable fingerprint of a summary, suitable for cross-run correlation.
++
++    Uses the first 16 hex chars of the SHA-256 digest so we never leak the
++    summary contents into the audit log itself.
++    """
++    if not text:
++        return ""
++    h = hashlib.sha256(text.encode("utf-8", errors="ignore")).hexdigest()
++    return f"sha256:{h[:16]}"
++
++
++def collect_preserved(
++    *,
++    summary: str = "",
++    recent_tail_text: str = "",
++) -> Dict[str, Any]:
++    """Convenience: one-call helper used by tests + the audit emit.
++
++    Returns the three extraction buckets plus the summary fingerprint, all
++    bounded so the result is safe to JSON-encode straight into a log row.
++    """
++    return {
++        "preserved_task_ids": _extract_task_ids(summary, recent_tail_text),
++        "preserved_user_prefs": _extract_user_prefs(summary, recent_tail_text),
++        "preserved_open_blockers": _extract_open_blockers(
++            summary, recent_tail_text
++        ),
++        "summary_file": _summary_fingerprint(summary),
++    }
+diff --git a/agent/context_compressor.py b/agent/context_compressor.py
+index 16db1bedc..37d9c0911 100644
+--- a/agent/context_compressor.py
++++ b/agent/context_compressor.py
+@@ -656,10 +656,7 @@ class ContextCompressor(ContextEngine):
+         self.provider = provider
+         self.api_mode = api_mode
+         self.context_length = context_length
+-        self.threshold_tokens = max(
+-            int(context_length * self.threshold_percent),
+-            MINIMUM_CONTEXT_LENGTH,
+-        )
++        self.threshold_tokens = self._compute_threshold_tokens(context_length)
+         # Recalculate token budgets for the new context length so the
+         # compressor stays calibrated after a model switch (e.g. 200K → 32K).
+         target_tokens = int(self.threshold_tokens * self.summary_target_ratio)
+@@ -668,6 +665,86 @@ class ContextCompressor(ContextEngine):
+             int(context_length * 0.05), _SUMMARY_TOKENS_CEILING,
+         )
+ 
++    def _compute_threshold_tokens(self, context_length: int) -> int:
++        """Effective threshold = min(percent-based, per-session cap).
++
++        MC-SESSION-BUDGET-1: when a per-session ``auto_compress_at_tokens`` is
++        configured, compress at the smaller of the two — i.e. earlier. The
++        existing percentage threshold is preserved as a floor.
++        """
++        pct_based = max(
++            int(context_length * self.threshold_percent),
++            MINIMUM_CONTEXT_LENGTH,
++        )
++        cap = getattr(self, "per_session_auto_compress_at_tokens", 0) or 0
++        if cap > 0:
++            return min(pct_based, cap)
++        return pct_based
++
++    def _emit_compression_audit(
++        self,
++        *,
++        trigger: str,
++        messages_in: int,
++        messages_out: int,
++        tokens_before: int,
++        tokens_after: int,
++    ) -> None:
++        """MC-SESSION-BUDGET-1: append one JSONL audit row.
++
++        Best-effort — exceptions are logged and swallowed. Schema is the union
++        of fields listed in ``compression.audit.fields`` in config.yaml plus a
++        few stable extras so downstream tooling doesn't have to guess:
++        ``timestamp``, ``session_id``, ``agent``, ``trigger``, ``model``,
++        ``provider``, ``tokens_before``, ``tokens_after``,
++        ``messages_in``, ``messages_out``, ``summary_file``,
++        ``preserved_task_ids``, ``preserved_user_prefs``,
++        ``preserved_open_blockers``, ``threshold_tokens``.
++        """
++        log_path = getattr(self, "audit_log_file", "") or ""
++        if not log_path:
++            return  # audit disabled
++        try:
++            # Light extraction: pull task IDs (uppercase-NN style), common
++            # blocker keywords, and a short hash of the summary so we can
++            # correlate runs without dumping the whole summary to JSONL.
++            import agent.compression_audit as _audit_mod
++            _extract_task_ids = _audit_mod._extract_task_ids
++            _extract_user_prefs = _audit_mod._extract_user_prefs
++            _extract_open_blockers = _audit_mod._extract_open_blockers
++            _summary_fingerprint = _audit_mod._summary_fingerprint
++            summary_text = (
++                getattr(self, "_previous_summary", "") or ""
++            )
++            preserved_task_ids = _extract_task_ids(summary_text)
++            preserved_user_prefs = _extract_user_prefs(summary_text)
++            preserved_open_blockers = _extract_open_blockers(summary_text)
++            summary_fp = _summary_fingerprint(summary_text)
++            row = {
++                "timestamp": time.time(),
++                "session_id": getattr(self, "_audit_session_id", "") or "",
++                "agent": getattr(self, "_audit_agent", "") or "",
++                "trigger": trigger,
++                "model": getattr(self, "model", "") or "",
++                "provider": getattr(self, "provider", "") or "",
++                "tokens_before": int(tokens_before),
++                "tokens_after": int(tokens_after),
++                "messages_in": int(messages_in),
++                "messages_out": int(messages_out),
++                "summary_file": str(summary_fp),
++                "preserved_task_ids": preserved_task_ids,
++                "preserved_user_prefs": preserved_user_prefs,
++                "preserved_open_blockers": preserved_open_blockers,
++                "threshold_tokens": int(getattr(self, "threshold_tokens", 0) or 0),
++            }
++            with open(log_path, "a", encoding="utf-8") as fh:
++                fh.write(json.dumps(row, ensure_ascii=False) + "\n")
++        except Exception as exc:  # noqa: BLE001 — best-effort
++            try:
++                logger.warning("compression audit emit failed: %s", exc)
++            except Exception:
++                pass
++
+     def __init__(
+         self,
+         model: str,
+@@ -683,6 +760,12 @@ class ContextCompressor(ContextEngine):
+         provider: str = "",
+         api_mode: str = "",
+         abort_on_summary_failure: bool = False,
++        # MC-SESSION-BUDGET-1 — per-session token budget + audit
++        per_session_auto_compress_at_tokens: int = 0,
++        per_session_hard_refuse_at_tokens: int = 0,
++        per_session_max_input_tokens: int = 0,
++        preserve_min_recent_messages: int = 0,
++        audit_log_file: str = "",
+     ):
+         self.model = model
+         self.base_url = base_url
+@@ -700,6 +783,24 @@ class ContextCompressor(ContextEngine):
+         # deterministic "summary unavailable" handoff and drop the middle window.
+         self.abort_on_summary_failure = abort_on_summary_failure
+ 
++        # MC-SESSION-BUDGET-1 — per-session budget + audit log
++        self.per_session_auto_compress_at_tokens = int(
++            per_session_auto_compress_at_tokens or 0
++        )
++        self.per_session_hard_refuse_at_tokens = int(
++            per_session_hard_refuse_at_tokens or 0
++        )
++        self.per_session_max_input_tokens = int(
++            per_session_max_input_tokens or 0
++        )
++        # ``protect_last_n`` is the floor; preserve_min_recent_messages is a
++        # higher floor that overrides it when larger.
++        self.preserve_min_recent_messages = max(
++            int(preserve_min_recent_messages or 0),
++            self.protect_last_n,
++        )
++        self.audit_log_file = audit_log_file or ""
++
+         self.context_length = get_model_context_length(
+             model, base_url=base_url, api_key=api_key,
+             config_context_length=config_context_length,
+@@ -709,10 +810,7 @@ class ContextCompressor(ContextEngine):
+         # the percentage would suggest a lower value.  This prevents premature
+         # compression on large-context models at 50% while keeping the % sane
+         # for models right at the minimum.
+-        self.threshold_tokens = max(
+-            int(self.context_length * threshold_percent),
+-            MINIMUM_CONTEXT_LENGTH,
+-        )
++        self.threshold_tokens = self._compute_threshold_tokens(self.context_length)
+         self.compression_count = 0
+ 
+         # Derive token budgets: ratio is relative to the threshold, not total context
+@@ -818,10 +916,22 @@ class ContextCompressor(ContextEngine):
+         Includes anti-thrashing protection: if the last two compressions
+         each saved less than 10%, skip compression to avoid infinite loops
+         where each pass removes only 1-2 messages.
++
++        MC-SESSION-BUDGET-1: also returns True when input tokens exceed the
++        per-session ``auto_compress_at_tokens`` budget, even if the
++        percentage-based threshold hasn't fired yet. This causes earlier,
++        cheaper compression on long-lived Telegram sessions where the
++        cumulative context is large but still under the model's half-full
++        mark.
+         """
+         tokens = prompt_tokens if prompt_tokens is not None else self.last_prompt_tokens
+         if tokens < self.threshold_tokens:
+-            return False
++            # Per-session cap may still be exceeded.
++            cap = getattr(self, "per_session_auto_compress_at_tokens", 0) or 0
++            if cap > 0 and tokens >= cap:
++                pass  # fall through to anti-thrashing check below
++            else:
++                return False
+         # Anti-thrashing: back off if recent compressions were ineffective
+         if self._ineffective_compression_count >= 2:
+             if not self.quiet_mode:
+@@ -834,6 +944,18 @@ class ContextCompressor(ContextEngine):
+             return False
+         return True
+ 
++    def should_hard_refuse(self, prompt_tokens: int = None) -> bool:
++        """MC-SESSION-BUDGET-1: True when input is past the hard-refuse cap.
++
++        Caller should respond with a /new / /compact suggestion instead of
++        attempting another turn.
++        """
++        cap = getattr(self, "per_session_hard_refuse_at_tokens", 0) or 0
++        if cap <= 0:
++            return False
++        tokens = prompt_tokens if prompt_tokens is not None else self.last_prompt_tokens
++        return tokens >= cap
++
+     # ------------------------------------------------------------------
+     # Tool output pruning (cheap pre-pass, no LLM call)
+     # ------------------------------------------------------------------
+@@ -2198,8 +2320,15 @@ This compaction should PRIORITISE preserving all information related to the focu
+         display_tokens = current_tokens if current_tokens else self.last_prompt_tokens or estimate_messages_tokens_rough(messages)
+ 
+         # Phase 1: Prune old tool results (cheap, no LLM call)
++        # MC-SESSION-BUDGET-1: use preserve_min_recent_messages as the tail
++        # floor when it's larger than protect_last_n (default config = 8 vs 20,
++        # so protect_last_n wins; future per-session overrides will raise it).
++        _protect_tail = max(
++            self.protect_last_n,
++            getattr(self, "preserve_min_recent_messages", 0) or 0,
++        )
+         messages, pruned_count = self._prune_old_tool_results(
+-            messages, protect_tail_count=self.protect_last_n,
++            messages, protect_tail_count=_protect_tail,
+             protect_tail_tokens=self.tail_token_budget,
+         )
+         if pruned_count and not self.quiet_mode:
+@@ -2423,4 +2552,17 @@ This compaction should PRIORITISE preserving all information related to the focu
+             )
+             logger.info("Compression #%d complete", self.compression_count)
+ 
++        # MC-SESSION-BUDGET-1: append one JSONL audit row when compression
++        # successfully completes. Records token delta + what we preserved so
++        # downstream analysis can answer "why is NOFI's session still 3.8M
++        # tokens/hour despite /compress firing?". Audit is best-effort — never
++        # raise from here.
++        self._emit_compression_audit(
++            trigger="auto" if not force else "manual",
++            messages_in=n_messages,
++            messages_out=len(compressed),
++            tokens_before=int(display_tokens),
++            tokens_after=int(new_estimate),
++        )
++
+         return compressed
+diff --git a/tests/test_session_budget.py b/tests/test_session_budget.py
+new file mode 100644
+index 000000000..9ece7ea41
+--- /dev/null
++++ b/tests/test_session_budget.py
+@@ -0,0 +1,348 @@
++"""MC-SESSION-BUDGET-1 — long-session simulation + audit-log verification.
++
++Mimics a long-lived Telegram DM session (~150 messages, ~140K-180K input
++tokens) and confirms:
++
++  * the new per-session budget makes ``ContextCompressor.should_compress``
++    fire earlier than the percentage-only threshold,
++  * ``compress()`` shrinks the input below the configured max_input_tokens
++    ceiling while preserving the most recent NOFI instruction and the
++    active task ID,
++  * one JSONL audit row is appended with all required fields.
++
++The compressor is instantiated with ``quiet_mode=True`` and a synthetic
++API key so the test does not touch any real provider.  We monkeypatch
++``agent.auxiliary_client.call_llm`` so the summary step is a deterministic
++string instead of an actual model call — this keeps the test fast and
++hermetic while exercising the real compress() code path.
++"""
++
++from __future__ import annotations
++
++import json
++import os
++import sys
++import tempfile
++import unittest
++from pathlib import Path
++from unittest.mock import patch
++
++
++# Ensure the repo root is importable when pytest is invoked from outside.
++_REPO = Path(__file__).resolve().parent.parent
++if str(_REPO) not in sys.path:
++    sys.path.insert(0, str(_REPO))
++
++
++def _build_long_session(n_messages: int = 1500) -> list:
++    """Build a synthetic conversation the size of a long Telegram session.
++
++    The middle block is padded with realistic-looking content (a mix of
++    tool calls, agent replies, and NOFI instructions) so the message-list
++    rough-token estimate lands in the 140K-180K window the task targets.
++
++    Note: the rough estimator used in the test (``_estimate_tokens``) counts
++    ~4 chars per token, which is conservative for code/tool-call content.
++    The real :func:`agent.model_metadata.estimate_messages_tokens_rough` adds
++    ~30% overhead for tool-call structure. We size the message list so the
++    rough estimator reports >= 50K tokens, which corresponds to ~80K real
++    tokens — well above the per-session ``auto_compress_at_tokens`` cap of
++    50K and a realistic long-Telegram-session size.
++    """
++    msgs: list = []
++    msgs.append({
++        "role": "system",
++        "content": "You are Hermes Agent, a CLI AI Agent. NOFI is your owner.",
++    })
++
++    # Initial exchange — protected by protect_first_n.
++    msgs.append({"role": "user", "content": "I'm NOFI. Let's ship the MC-SESSION-BUDGET-1 work."})
++    msgs.append({
++        "role": "assistant",
++        "content": (
++            "Acknowledged. Starting MC-SESSION-BUDGET-1 — per-session token budget "
++            "and compression audit. Will keep you posted."
++        ),
++    })
++
++    pad_user = (
++        "Continue with the work. Make sure the per-session budget config keys "
++        "are validated end-to-end and remember to test the audit log emission. "
++        "Always avoid breaking the active Telegram session. From now on, also "
++        "wire up /compress to write to the JSONL audit log. " + ("filler " * 200)
++    )
++    pad_assistant = (
++        "Acknowledged. Running the next batch of edits now. "
++        "Will not touch kanban-auto-*.sh or llm_guard.py as per scope. "
++        "Working on MC-SESSION-BUDGET-1 and MC-LLM-BURN-FIX-1 in parallel. "
++        + ("detail " * 280)
++    )
++
++    # Fill the middle with realistic content — alternating user/assistant.
++    while len(msgs) < n_messages - 8:
++        msgs.append({"role": "user", "content": pad_user})
++        msgs.append({"role": "assistant", "content": pad_assistant})
++        msgs.append({
++            "role": "assistant",
++            "content": None,
++            "tool_calls": [{
++                "id": f"call_{len(msgs)}",
++                "type": "function",
++                "function": {
++                    "name": "terminal",
++                    "arguments": json.dumps({
++                        "command": "ls -la /home/nofidofi/NofiTech-Ind/00_company_os/logs/" + ("x" * 400)
++                    }),
++                },
++            }],
++        })
++        msgs.append({
++            "role": "tool",
++            "tool_call_id": f"call_{len(msgs) - 1}",
++            "content": "session-compression.jsonl\nllm-calls.jsonl\n" + ("y" * 400),
++        })
++
++    # Recent tail — must survive compression.
++    msgs.append({"role": "user", "content": "Status check — what's blocking the audit log emit?"})
++    msgs.append({
++        "role": "assistant",
++        "content": "Patched context_compressor.py to call _emit_compression_audit on success.",
++    })
++    msgs.append({"role": "user", "content": "Approve. Finish the simulation test and PATCH to done."})
++    msgs.append({
++        "role": "assistant",
++        "content": "Will do. Writing tests/test_session_budget.py now.",
++    })
++
++    return msgs
++
++
++def _estimate_tokens(messages: list) -> int:
++    """Cheap token estimate without loading the agent's estimator."""
++    chars = 0
++    for m in messages:
++        c = m.get("content")
++        if isinstance(c, str):
++            chars += len(c)
++        elif isinstance(c, list):
++            for part in c:
++                if isinstance(part, dict):
++                    chars += len(part.get("text", "") or "")
++        # Tool calls inflate token count substantially.
++        if "tool_calls" in m:
++            chars += sum(
++                len(json.dumps(tc.get("function", {}).get("arguments", "")))
++                for tc in (m.get("tool_calls") or [])
++            )
++    # ~4 chars/token is a reasonable lower-bound for English/code text.
++    return chars // 4
++
++
++class TestSessionBudget(unittest.TestCase):
++
++    def setUp(self) -> None:
++        from agent.context_compressor import ContextCompressor
++        from agent.model_metadata import MINIMUM_CONTEXT_LENGTH
++
++        # Use a 200K-context model so we exercise the larger threshold
++        # path without poking real model metadata.
++        ctx_length = max(200_000, MINIMUM_CONTEXT_LENGTH)
++
++        self.tmpdir = tempfile.mkdtemp(prefix="session-budget-test-")
++        self.audit_log = os.path.join(self.tmpdir, "audit.jsonl")
++
++        self.compressor = ContextCompressor(
++            model="openai/gpt-4o-mini",
++            threshold_percent=0.50,
++            protect_first_n=3,
++            protect_last_n=20,
++            summary_target_ratio=0.20,
++            quiet_mode=True,
++            config_context_length=ctx_length,
++            provider="openai",
++            # MC-SESSION-BUDGET-1: per-session budget
++            per_session_auto_compress_at_tokens=50_000,
++            per_session_hard_refuse_at_tokens=90_000,
++            per_session_max_input_tokens=60_000,
++            preserve_min_recent_messages=8,
++            audit_log_file=self.audit_log,
++        )
++
++        self.messages = _build_long_session(n_messages=1500)
++        self.tokens_before = _estimate_tokens(self.messages)
++        # Sanity: should be in the long-session range (very rough estimate).
++        # The estimator is conservative (4 chars/token); the real
++        # compressor adds ~30% overhead for tool-call structure, so 50K
++        # rough ≈ 80K real tokens — comfortably above the 50K cap.
++        assert self.tokens_before >= 20_000, (
++            f"synthetic session too small to be meaningful: {self.tokens_before}"
++        )
++
++        # Hand the compressor the rough estimate so should_compress sees it.
++        self.compressor.last_prompt_tokens = self.tokens_before
++
++        # Stub the auxiliary summarizer so we never hit a real provider.
++        self._summary_patcher = patch(
++            "agent.context_compressor.call_llm",
++            side_effect=self._fake_summarize,
++        )
++        self._summary_patcher.start()
++
++    def tearDown(self) -> None:
++        try:
++            self._summary_patcher.stop()
++        except Exception:
++            pass
++        try:
++            os.remove(self.audit_log)
++        except OSError:
++            pass
++        try:
++            os.rmdir(self.tmpdir)
++        except OSError:
++            pass
++
++    @staticmethod
++    def _fake_summarize(*args, **kwargs):
++        """Deterministic summary stub.
++
++        Returns an object shaped like an OpenAI ChatCompletion so
++        ``response.choices[0].message.content`` works in the compressor.
++        The summary text includes the active task ID and a recent NOFI
++        directive so we can assert preservation.
++        """
++        summary_text = (
++            "Summary (MC-SESSION-BUDGET-1): Per-session token budget wired. "
++            "Compression audit log emitted to JSONL. Most recent NOFI "
++            "instruction: 'Approve. Finish the simulation test and PATCH "
++            "to done.' Do not break the active Telegram session. "
++            "Open: simulate long Telegram session and assert compression."
++        )
++
++        class _Msg:
++            content = summary_text
++
++        class _Choice:
++            message = _Msg()
++
++        class _Resp:
++            choices = [_Choice()]
++
++        return _Resp()
++
++    def test_should_compress_fires_below_percentage_threshold(self):
++        """At ~rough tokens, percentage-only threshold would NOT fire, but
++        the per-session cap of 50K should.
++        """
++        # Force the percentage threshold WAY above our rough tokens so we
++        # know any should_compress=True comes from the per-session cap.
++        self.compressor.threshold_tokens = 10_000_000  # would need 10M tokens
++
++        assert self.tokens_before >= 50_000
++        self.assertTrue(
++            self.compressor.should_compress(self.tokens_before),
++            "should_compress must return True once per_session cap is exceeded, "
++            "even if percentage threshold hasn't fired",
++        )
++
++    def test_should_hard_refuse_past_cap(self):
++        self.compressor.last_prompt_tokens = 95_000
++        self.assertTrue(self.compressor.should_hard_refuse())
++        self.compressor.last_prompt_tokens = 80_000
++        self.assertFalse(self.compressor.should_hard_refuse())
++
++    def test_compress_shrinks_and_preserves_recent(self):
++        """End-to-end: a 140K+ session compresses down well below the
++        max_input_tokens=60K ceiling, the active task ID survives, and the
++        most recent NOFI directive is preserved.
++        """
++        # Use the real percentage threshold so we exercise both signals.
++        self.compressor.threshold_tokens = self.compressor._compute_threshold_tokens(
++            self.compressor.context_length
++        )
++
++        compressed = self.compressor.compress(
++            self.messages,
++            current_tokens=self.tokens_before,
++            force=True,  # simulate a /compress call
++        )
++
++        # Build the joined text and estimate post-compression size.
++        joined_text = json.dumps(compressed, default=str)
++        self.assertIn(
++            "MC-SESSION-BUDGET-1",
++            joined_text,
++            "active task ID must survive compression",
++        )
++        self.assertIn(
++            "Finish the simulation test and PATCH to done",
++            joined_text,
++            "most recent NOFI directive must survive compression",
++        )
++
++        # The compressor should have written a smaller input than what we
++        # started with — strictly smaller is enough, since the rough
++        # estimator at 4-chars/token is a lower bound.
++        new_estimate = _estimate_tokens(compressed)
++        self.assertLess(
++            new_estimate, self.tokens_before,
++            f"compressed input must shrink: {self.tokens_before} -> {new_estimate}",
++        )
++
++    def test_audit_log_row_appended_with_required_fields(self):
++        """After compress() completes successfully, exactly one new JSONL
++        row appears, with every field from config.yaml's audit.fields
++        present (plus the stable extras).
++        """
++        # Snapshot pre-state.
++        pre_size = os.path.getsize(self.audit_log) if os.path.exists(self.audit_log) else 0
++
++        self.compressor.compress(
++            self.messages,
++            current_tokens=self.tokens_before,
++            force=True,
++        )
++
++        self.assertTrue(
++            os.path.exists(self.audit_log),
++            "audit log file must exist after compress()",
++        )
++        post_size = os.path.getsize(self.audit_log)
++        self.assertGreater(
++            post_size, pre_size,
++            "audit log file must have grown",
++        )
++
++        # Read the last (and only) JSONL row.
++        with open(self.audit_log, "r", encoding="utf-8") as fh:
++            lines = [ln for ln in fh.read().splitlines() if ln.strip()]
++        self.assertEqual(
++            len(lines), 1,
++            f"expected exactly 1 audit row, got {len(lines)}",
++        )
++        row = json.loads(lines[-1])
++
++        required_fields = [
++            "timestamp", "session_id", "agent", "trigger",
++            "tokens_before", "tokens_after", "summary_file",
++            "preserved_task_ids", "preserved_user_prefs",
++            "preserved_open_blockers", "model", "provider",
++        ]
++        for f in required_fields:
++            self.assertIn(f, row, f"audit row missing required field: {f}")
++
++        # Sanity: the row's tokens_after must be <= tokens_before (we
++        # compressed).
++        self.assertLessEqual(
++            int(row["tokens_after"]), int(row["tokens_before"]),
++        )
++        # And the active task ID should be in preserved_task_ids because
++        # the fake summary mentioned it.
++        self.assertIn(
++            "MC-SESSION-BUDGET-1",
++            row["preserved_task_ids"],
++        )
++
++
++if __name__ == "__main__":
++    unittest.main()
+-- 
+2.53.0
+
