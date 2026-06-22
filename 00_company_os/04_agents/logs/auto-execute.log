@@ -33,3 +33,6 @@
 2026-06-22T11:52:52+04:00  kanban-auto-execute: dispatch  MC-KANBAN-CREATE-20260622074613-7A29CB  agent=argus  title='LLM-BURN-FIX-TEST-1 — verify single LLM call per card'  priority=urgent
 2026-06-22T12:01:52+04:00  kanban-auto-execute: dispatch  MC-KANBAN-CREATE-20260622075711-827F6A  agent=argus  title='LLM-BURN-FIX-TEST-2 — verify fixed audit hook'  priority=urgent
 2026-06-22T13:19:53+04:00  kanban-auto-execute: dispatch  MC-SESSION-INVESTIGATE-1  agent=forge  title='MC-SESSION-INVESTIGATE-1 — investigate session 20260613_181010_978a77'  priority=high
+2026-06-22T13:46:54+04:00  kanban-auto-execute: dispatch  MC-SESSION-BUDGET-1  agent=forge  title='MC-SESSION-BUDGET-1 — per-session token budget + compression audit'  priority=high
+2026-06-22T15:22:56+04:00  kanban-auto-execute: dispatch  MC-KANBAN-CREATE-20260622111708-F71B07  agent=argus  title='test ,, if ok write back all good'  priority=high
+2026-06-22T15:37:56+04:00  kanban-auto-execute: dispatch  MC-RESULT-VISIBLE-1  agent=forge  title='MC-RESULT-VISIBLE-1 — make agent results visible on kanban cards'  priority=high

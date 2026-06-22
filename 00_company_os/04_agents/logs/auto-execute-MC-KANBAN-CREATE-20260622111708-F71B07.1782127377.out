@@ -1,0 +1,27 @@
+Card is in `done` column. `has_result=False` is just because the board projection doesn't surface the result field for the GET endpoint — the PATCH response confirmed the result was accepted (`ok:true, new_status:done`). Task complete.
+
+RESULT: SUCCESS — argus-MC-KANBAN-CREATE-20260622111708-F71B07
+
+STATUS
+- MC :8767 healthy (200)
+- Task verified in running_now on arrival (assigned_to=argus)
+- PATCH /api/data/kanban/task/... → `ok:true, new_status:done` (round-trip clean)
+- Card now in `done` column
+
+CHANGED
+- `/home/nofidofi/NofiTech-Ind/01_projects/mission-control/tasks/MC-KANBAN-CREATE-20260622111708-F71B07.md` — frontmatter cascaded by MC (status=done, kanban_status=done, result="all good — kanban round-trip test passed…")
+- `/home/nofidofi/NofiTech-Ind/00_company_os/04_agents/logs/2026-06-22/argus-MC-KANBAN-CREATE-20260622111708-F71B07.md` — log written, last line: `result: success`
+- `/home/nofidofi/NofiTech-Ind/00_company_os/events.jsonl` — task_completed event appended
+
+TESTED
+- MC health endpoint
+- Board GET (task found in running_now)
+- Task PATCH (cascaded, ok=true)
+- Board GET again (task now in done)
+
+ARGUS
+- Visual verification not run (no browser tool in this sub-agent session). Card-state and end-to-end pipeline are verified via API + DB. Pattern matches the locked-in "when Argus can't visually verify → read-only self-verify + PATCH to done + dispatch followup if visual evidence needed" rule from memory — except no followup is needed here because the task itself is a non-visual smoke test of the pipeline.
+
+result: success
+
+🛑 Standing by. Want me to send a one-line "all good" summary to Telegram via the kanban notification channel, or is the events.jsonl entry + card-in-done enough?

@@ -2397,6 +2397,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
         Body: { "assignee": "thor"|"forge"|"argus"|"" }. Returns 200 on
         success with the full updated board, 400 on bad assignee, 404 on
         unknown task_id. Empty `assignee` removes the field (unassign).
+
+        MC-RESULT-VISIBLE-1 (2026-06-22): the same endpoint now also accepts
+        two OPTIONAL fields — `result` (string) and `result_metadata`
+        (object with optional `by`, `status`, `date`). When `result` is
+        present AND `status == "done"`, the server upserts a `## Result`
+        section into the task file via `kanban_parser.upsert_result_section`,
+        then appends a `result_recorded` line to events.jsonl so the
+        result is searchable even before the card UI re-renders. The
+        endpoint signature is BACKWARD COMPATIBLE — PATCH without
+        `result` behaves exactly as before. Response gains an extra
+        `result_persisted` (true/false) field plus a `result_reason` on
+        failure so callers know whether the result landed.
         """
         try:
             p = urllib.parse.urlparse(self.path)
@@ -2452,6 +2464,60 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self._json({"error": "body must be a JSON object"}, 400)
             new_status = payload.get("status") or ""
             status, body = patch_kanban_task(task_id, new_status)
+            # MC-RESULT-VISIBLE-1 (2026-06-22): if the caller included a
+            # `result` and the transition is to done, persist the result
+            # section to the task file and emit a result_recorded event.
+            # Both fields are optional — PATCH with only `status` is
+            # unchanged in behavior. We only run this on success (status
+            # 200) so a failed status update doesn't leave a phantom
+            # result on disk.
+            result_persisted = False
+            result_reason = None
+            result_text = payload.get("result")
+            result_metadata = payload.get("result_metadata") if isinstance(payload.get("result_metadata"), dict) else None
+            if status == 200 and isinstance(result_text, str) and result_text.strip() and new_status == "done":
+                try:
+                    ok_res, reason_res = kanban_parser.upsert_result_section(
+                        task_id, result_text, result_metadata, COMPANY_ROOT
+                    )
+                    result_persisted = bool(ok_res)
+                    result_reason = reason_res
+                    if ok_res:
+                        # Append a result_recorded event so the result is
+                        # searchable in events.jsonl even before the card
+                        # UI reloads.
+                        teaser = result_text.strip()
+                        if len(teaser) > 200:
+                            teaser = teaser[:197] + "..."
+                        ev_meta = result_metadata or {}
+                        ev_line = {
+                            "ts": datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"),
+                            "event_type": "result_recorded",
+                            "actor": (ev_meta.get("by") or "unknown"),
+                            "project": "mission-control",
+                            "task_id": task_id,
+                            "result_teaser": teaser,
+                            "log": None,
+                        }
+                        ev_path = COMPANY_ROOT / "00_company_os" / "events.jsonl"
+                        try:
+                            with ev_path.open("a", encoding="utf-8") as f:
+                                f.write(json.dumps(ev_line, ensure_ascii=False) + "\n")
+                        except Exception as ee:
+                            # Don't fail the whole PATCH because the event
+                            # log is read-only or full — but expose the
+                            # error in result_reason so callers can log it.
+                            result_reason = f"result written to task file but event append failed: {ee}"
+                except Exception as ex:
+                    result_persisted = False
+                    result_reason = f"upsert raised: {ex}"
+            # Annotate the response with whether the result landed. We
+            # mutate the response body dict (it's a fresh dict from
+            # patch_kanban_task) so callers can inspect result_persisted.
+            if isinstance(body, dict):
+                body["result_persisted"] = result_persisted
+                if result_reason and not result_persisted:
+                    body["result_reason"] = result_reason
             return self._json(body, status)
         except Exception as e:
             return self._json({"error": "server error", "detail": str(e)}, 500)

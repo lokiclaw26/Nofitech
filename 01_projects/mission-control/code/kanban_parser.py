@@ -889,6 +889,111 @@ def _patch_format_b(path: Path, new_status: str) -> tuple[bool, str]:
     return True, "ok" + (" (cascaded status=done)" if cascade_to_done else "")
 
 
+# ---- MC-RESULT-VISIBLE-1 (2026-06-22): upsert `## Result` section in body ----
+def _format_result_block(result_text: str, metadata: dict | None) -> str:
+    """Build the canonical `## Result` section body.
+
+    Layout (blank line between header and result text):
+        ## Result
+        **Date:** <metadata.date or now>
+        **By:** <metadata.by or 'unknown'>
+        **Status:** <metadata.status or 'success'>
+
+        <result_text>
+    """
+    md = metadata or {}
+    date = (md.get("date") or "").strip()
+    by = (md.get("by") or "").strip() or "unknown"
+    status = (md.get("status") or "").strip() or "success"
+    if not date:
+        from datetime import datetime, timezone
+        date = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+    body = (result_text or "").rstrip()
+    # Header lines + blank line + result body
+    return f"## Result\n**Date:** {date}\n**By:** {by}\n**Status:** {status}\n\n{body}\n"
+
+
+def upsert_result_section(task_id: str, result_text: str, metadata: dict | None,
+                          company_root: Path) -> tuple[bool, str]:
+    """Upsert a `## Result` section into the task file matching `task_id`.
+
+    Behavior:
+      - Locates the task file using the same matching logic as update_task_status
+        (stem, exact filename, frontmatter task_id, Format B id row).
+      - Reads the file, splits frontmatter from body using _split_frontmatter
+        (so YAML frontmatter and Format B markdown tables are both preserved
+        exactly — only the body section is touched).
+      - If a `## Result` section already exists in the body, replaces its
+        contents in place (from the `## Result` header up to the next `## `
+        heading or end of body).
+      - Otherwise, inserts the new section before the next `## ` heading after
+        the body's start, or appends to end of body if no further `## `
+        heading exists.
+      - Writes the file back atomically.
+
+    Returns (ok, reason). On success reason="ok". On failure reason explains
+    why (e.g. "task_id not found: 'XYZ'").
+    """
+    target: Path | None = None
+    for tf in _iter_task_files(company_root):
+        if tf.stem == task_id or tf.name == f"{task_id}.md":
+            target = tf
+            break
+        txt = _read_text(tf)
+        if not txt:
+            continue
+        meta, _ = parse_frontmatter(txt)
+        if (meta.get("task_id") or "").strip() == task_id:
+            target = tf
+            break
+        table, _ = parse_markdown_table(txt)
+        if (table.get("id") or "").strip() == task_id:
+            target = tf
+            break
+    if target is None:
+        return False, f"task_id not found: {task_id!r}"
+
+    txt = target.read_text(encoding="utf-8")
+    header, body, _ = _split_frontmatter(txt)
+
+    new_block = _format_result_block(result_text, metadata)
+
+    # Find existing `## Result` header in the body. Use the same regex the
+    # reader uses (_RESULT_HEADER_RE) so we match exactly.
+    m = _RESULT_HEADER_RE.search("\n".join(body))
+    if m:
+        # Slice from m.start() (within the joined body) to the next `## ` heading
+        joined = "\n".join(body)
+        start = m.start()
+        rest = joined[m.end():]
+        next_h = re.search(r"^##\s+", rest, re.MULTILINE)
+        end = m.end() + (next_h.start() if next_h else len(rest))
+        new_body_str = joined[:start].rstrip() + "\n\n" + new_block + joined[end:].lstrip("\n")
+    else:
+        # No existing Result section — insert before the next `## ` heading,
+        # or append at end of body.
+        joined = "\n".join(body)
+        next_h = re.search(r"^##\s+", joined, re.MULTILINE)
+        if next_h:
+            # Insert just before this heading. Keep the heading on its own
+            # line by ensuring a blank line separator.
+            head, tail = joined[: next_h.start()], joined[next_h.start():]
+            head = head.rstrip()
+            new_body_str = head + "\n\n" + new_block + "\n" + tail
+        else:
+            # No more headings — append at end of body
+            joined = joined.rstrip()
+            new_body_str = joined + "\n\n" + new_block
+
+    # Reassemble header + body. Preserve frontmatter exactly as we read it
+    # (header lines came from _split_frontmatter with no --- markers).
+    out = "---\n" + "\n".join(header) + "\n---\n" + new_body_str
+    if not out.endswith("\n"):
+        out += "\n"
+    target.write_text(out, encoding="utf-8")
+    return True, "ok"
+
+
 def update_task_status(task_id: str, new_status: str, company_root: Path) -> tuple[bool, str, Path | None]:
     """Update the `kanban_status` field of the task file matching `task_id`.
     Preserves the project-native `status` field. Returns (ok, reason, file_path).

@@ -31,3 +31,6 @@
 2026-06-22T11:50:51+04:00  MC-KANBAN-CREATE-20260622074613-7A29CB  assignee=argus priority=urgent  title='LLM-BURN-FIX-TEST-1 — verify single LLM call per card'  patch_ok=1
 2026-06-22T11:58:52+04:00  MC-KANBAN-CREATE-20260622075711-827F6A  assignee=argus priority=urgent  title='LLM-BURN-FIX-TEST-2 — verify fixed audit hook'  patch_ok=1
 2026-06-22T13:14:53+04:00  MC-SESSION-INVESTIGATE-1  assignee=forge priority=high  title='MC-SESSION-INVESTIGATE-1 — investigate session 20260613_181010_978a77'  patch_ok=1
+2026-06-22T13:44:54+04:00  MC-SESSION-BUDGET-1  assignee=forge priority=high  title='MC-SESSION-BUDGET-1 — per-session token budget + compression audit'  patch_ok=1
+2026-06-22T15:20:56+04:00  MC-KANBAN-CREATE-20260622111708-F71B07  assignee=argus priority=high  title='test ,, if ok write back all good'  patch_ok=1
+2026-06-22T15:34:56+04:00  MC-RESULT-VISIBLE-1  assignee=forge priority=high  title='MC-RESULT-VISIBLE-1 — make agent results visible on kanban cards'  patch_ok=1
