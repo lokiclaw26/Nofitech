@@ -20,8 +20,8 @@ export function NavBar({
 }) {
   return (
     <nav className="sticky top-0 z-40 border-b border-slate-900/10 bg-[#f8f8f1]/90 backdrop-blur-xl transition-colors duration-500 dark:border-white/10 dark:bg-slate-950/80">
-      <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3">
-        <NavLink to="/" className="flex min-w-0 items-center pr-2">
+      <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2">
+        <NavLink to="/" className="flex min-w-0 items-center pr-3">
           <AppLogo />
         </NavLink>
         <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
