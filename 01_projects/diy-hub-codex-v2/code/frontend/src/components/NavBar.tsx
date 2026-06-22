@@ -21,12 +21,8 @@ export function NavBar({
   return (
     <nav className="sticky top-0 z-40 border-b border-slate-900/10 bg-[#f8f8f1]/90 backdrop-blur-xl transition-colors duration-500 dark:border-white/10 dark:bg-slate-950/80">
       <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3">
-        <NavLink to="/" className="flex min-w-0 items-center gap-2 pr-2">
+        <NavLink to="/" className="flex min-w-0 items-center pr-2">
           <AppLogo />
-          <span className="hidden leading-tight sm:inline">
-            <span className="block text-sm font-black text-slate-950 dark:text-white">DIY HUB CODEX V2</span>
-            <span className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">parts to projects</span>
-          </span>
         </NavLink>
         <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
           {links.map((link) => {
