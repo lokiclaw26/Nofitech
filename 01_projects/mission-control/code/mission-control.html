@@ -92,6 +92,32 @@
     color: var(--text3, #666);
     border-top: 1px solid var(--line, #333);
   }
+  /* MC-CLOCK-1: live Dubai clock, source of truth for all task timestamps */
+  .sidebar-clock {
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed var(--line, #333);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    line-height: 1.4;
+  }
+  .sidebar-clock .clock-time {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text, #eee);
+    letter-spacing: 0.5px;
+  }
+  .sidebar-clock .clock-date {
+    font-size: 10px;
+    color: var(--text2, #999);
+    margin-top: 2px;
+  }
+  .sidebar-clock .clock-tz {
+    font-size: 9px;
+    color: var(--text3, #666);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 2px;
+  }
 
   /* Kanban quick-link card (MC-KANBAN-MOVE-1) */
   .kanban-quicklink {
@@ -562,6 +588,11 @@
     <a href="/memory-graph" class="nav-tab">🧠 Memory Graph</a>
   </nav>
   <div class="sidebar-footer">
+    <div class="sidebar-clock" id="sidebar-clock" title="Live Dubai time (UTC+4) — source of truth for all task timestamps">
+      <div class="clock-time" id="clock-time">--:--:--</div>
+      <div class="clock-date" id="clock-date">— —</div>
+      <div class="clock-tz">Dubai · UTC+4</div>
+    </div>
     v1.17.0+memory<br>
     <button class="token-btn" id="token-btn" style="margin-top:6px;width:100%;font-size:11px;padding:4px;background:transparent;color:var(--text2);border:1px solid var(--line);border-radius:3px;cursor:pointer;" title="Set MC_ADMIN_TOKEN (required for write actions)">🔑 Token</button>
   </div>
@@ -1598,6 +1629,36 @@ setInterval(async () => {
   try { await fetch("/api/heartbeat", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({agent: "thor"}) }); } catch {}
   loadAll();
 }, 5000);
+
+// MC-CLOCK-1: live Dubai clock. Source of truth for all task timestamps.
+// Renders HH:MM:SS (24h, Dubai) + full date (weekday, day month year).
+// Uses Intl.DateTimeFormat with timeZone:'Asia/Dubai' so it's correct
+// regardless of the viewer's local timezone.
+(function tickClock() {
+  const timeEl = document.getElementById("clock-time");
+  const dateEl = document.getElementById("clock-date");
+  if (!timeEl || !dateEl) return;  // safety: clock DOM not present (shouldn't happen)
+  const fmtTime = new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    hour12: false, timeZone: "Asia/Dubai"
+  });
+  const fmtDate = new Intl.DateTimeFormat("en-GB", {
+    weekday: "short", day: "2-digit", month: "short", year: "numeric",
+    timeZone: "Asia/Dubai"
+  });
+  function paint() {
+    const now = new Date();
+    timeEl.textContent = fmtTime.format(now);
+    dateEl.textContent = fmtDate.format(now);
+  }
+  paint();
+  // Align next tick to the start of the next second for a stable display.
+  const msToNextSecond = 1000 - (Date.now() % 1000);
+  setTimeout(function loop() {
+    paint();
+    setTimeout(loop, 1000);
+  }, msToNextSecond);
+})();
 </script>
 
 </main>
