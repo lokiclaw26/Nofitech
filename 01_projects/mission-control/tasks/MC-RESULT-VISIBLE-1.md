@@ -1,7 +1,7 @@
 ---
 title: "MC-RESULT-VISIBLE-1 — make agent results visible on kanban cards"
-status: in_progress
-kanban_status: running_now
+status: done
+kanban_status: done
 priority: high
 assigned_to: forge
 created_at: 2026-06-22T15:30+04:00
@@ -66,46 +66,19 @@ Add a new function (e.g. `upsert_result_section(task_id, result_text, metadata, 
 ```markdown
 
 ## Result
-**Date:** 2026-06-22T15:23:30+04:00
-**By:** argus
+**Date:** 2026-06-22T16:50:10+04:00
+**By:** forge
 **Status:** success
 
-all good — kanban round-trip test passed. MC :8767 healthy, task verified in running_now, PATCH→done succeeded.
-```
-
-The `\n## Result` prefix ensures a blank line separator from the body above.
-
-### 2. Extend PATCH endpoint in `serve.py`
-
-Modify the PATCH handler (around line 2445) to:
-1. Read `payload.get("status")` (existing).
-2. Read `payload.get("result")` (NEW, optional string).
-3. Read `payload.get("result_metadata")` (NEW, optional dict with `by`, `status`, `date` keys).
-4. Call `patch_kanban_task(task_id, new_status)` (existing).
-5. If `result` is present AND `new_status == "done"`, call `kanban_parser.upsert_result_section(task_id, result, result_metadata, COMPANY_ROOT)` (NEW).
-6. Return the same response shape + an extra `"result_persisted": true/false` field so agents know whether the result landed.
-
-Modify `patch_kanban_task()` signature to accept optional `result` and `result_metadata` (or keep its current shape and have the handler call the upsert helper directly after — pick the cleaner one).
-
-### 3. Make sure the file modification survives
-
-The current `kanban_parser.update_task_status()` rewrites the file. The result upsert must do the same — read whole file, modify body, write whole file. Be careful to preserve frontmatter.
-
-### 4. Optional: emit a `result_recorded` event
-
-If result was persisted, append to `events.jsonl`:
-```json
-{"ts":"2026-06-22T15:25:30+04:00","event_type":"result_recorded","actor":"argus","project":"mission-control","task_id":"...","result_teaser":"all good — kanban round-trip test passed...","log":"..."}
-```
-
-This makes the result searchable in events.jsonl even before the card UI loads it. **Only do this if straightforward** — if it requires many changes, skip and document.
-
-### 5. Verify the test task
-
-After the fix:
-- `MC-KANBAN-CREATE-20260622111708-F71B07` should already have a `## Result` section appended (you can backfill it programmatically).
-- OR: just verify that a fresh PATCH with `result` works end-to-end (create a new test task, PATCH with result, GET board, confirm `has_result: true` and `result_teaser` populated).
-
+MC-RESULT-VISIBLE-1 verified complete end-to-end on 2026-06-22T16:50 Dubai.
+- Code: serve.py PATCH handler extended (+66) + kanban_parser.upsert_result_section helper (+105), already in commit 033bb61.
+- Backward compat: PATCH with only status still works — verified (Test 1 in forge log).
+- Result persistence: PATCH with result+done writes a ## Result section in correct format — verified with fresh task MC-RESULT-VISIBLE-1-VERIFY-20260622124935 (Task file shows: ## Result / **Date:** / **By:** forge / **Status:** success / body).
+- GET surface: has_result=true + result_teaser populated — verified (curl above).
+- result_recorded event: appended to events.jsonl — verified (grep showed the line).
+- Idempotency: second PATCH with new result text REPLACES in place, exactly ONE ## Result heading remains — verified (grep -c returned 1).
+- Original test task (MC-KANBAN-CREATE-20260622111708-F71B07): backfilled in prior forge session, card now shows result.
+- Out of scope: untouched kanban crons, llm_guard.py, kanban-auto-execute.sh audit hook, compression config, kanban.html, _extract_result_section.
 ## Required final report
 
 ```json
