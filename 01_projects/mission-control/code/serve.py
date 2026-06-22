@@ -59,6 +59,7 @@ Endpoints:
 import http.server
 import socketserver
 import json
+import mimetypes
 import os
 import re
 import time
@@ -86,7 +87,7 @@ START_TIME = time.time()
 
 # v1.10.0 — live version: read from git at request time (no restart needed).
 # Fallback to manual values if git is unavailable or this is a fresh checkout.
-FALLBACK_VERSION = "1.10.0"
+FALLBACK_VERSION = "1.16.0"  # MC-RESULT-IMAGES-1: /api/file endpoint + result assets
 FALLBACK_COMMIT = "live"
 
 def _git(*args):
@@ -1686,13 +1687,191 @@ def get_kanban_task_result(task_id: str) -> tuple[int, dict]:
         body_lines.pop()
     full_body = "\n".join(body_lines).strip()
 
+    # MC-RESULT-IMAGES-1 (2026-06-22): scan the result body for image/video
+    # filenames (png/jpg/jpeg/gif/webp/svg/mp4/webm, case-insensitive) and
+    # resolve each one to a real file on disk under COMPANY_ROOT. Return the
+    # resolved list as `assets` so the kanban modal can render thumbnails.
+    # Resolution order, per spec:
+    #   1. 01_projects/<project>/           (frontmatter project)
+    #   2. 01_projects/<project>/results/   (frontmatter project)
+    #   3. any 01_projects/*/results/       (fallback for cross-project tasks)
+    #   4. COMPANY_ROOT directly            (bare filename)
+    assets = _scan_result_assets(full_body, task_id, found_path)
+
     return 200, {
         "task_id": task_id,
         "title": "",  # caller already has it from the kanban card
         "metadata": metadata or {},
         "teaser": teaser,
         "body": full_body,
+        "assets": assets,
     }
+
+
+# Asset extensions considered "images or videos" for the result gallery.
+_ASSET_EXTS = ("png", "jpg", "jpeg", "gif", "webp", "svg", "mp4", "webm")
+# Match filenames inside the result body text. Allow word chars, dots, slashes,
+# and hyphens so paths like "results/foo.png" or "01_projects/x/y.png" work.
+_ASSET_RE = re.compile(
+    r"\b[\w./\-]+\.(?:" + "|".join(_ASSET_EXTS) + r")\b",
+    re.IGNORECASE,
+)
+# Cap per task to keep the payload + UI lean.
+_MAX_ASSETS_PER_TASK = 24
+# 25 MiB hard cap per individual asset (matches spec for /api/file).
+_MAX_ASSET_BYTES = 25 * 1024 * 1024
+
+
+def _scan_result_assets(body: str, task_id: str, task_path: Path) -> list[dict]:
+    """MC-RESULT-IMAGES-1: extract resolved image/video assets from a result
+    body. Returns a list of {name, rel_path, url, type, size_bytes, ext}
+    objects, deduped by rel_path and capped at _MAX_ASSETS_PER_TASK.
+
+    Tolerant to frontmatter `project:` being wrong or pointing to a project
+    other than where the deliverables actually live: we also scan ALL
+    `01_projects/*/results/` directories as a fallback. This handles the
+    common case where a task created in `mission-control` writes assets to
+    another project's results dir (e.g. `diy-hub-v1/results/`).
+    """
+    if not body:
+        return []
+    seen_rel: set[str] = set()
+    assets: list[dict] = []
+
+    # Read the frontmatter project (best-effort) for the preferred lookup dirs.
+    fm_project = None
+    try:
+        text = task_path.read_text(encoding="utf-8", errors="replace")
+        if text.startswith("---\n"):
+            end = text.find("\n---\n", 4)
+            if end > 0:
+                fm = text[4:end]
+                m = re.search(r"^project:\s*([^\s#]+)", fm, re.MULTILINE)
+                if m:
+                    fm_project = m.group(1).strip().strip("'\"")
+    except Exception:
+        fm_project = None
+
+    # Build the ordered list of candidate search roots.
+    search_roots: list[Path] = []
+    projects_root = COMPANY_ROOT / "01_projects"
+    if fm_project:
+        # 1+2: frontmatter project dir + its results subdir
+        search_roots.append(projects_root / fm_project)
+        search_roots.append(projects_root / fm_project / "results")
+    # 3: any project results dir (fallback for cross-project tasks)
+    if projects_root.is_dir():
+        for results_dir in sorted(projects_root.glob("*/results")):
+            if results_dir not in search_roots:
+                search_roots.append(results_dir)
+        # And the bare project dirs as a deeper fallback
+        for proj_dir in sorted(projects_root.iterdir()):
+            if proj_dir.is_dir() and proj_dir not in search_roots:
+                search_roots.append(proj_dir)
+    # 4: COMPANY_ROOT directly (bare filename)
+    search_roots.append(COMPANY_ROOT)
+
+    # Find candidate filenames in the body text.
+    candidates: list[str] = []
+    for match in _ASSET_RE.finditer(body):
+        # Skip pure .svg used as inline decoration markers? We accept them —
+        # they're real files on disk.
+        filename = match.group(0)
+        # Normalize: strip a leading "./" if any
+        if filename.startswith("./"):
+            filename = filename[2:]
+        candidates.append(filename)
+
+    # Companion-asset expansion: if the body mentions `foo.svg + .png` (a
+    # common shorthand), the `.png` will not match the regex on its own.
+    # For every candidate we found, also try the same basename with each
+    # other asset extension. This is bounded by _MAX_ASSETS_PER_TASK.
+    expanded: list[str] = []
+    for filename in candidates:
+        expanded.append(filename)
+        stem, dot, ext = filename.rpartition(".")
+        if not dot:
+            continue
+        ext_lc = ext.lower()
+        if ext_lc in _ASSET_EXTS:
+            for sibling_ext in _ASSET_EXTS:
+                if sibling_ext == ext_lc:
+                    continue
+                expanded.append(f"{stem}.{sibling_ext}")
+
+    for filename in expanded:
+        if len(assets) >= _MAX_ASSETS_PER_TASK:
+            break
+        # Resolve: try each search root
+        resolved: Path | None = None
+        for root in search_roots:
+            if not root.is_dir():
+                continue
+            cand = (root / filename).resolve()
+            try:
+                # Security: must remain under COMPANY_ROOT
+                if not _is_under_company_root(cand):
+                    continue
+            except Exception:
+                continue
+            if not cand.is_file():
+                continue
+            try:
+                if cand.is_symlink():
+                    # Resolve symlink target — refuse symlinks-to-dirs.
+                    target = cand.resolve()
+                    if not target.is_file():
+                        continue
+            except Exception:
+                continue
+            # Check size cap
+            try:
+                size = cand.stat().st_size
+            except Exception:
+                continue
+            if size > _MAX_ASSET_BYTES:
+                continue
+            resolved = cand
+            break
+
+        if resolved is None:
+            continue
+
+        rel_path = str(resolved.relative_to(COMPANY_ROOT))
+        if rel_path in seen_rel:
+            continue
+        seen_rel.add(rel_path)
+
+        ext = resolved.suffix.lstrip(".").lower()
+        kind = "video" if ext in ("mp4", "webm") else "image"
+        url = "/api/file?path=" + urllib.parse.quote(rel_path, safe="/")
+        try:
+            size_bytes = resolved.stat().st_size
+        except Exception:
+            size_bytes = 0
+        assets.append({
+            "name": resolved.name,
+            "rel_path": rel_path,
+            "url": url,
+            "type": kind,
+            "size_bytes": size_bytes,
+            "ext": ext,
+        })
+
+    return assets
+
+
+def _is_under_company_root(p: Path) -> bool:
+    """True iff Path p resolves to a location under COMPANY_ROOT."""
+    try:
+        root = COMPANY_ROOT.resolve()
+        target = p.resolve()
+        # Python 3.9+ has is_relative_to; for broader stdlib compat, compare
+        # using commonpath.
+        import os as _os
+        return _os.path.commonpath([str(root), str(target)]) == str(root)
+    except Exception:
+        return False
 
 
 
@@ -2120,6 +2299,79 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _serve_company_file(self, rel_path: str):
+        """MC-RESULT-IMAGES-1 (2026-06-22): GET /api/file?path=<rel-path>
+
+        Auth-gated file server for assets referenced by kanban task results.
+        All paths must be relative to COMPANY_ROOT and resolve to a regular
+        file inside it. Caps payload at 25 MiB (413 if larger). Sets a
+        `Cache-Control: public, max-age=3600` header so the browser can
+        cache asset thumbnails during a session.
+        """
+        # ---- Auth: same gate as PATCH endpoints ----
+        if not is_authorized(self):
+            return self._json(auth_required_error(), 401)
+
+        rel_path = (rel_path or "").strip()
+        # Reject empty / absolute / traversal paths early.
+        if not rel_path or rel_path.startswith("/") or ".." in rel_path.split("/"):
+            return self._json({"error": "bad path", "path": rel_path}, 400)
+
+        # Resolve against COMPANY_ROOT and confirm containment.
+        try:
+            target = (COMPANY_ROOT / rel_path).resolve()
+        except Exception as e:
+            return self._json({"error": "could not resolve path", "detail": str(e)}, 400)
+        try:
+            import os as _os
+            if _os.path.commonpath([str(COMPANY_ROOT.resolve()), str(target)]) != str(COMPANY_ROOT.resolve()):
+                return self._json({"error": "path escapes company root"}, 400)
+        except Exception:
+            return self._json({"error": "path escapes company root"}, 400)
+
+        # Must be a regular file (not a dir, not a symlink to a dir).
+        if target.is_symlink():
+            try:
+                link_target = target.resolve()
+                if not link_target.is_file():
+                    return self._json({"error": "not a regular file"}, 400)
+            except Exception:
+                return self._json({"error": "could not resolve symlink"}, 400)
+        if not target.is_file():
+            return self._json({"error": "not a regular file", "path": str(target)}, 400)
+
+        # 25 MiB cap.
+        try:
+            size = target.stat().st_size
+        except Exception as e:
+            return self._json({"error": "stat failed", "detail": str(e)}, 500)
+        if size > 25 * 1024 * 1024:
+            return self._json({"error": "file too large", "size_bytes": size, "max_bytes": 25 * 1024 * 1024}, 413)
+
+        # Content-Type via mimetypes (stdlib).
+        ctype, _enc = mimetypes.guess_type(str(target))
+        if not ctype:
+            ctype = "application/octet-stream"
+
+        try:
+            body = target.read_bytes()
+        except Exception as e:
+            return self._json({"error": "read failed", "detail": str(e)}, 500)
+
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        # Safe to cache — files on disk don't change frequently, and the
+        # browser will refetch when the kanban modal reopens.
+        self.send_header("Cache-Control", "public, max-age=3600")
+        self.end_headers()
+        try:
+            self.wfile.write(body)
+        except Exception:
+            # Client disconnected mid-stream — nothing useful we can do.
+            pass
+        return None
+
     def do_GET(self):
         try:
             p = urllib.parse.urlparse(self.path)
@@ -2252,6 +2504,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 # clients that still try the old endpoint fail fast.
                 status, payload = _mg_api.get_stream_disabled(self)
                 return self._json(payload, status)
+
+            # MC-RESULT-IMAGES-1 (2026-06-22): serve company-root-relative
+            # files (assets referenced by kanban result bodies). Auth-gated.
+            if path == "/api/file":
+                return self._serve_company_file(qs.get("path", [""])[0])
 
             return self._json({"error": "not found", "path": path}, 404)
 

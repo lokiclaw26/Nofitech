@@ -665,6 +665,142 @@
     font-family: var(--font-mono, monospace);
   }
   .result-modal-close-btn:hover { background: #b88a1e; }
+
+  /* MC-RESULT-IMAGES-1 (2026-06-22): asset thumbnail gallery
+     Renders above the markdown body when the task result references
+     image/video files that exist on disk. */
+  .result-assets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px dashed var(--line);
+  }
+  .result-assets-empty {
+    color: var(--text2);
+    font-style: italic;
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+  .result-asset {
+    display: flex;
+    flex-direction: column;
+    width: 140px;
+    text-decoration: none;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    overflow: hidden;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .result-asset:hover {
+    border-color: var(--amber);
+    transform: translateY(-1px);
+  }
+  .result-asset .asset-thumb {
+    width: 100%;
+    height: 110px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0a0a0a;
+    overflow: hidden;
+  }
+  .result-asset .asset-thumb img,
+  .result-asset .asset-thumb video {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+  .result-asset .asset-name {
+    padding: 4px 6px;
+    font-size: 11px;
+    color: var(--text2);
+    text-align: center;
+    word-break: break-all;
+    line-height: 1.3;
+    border-top: 1px solid var(--line);
+  }
+  .result-asset .asset-type-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 8px;
+    background: rgba(210, 153, 34, 0.85);
+    color: #000;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .result-asset { position: relative; }
+
+  /* MC-RESULT-IMAGES-1: lightbox overlay for full-size viewing. */
+  .lightbox-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20000;
+    animation: resultFadeIn 0.15s ease-out;
+  }
+  .lightbox-backdrop[hidden] { display: none; }
+  .lightbox-content {
+    max-width: 90vw;
+    max-height: 85vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .lightbox-content img,
+  .lightbox-content video {
+    max-width: 90vw;
+    max-height: 85vh;
+    object-fit: contain;
+    display: block;
+    background: #000;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+  }
+  .lightbox-close {
+    position: fixed;
+    top: 16px;
+    right: 22px;
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid var(--amber);
+    color: var(--amber);
+    font-size: 28px;
+    line-height: 1;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 20001;
+    font-family: var(--font-mono, monospace);
+  }
+  .lightbox-close:hover {
+    background: var(--amber);
+    color: var(--bg);
+  }
+  .lightbox-caption {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--text2);
+    font-size: 12px;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 6px 14px;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+    max-width: 80vw;
+    text-align: center;
+  }
 </style>
 </head>
 <body>
@@ -1595,13 +1731,48 @@ async function openResultModal(taskId) {
     const m = data.metadata || {};
     meta.innerHTML = `<strong>Date:</strong> ${esc(m.date || "?")} &nbsp;|&nbsp; <strong>By:</strong> ${esc(m.by || "?")} &nbsp;|&nbsp; <strong>Status:</strong> ${esc(m.status || "?")}`;
 
-    body.innerHTML = renderMarkdown(data.body || "");
+    // MC-RESULT-IMAGES-1 (2026-06-22): prepend the asset thumbnail gallery
+    // ABOVE the markdown body. The server returns `assets: [...]` containing
+    // resolved image/video files. We render them as clickable thumbnails;
+    // clicks open the lightbox overlay (also in this file).
+    const assets = Array.isArray(data.assets) ? data.assets : [];
+    const galleryHtml = renderAssetGallery(assets);
+    body.innerHTML = galleryHtml + renderMarkdown(data.body || "");
 
     backdrop.hidden = false;
   } catch (err) {
     console.error("Failed to load result:", err);
     alert("Failed to load result: " + err.message);
   }
+}
+
+// MC-RESULT-IMAGES-1: render the asset thumbnail gallery HTML.
+// Returns "" when no assets, an empty-state note when 0 assets returned
+// explicitly (so the user knows the scan ran), or a grid of <a> thumbs
+// when assets exist. The click handler lives on document so dynamically
+// inserted gallery items work the same as static markup.
+function renderAssetGallery(assets) {
+  if (!Array.isArray(assets) || assets.length === 0) {
+    // Don't render anything — the absence of a gallery is the same as
+    // "no image deliverables" for non-image tasks. Keeps the modal quiet.
+    return "";
+  }
+  const cells = assets.map((a) => {
+    const url = esc(a.url || "");
+    const name = esc(a.name || a.rel_path || "asset");
+    const type = (a.type === "video") ? "video" : "image";
+    const ext = esc((a.ext || "").toLowerCase());
+    const mediaTag = type === "video"
+      ? `<video src="${url}" muted preload="metadata" playsinline></video>`
+      : `<img src="${url}" alt="${name}" loading="lazy" />`;
+    const sizeKb = a.size_bytes ? ` &middot; ${Math.round(a.size_bytes / 1024)} KB` : "";
+    return `<a href="${url}" class="result-asset" data-asset-url="${url}" data-asset-type="${type}" data-asset-name="${name}" data-asset-ext="${ext}">
+      <span class="asset-type-badge">${type}</span>
+      <div class="asset-thumb">${mediaTag}</div>
+      <div class="asset-name">${name}<br><span style="color:var(--amber);font-size:10px;">.${ext}${sizeKb}</span></div>
+    </a>`;
+  }).join("");
+  return `<div class="result-assets" data-asset-count="${assets.length}">${cells}</div>`;
 }
 
 function closeResultModal() {
@@ -1670,6 +1841,14 @@ document.addEventListener("click", (e) => {
     closeResultModal();
     return;
   }
+  // MC-RESULT-IMAGES-1 (2026-06-22): close lightbox via the × button
+  const lbCloseBtn = e.target.closest('[data-action="close-lightbox"]');
+  if (lbCloseBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    closeLightbox();
+    return;
+  }
   // Click outside the modal box closes it
   if (e.target && e.target.classList && e.target.classList.contains("result-modal-backdrop")) {
     closeResultModal();
@@ -1713,10 +1892,72 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-// Escape key closes the modal
+// Escape key closes the modal (and the lightbox if open)
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") closeResultModal();
+  if (e.key === "Escape") {
+    const lb = document.getElementById("mc-lightbox");
+    if (lb && !lb.hidden) {
+      closeLightbox();
+    } else {
+      closeResultModal();
+    }
+  }
 });
+
+// MC-RESULT-IMAGES-1 (2026-06-22): delegated click handler for the asset
+// thumbnails in the result modal. Intercepts navigation, opens the
+// lightbox overlay with the full-size media instead of navigating away.
+document.addEventListener("click", (e) => {
+  const link = e.target.closest && e.target.closest("a.result-asset");
+  if (!link) return;
+  e.preventDefault();
+  const url = link.getAttribute("data-asset-url");
+  const type = link.getAttribute("data-asset-type") || "image";
+  const name = link.getAttribute("data-asset-name") || "";
+  openLightbox(url, type, name);
+});
+
+// MC-RESULT-IMAGES-1: lightbox overlay open/close. Singleton: we always
+// reuse the same backdrop div so the video element doesn't accumulate.
+function openLightbox(url, type, name) {
+  let lb = document.getElementById("mc-lightbox");
+  if (!lb) {
+    lb = document.createElement("div");
+    lb.id = "mc-lightbox";
+    lb.className = "lightbox-backdrop";
+    lb.setAttribute("role", "dialog");
+    lb.setAttribute("aria-modal", "true");
+    lb.innerHTML = `
+      <button type="button" class="lightbox-close" data-action="close-lightbox" aria-label="Close">×</button>
+      <div class="lightbox-content"></div>
+      <div class="lightbox-caption"></div>
+    `;
+    document.body.appendChild(lb);
+    // Click backdrop (outside content) closes.
+    lb.addEventListener("click", (ev) => {
+      if (ev.target === lb) closeLightbox();
+    });
+  }
+  // Replace media element so prior state (paused playback) is reset.
+  const content = lb.querySelector(".lightbox-content");
+  content.innerHTML = "";
+  const media = (type === "video")
+    ? Object.assign(document.createElement("video"), { src: url, controls: true, autoplay: false, playsInline: true })
+    : Object.assign(document.createElement("img"), { src: url, alt: name });
+  content.appendChild(media);
+  lb.querySelector(".lightbox-caption").textContent = name || "";
+  lb.hidden = false;
+}
+function closeLightbox() {
+  const lb = document.getElementById("mc-lightbox");
+  if (!lb) return;
+  // Pause any playing video so audio doesn't leak after close.
+  const v = lb.querySelector("video");
+  if (v) { try { v.pause(); v.removeAttribute("src"); v.load(); } catch (_) {} }
+  lb.hidden = true;
+  const content = lb.querySelector(".lightbox-content");
+  if (content) content.innerHTML = "";
+}
 </script>
 
 <!-- MC-KANBAN-5: Result modal (hidden by default) -->
