@@ -1,7 +1,7 @@
 ---
 title: "DIY-CODEX-PORT-1 — port useful UX improvements from diy-hub-codex to diy-hub-v1"
-status: in_progress
-kanban_status: running_now
+status: done
+kanban_status: done
 priority: high
 assigned_to: forge
 created_at: 2026-06-22T16:30+04:00
