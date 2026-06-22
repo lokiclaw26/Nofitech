@@ -44,9 +44,6 @@ interface Component {
   updated_at?: string
 }
 
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ??
-  `${window.location.protocol}//${window.location.hostname}:8780`
-
 // ---------------------------------------------------------------------------
 // Small chip
 // ---------------------------------------------------------------------------
@@ -126,7 +123,6 @@ function QuantityEditor({
   }
 
   const sizeCls = size === "sm" ? "text-xs px-1.5 py-0.5 w-12" : "text-sm px-2 py-1 w-20"
-  const btnCls = size === "sm" ? "text-xs px-1.5 py-0.5" : "text-sm px-2 py-1"
 
   if (!editing) {
     return (
