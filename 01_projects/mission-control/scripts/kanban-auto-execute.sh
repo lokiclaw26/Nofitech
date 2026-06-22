@@ -272,11 +272,25 @@ PYEOF
   # Mark dedup dotfile BEFORE spawning so a fast re-tick never re-dispatches
   touch "$dotfile" 2>/dev/null || true
 
+  # ---- LLM Guard (MC-LLM-BURN-FIX-1) --------------------------------------
+  # Verify the LLM call is allowed: must have a real card_id and a non-idle
+  # reason. If blocked, skip the spawn and log the rejection — this prevents
+  # accidental token burn from runaway cron ticks.
+  GUARD_RESULT="$(printf '{"trigger":"cron","reason":"execute","card_id":"%s","job_id":""}\n' "$task_id" \
+    | python3 /home/nofidofi/NofiTech-Ind/00_company_os/llm_guard.py check 2>&1)"
+  GUARD_RC=$?
+  if [ "$GUARD_RC" -ne 0 ]; then
+    log "guard BLOCKED spawn of $task_id: $GUARD_RESULT"
+    SKIPPED_GUARD=$(( ${SKIPPED_GUARD:-0} + 1 ))
+    continue
+  fi
+
   # ---- Spawn the subagent in the background -------------------------------
   # We shell out to `hermes -z` with --accept-hooks --yolo so the unattended
   # subagent doesn't get blocked on a TTY prompt. Stdout+stderr go to a
   # per-task log so the parent cron tick stays fast and quiet.
   SUB_LOG="$LOG_DIR/auto-execute-${task_id}.$(date +%s).out"
+  SPAWN_TS="$(TZ='Asia/Dubai' date +%Y-%m-%dT%H:%M:%S+04:00)"
   PROMPT=$(cat <<EOF
 You are $AGENT, dispatched by kanban-auto-execute (Hermes cron) at $NOW_TS_ISO (Dubai). Task: $task_id.
 
@@ -311,7 +325,16 @@ EOF
 
   log "dispatched $task_id → $AGENT  (subagent pid=$SUBPID, log=$SUB_LOG)"
   DISPATCHED_COUNT=$(( DISPATCHED_COUNT + 1 ))
+
+  # ---- Audit log (MC-LLM-BURN-FIX-1) --------------------------------------
+  # Record the LLM spawn for downstream analysis. Best-effort — never breaks
+  # the dispatch path if logging fails. llm_guard.py writes directly to
+  # /home/nofidofi/NofiTech-Ind/00_company_os/logs/llm-calls.jsonl.
+  printf '{"agent":"%s","provider":"minimax","model":"MiniMax-M3","trigger":"cron","reason":"execute","card_id":"%s","job_id":"","user_message_id":"","input_tokens":null,"output_tokens":null,"status":"spawned","spawn_ts":"%s","spawn_pid":%s,"sub_log":"%s","guard_passed":true}\n' \
+    "$AGENT" "$task_id" "$SPAWN_TS" "$SUBPID" "$SUB_LOG" \
+    | python3 /home/nofidofi/NofiTech-Ind/00_company_os/llm_guard.py log \
+    > /dev/null 2>&1 || true
 done
 
-log "done. scanned=$SCANNED dispatched=$DISPATCHED_COUNT skipped(dedup)=$SKIPPED_DEDUP skipped(pgrep)=$SKIPPED_PGREP skipped(agent)=$SKIPPED_AGENT skipped(ratelimit)=$SKIPPED_RATELIMIT"
+log "done. scanned=$SCANNED dispatched=$DISPATCHED_COUNT skipped(dedup)=$SKIPPED_DEDUP skipped(pgrep)=$SKIPPED_PGREP skipped(agent)=$SKIPPED_AGENT skipped(ratelimit)=$SKIPPED_RATELIMIT skipped(guard)=${SKIPPED_GUARD:-0}"
 exit 0
