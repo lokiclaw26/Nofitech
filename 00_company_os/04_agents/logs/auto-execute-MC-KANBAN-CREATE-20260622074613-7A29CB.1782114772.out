@@ -1,0 +1,19 @@
+Both done. PATCH returned HTTP 200 with `"new_status": "done"`, card now visible in the Done column of the board (count: 104). Event appended.
+
+STATUS: LLM-BURN-FIX-TEST-1 result: success
+
+CHANGED:
+- /home/nofidofi/NofiTech-Ind/00_company_os/04_agents/logs/2026-06-22/argus-MC-KANBAN-CREATE-20260622074613-7A29CB.md (argus run log, with `result: success`)
+- PATCH task → status=done, kanban_status=done (HTTP 200, board shows card in Done column)
+- /home/nofidofi/NofiTech-Ind/00_company_os/events.jsonl (+1 line: task_completed @ 2026-06-22T11:55:26+04:00)
+
+TESTED:
+- Baseline: llm-calls.jsonl had 0 rows for this card_id before this run; this dispatch = the single LLM call for the card. Cron LLM-burn-fix should be observably effective here.
+- MC server health: ok v1.15.0-order-cleanup.
+- PATCH response parsed: `"ok": true, "new_status": "done"`.
+
+ARGUS: no visual verification needed (acceptance is API + log + event, all confirmed). Card's `has_result` is false but the acceptance list does not require a result_teaser for this test card — the audit log row is the deliverable.
+
+NEXT: none required. Cron auto-done leg will fire on next tick and move this card out of Done; nothing further from Argus. The MC-LLM-BURN-FIX-1 follow-up (real fix) is still in running_now (forge).
+
+🛑 Standing by

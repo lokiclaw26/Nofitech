@@ -1,0 +1,15 @@
+Final state confirmed:
+- Task: `status=done`, `kanban_status=done` (PATCH returns `ok: true`)
+- `llm-calls.jsonl`: 3 lines total, **1 row matches this card_id** with real per-task `sub_log` path (not the manual-test placeholder)
+- Log file written
+- Event appended
+
+LLM-BURN-FIX-TEST-2 result: success
+
+Status: done
+Changed: verified the FIXED audit hook fired from the live cron tick at 12:01:52; new row in `llm-calls.jsonl` with this card_id, real sub_log path, guard_passed=true, status=spawned. PATCHed task to done, appended event.
+Tested: `auto-execute.log` line + `llm-calls.jsonl` row + MC API PATCH ok=true. Distinct from Forge's manual TEST-1 placeholder row.
+Argus: self-verified (read-only curl + grep + log inspection); no browser available in sub-agent session.
+Next: TEST-2 closes the loop on Forge's MC-LLM-BURN-FIX-1 acceptance — audit hook is now provably wired from live cron ticks, not just manual CLI tests. NOFI's "kanban crons burn tokens" hypothesis stays disproven, with a real audit trail going forward.
+
+🛑 Standing by — NOFI is asleep; will you confirm the auto-kanban chain is now considered fully verified, or is there a follow-up task needed (e.g. cleanup of the per-task auto-execute-*.out logs)?
