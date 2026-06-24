@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NOFI Network Diagnostic Guide — NofiTech Ind.</title>
+<style>
+  :root {
+    --bg: #0a0e14;
+    --bg-card: #11161f;
+    --bg-elev: #1a212d;
+    --border: #232c3a;
+    --text: #d6dde8;
+    --text-dim: #8b95a7;
+    --text-bright: #ffffff;
+    --accent: #4ec9b0;
+    --accent-dim: #2a6f63;
+    --red: #f48771;
+    --red-bg: #2a1414;
+    --yellow: #dcdcaa;
+    --yellow-bg: #2a2614;
+    --green: #6a9955;
+    --green-bg: #142614;
+    --blue: #569cd6;
+    --orange: #ce9178;
+    --purple: #c586c0;
+    --code-bg: #0d1117;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    font-size: 15px;
+  }
+  .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px 80px; }
+  /* Layout with sidebar */
+  .layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 32px;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+  }
+  .layout > .container { padding: 0; max-width: none; }
+  /* Header */
+  header {
+    background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 48px 24px 40px;
+    text-align: center;
+  }
+  .badge {
+    display: inline-block;
+    padding: 4px 12px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  h1 {
+    font-size: 32px;
+    color: var(--text-bright);
+    font-weight: 700;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+  }
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 15px;
+    margin-bottom: 20px;
+  }
+  .meta {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    flex-wrap: wrap;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+  .meta span strong { color: var(--accent); font-weight: 600; }
+  /* Sidebar nav */
+  .sidebar {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 18px;
+  }
+  .sidebar h3 {
+    color: var(--text-dim);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar ol {
+    list-style: none;
+    counter-reset: item;
+  }
+  .sidebar li {
+    counter-increment: item;
+    margin-bottom: 2px;
+  }
+  .sidebar a {
+    color: var(--text);
+    text-decoration: none;
+    font-size: 13px;
+    display: block;
+    padding: 6px 8px;
+    border-radius: 4px;
+    line-height: 1.4;
+    border-left: 2px solid transparent;
+    transition: all 0.15s ease;
+  }
+  .sidebar a::before {
+    content: counter(item) ". ";
+    color: var(--text-dim);
+    font-weight: 600;
+    font-size: 11px;
+  }
+  .sidebar a:hover {
+    background: var(--bg-elev);
+    color: var(--text-bright);
+    border-left-color: var(--accent);
+  }
+  .sidebar a.active {
+    color: var(--accent);
+    border-left-color: var(--accent);
+    background: var(--bg-elev);
+  }
+  /* Section */
+  section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 32px;
+    margin-bottom: 24px;
+  }
+  section h2 {
+    color: var(--text-bright);
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  section h2 .num {
+    color: var(--accent);
+    font-size: 14px;
+    background: var(--accent-dim);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-weight: 700;
+  }
+  section h3 {
+    color: var(--text-bright);
+    font-size: 17px;
+    font-weight: 600;
+    margin: 24px 0 12px;
+  }
+  section h4 {
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 600;
+    margin: 16px 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  p { margin-bottom: 12px; color: var(--text); }
+  strong { color: var(--text-bright); }
+  em { color: var(--text-bright); font-style: normal; font-weight: 500; }
+  /* TL;DR box */
+  .tldr {
+    background: linear-gradient(135deg, #0d1117 0%, #1a212d 100%);
+    border: 1px solid var(--accent);
+    border-left: 4px solid var(--accent);
+    border-radius: 6px;
+    padding: 20px 24px;
+    margin: 16px 0 24px;
+  }
+  .tldr-label {
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .tldr-text { color: var(--text-bright); font-size: 15px; line-height: 1.7; }
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 13px;
+  }
+  th {
+    background: var(--bg-elev);
+    color: var(--text-bright);
+    text-align: left;
+    padding: 10px 12px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg-elev); }
+  td code, th code {
+    font-family: 'SF Mono', Monaco, Consolas, monospace;
+    font-size: 12px;
+    color: var(--orange);
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  /* Status badges */
+  .ok { color: var(--green); font-weight: 600; }
+  .warn { color: var(--yellow); font-weight: 600; }
+  .bad { color: var(--red); font-weight: 600; }
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .pill-ok { background: var(--green-bg); color: var(--green); }
+  .pill-warn { background: var(--yellow-bg); color: var(--yellow); }
+  .pill-bad { background: var(--red-bg); color: var(--red); }
+  /* Code blocks */
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    margin: 12px 0;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  code {
+    font-family: 'SF Mono', Monaco, Consolas, monospace;
+    color: var(--orange);
+  }
+  pre code { color: var(--text); }
+  /* Lists */
+  ul, ol { margin: 12px 0 12px 24px; }
+  li { margin-bottom: 6px; color: var(--text); }
+  li::marker { color: var(--accent); }
+  /* Steps */
+  .step {
+    background: var(--bg-elev);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+  .step-num {
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .step h4 { color: var(--text-bright); margin-top: 4px; }
+  /* Callouts */
+  .callout {
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin: 14px 0;
+    border-left: 3px solid;
+  }
+  .callout-info { background: #0d1a26; border-color: var(--blue); }
+  .callout-warn { background: var(--yellow-bg); border-color: var(--yellow); }
+  .callout-danger { background: var(--red-bg); border-color: var(--red); }
+  .callout-ok { background: var(--green-bg); border-color: var(--green); }
+  .callout-title {
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+  .callout-info .callout-title { color: var(--blue); }
+  .callout-warn .callout-title { color: var(--yellow); }
+  .callout-danger .callout-title { color: var(--red); }
+  .callout-ok .callout-title { color: var(--green); }
+  /* Topology diagram */
+  .topo {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+    margin: 16px 0;
+    font-family: 'SF Mono', Monaco, monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--text-bright);
+    overflow-x: auto;
+  }
+  .topo .e { color: var(--blue); }
+  .topo .r { color: var(--accent); }
+  .topo .c { color: var(--text-dim); }
+  /* Progress checklist */
+  .checklist { list-style: none; margin-left: 0; }
+  .checklist li {
+    padding: 8px 12px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .checklist input { margin-top: 4px; accent-color: var(--accent); }
+  .checklist label { cursor: pointer; flex: 1; }
+  /* Footer */
+  footer {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 12px;
+    padding: 32px 24px;
+    border-top: 1px solid var(--border);
+    margin-top: 48px;
+  }
+  /* Print */
+  @media print {
+    body { background: white; color: black; font-size: 12pt; }
+    .sidebar { display: none; }
+    section { background: white; border: 1px solid #ccc; page-break-inside: avoid; }
+  }
+  @media (max-width: 900px) {
+    .layout {
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+    .sidebar {
+      position: static;
+      max-height: none;
+    }
+  }
+  @media (max-width: 768px) {
+    h1 { font-size: 24px; }
+    section { padding: 20px; }
+    .container, .layout { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="badge">🩺 NofiTech Ind. — Internal Diagnostic</div>
+  <h1>NOFI Home Network Diagnostic Guide</h1>
+  <p class="subtitle">Full analysis &amp; fix plan for the 2-router + 1-repeater setup</p>
+  <div class="meta">
+    <span>Date: <strong>2026-06-24</strong></span>
+    <span>Analyst: <strong>Thor</strong></span>
+    <span>Target: <strong>192.168.0.0/24</strong></span>
+    <span>Status: <strong class="warn">Action required</strong></span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <h3>📑 Contents</h3>
+    <ol>
+      <li><a href="#exec">Executive Summary</a></li>
+      <li><a href="#topology">Network Topology</a></li>
+      <li><a href="#discover">Discovery — What I Found</a></li>
+      <li><a href="#symptoms">Symptoms — Why WiFi Feels Slow</a></li>
+      <li><a href="#correction">Correction to My First Diagnosis</a></li>
+      <li><a href="#problems">The 4 Real Problems</a></li>
+      <li><a href="#fix-plan">Step-by-Step Fix Plan</a></li>
+      <li><a href="#menu-paths">Exact Menu Paths to Click</a></li>
+      <li><a href="#expected">Expected Results</a></li>
+      <li><a href="#checklist">Action Checklist</a></li>
+      <li><a href="#verify">How to Verify the Fix</a></li>
+      <li><a href="#security">Security Notes</a></li>
+    </ol>
+    <div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--border);font-size:12px;color:var(--text-dim);">
+      🔗 Other pages:
+      <ul style="margin-top:8px;">
+        <li><a href="buy.html" style="border-left:2px solid var(--accent);padding-left:8px;color:var(--accent);">🛒 Shopping List (TP-Link)</a></li>
+      </ul>
+    </div>
+  </aside>
+
+  <div class="container">
+
+  <!-- 1 -->
+  <section id="exec">
+    <h2><span class="num">1</span>Executive Summary</h2>
+    <div class="tldr">
+      <div class="tldr-label">TL;DR</div>
+      <div class="tldr-text">
+        Your <strong style="color:var(--green)">internet (cable) is healthy</strong> — 309 Mbps, 3–7 ms latency to public DNS.
+        The problem is your <strong style="color:var(--red)">WiFi setup</strong>: 2.4 GHz SSID and 5 GHz SSID have <em>different names</em>,
+        the Archer C7 is broadcasting on the <em>most congested channel</em> in Dubai (channel 6, 2.4 GHz),
+        and the Asus "repeater" is using <em>wireless backhaul</em> (halves bandwidth for clients).
+        <br><br>
+        <strong>3 specific settings changes will fix 90% of the problem</strong>: match the SSIDs, move to non-overlapping channels, and deal with the Asus repeater.
+        <br><br>
+        <strong>My "double-NAT" theory was wrong</strong> — the Archer C7's WAN port is unplugged, so it's effectively already in AP mode.
+      </div>
+    </div>
+
+    <h3>Quick win scoreboard</h3>
+    <table>
+      <thead><tr><th>What</th><th>Status</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>Cable / internet</td><td><span class="ok">✓ Healthy</span></td><td>Nothing — don't touch</td></tr>
+        <tr><td>2.4 GHz SSID mismatch</td><td><span class="bad">✗ Broken</span></td><td>Change to match 5 GHz</td></tr>
+        <tr><td>5 GHz channel (auto)</td><td><span class="warn">⚠ Suboptimal</span></td><td>Lock to 36 or 52</td></tr>
+        <tr><td>2.4 GHz channel 6</td><td><span class="bad">✗ Congested</span></td><td>Move to 1 or 11</td></tr>
+        <tr><td>Asus repeater mode</td><td><span class="bad">✗ Half bandwidth</span></td><td>Cable it or switch to Media Bridge</td></tr>
+        <tr><td>Main gateway config</td><td><span class="ok">✓ Probably fine</span></td><td>Verify channel after Archer change</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 2 -->
+  <section id="topology">
+    <h2><span class="num">2</span>Your Network Topology</h2>
+    <p>You confirmed the physical wiring looks like this:</p>
+    <div class="topo">
+<span class="c"># Physical wiring (confirmed via your diagram)</span>
+<span class="e">e&</span> ──wire──► <span class="r">TP-Link Gateway (.1)</span> ──wire──► <span class="r">TP-Link Archer C7 (.2)</span>
+                                              ├──wire──► <span class="r">Asus "repeater" (wireless uplink, .12/.13/.21)</span>
+                                              └──wire──► <span class="r">TP-Link Switch</span> ──wire──► <span class="r">PC (192.168.0.50)</span>
+    </div>
+
+    <h3>Device inventory (22+ on the LAN)</h3>
+    <table>
+      <thead>
+        <tr><th>IP</th><th>Device</th><th>Role</th><th>Notes</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>.1</code></td><td>TP-Link (ISP)</td><td>Primary router / gateway</td><td><span class="ok">HTTP+HTTPS+DNS+UPn</span></td></tr>
+        <tr><td><code>.2</code></td><td>TP-Link <strong>Archer C7 v2</strong></td><td>Second router (effectively AP)</td><td><span class="warn">WAN unplugged, 0 traffic</span></td></tr>
+        <tr><td><code>.10</code></td><td>Cisco/Linksys</td><td>Wired client or 3rd router</td><td>2 ms latency — fine</td></tr>
+        <tr><td><code>.12, .13, .21</code></td><td><strong>ASUS</strong> (same MAC <code>88:d7:f6:a9:09:b0</code>)</td><td>The repeater</td><td><span class="bad">Roaming IPs = repeater wobble</span></td></tr>
+        <tr><td><code>.36</code></td><td>Sagemcom</td><td>Old e& router (dead)</td><td><span class="bad">Unplug if not used</span></td></tr>
+        <tr><td><code>.20</code> to <code>.48</code></td><td>Huawei, Apple, Fujitsu, etc.</td><td>Phones, tablets, IoT</td><td>Mixed WiFi clients</td></tr>
+        <tr><td><code>.50</code></td><td>This PC (ThinkCentre)</td><td>Wired, diagnostic machine</td><td>0.04 ms to gateway</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 3 -->
+  <section id="discover">
+    <h2><span class="num">3</span>Discovery — What I Found</h2>
+    <h3>Internet (WAN side) — HEALTHY ✓</h3>
+    <table>
+      <thead><tr><th>Metric</th><th>Value</th><th>Verdict</th></tr></thead>
+      <tbody>
+        <tr><td>Public IP</td><td><code>2.49.104.92</code> (e& / Etisalat, UAE)</td><td><span class="ok">✓</span></td></tr>
+        <tr><td>Download (10MB Cloudflare, 1 stream)</td><td><strong>38.7 MB/s = 309 Mbps</strong></td><td><span class="ok">✓ Fiber delivering</span></td></tr>
+        <tr><td>Latency to 1.1.1.1</td><td>3.6 ms avg</td><td><span class="ok">✓ Excellent</span></td></tr>
+        <tr><td>Latency to 8.8.8.8</td><td>6.5 ms avg</td><td><span class="ok">✓ Excellent</span></td></tr>
+        <tr><td>Latency to Google</td><td>3.3 ms avg</td><td><span class="ok">✓ Excellent</span></td></tr>
+        <tr><td>DNS resolution</td><td>50–60 ms via Cloudflare/local</td><td><span class="ok">✓</span></td></tr>
+      </tbody>
+    </table>
+    <div class="callout callout-ok">
+      <div class="callout-title">✓ Don't blame e&</div>
+      Your fiber is paying you 300+ Mbps and 4 ms latency. Cable side is fine.
+    </div>
+
+    <h3>WiFi — BROKEN ✗</h3>
+    <p>LAN-side latencies from this PC (cable, 0.04 ms to gateway) compared to the gateway:</p>
+    <table>
+      <thead><tr><th>IP / Device</th><th>Ping to gateway</th><th>Verdict</th></tr></thead>
+      <tbody>
+        <tr><td><code>.1</code> gateway</td><td>0.4 ms</td><td><span class="ok">✓</span></td></tr>
+        <tr><td><code>.2</code> Archer C7 (wired LAN)</td><td>0.2 ms</td><td><span class="ok">✓</span></td></tr>
+        <tr><td><code>.10</code> Cisco</td><td>2 ms</td><td><span class="ok">✓</span></td></tr>
+        <tr><td><code>.12</code> Asus repeater</td><td><strong>215 ms</strong></td><td><span class="bad">😱 Terrible</span></td></tr>
+        <tr><td><code>.13</code> Asus (same device)</td><td>31 ms</td><td><span class="warn">⚠ Bad</span></td></tr>
+        <tr><td><code>.20</code> Huawei</td><td>56 ms</td><td><span class="warn">⚠ Bad WiFi</span></td></tr>
+        <tr><td><code>.30</code> Fujitsu</td><td>89 ms</td><td><span class="warn">⚠ Bad WiFi</span></td></tr>
+        <tr><td><code>.32</code></td><td><strong>213 ms</strong></td><td><span class="bad">😱 Terrible</span></td></tr>
+        <tr><td><code>.34, .44, .48</code></td><td>40–109 ms</td><td><span class="warn">⚠ Bad WiFi</span></td></tr>
+      </tbody>
+    </table>
+    <div class="callout callout-danger">
+      <div class="callout-title">✗ Anyone at 30 ms+ to the gateway is on terrible WiFi</div>
+      Good WiFi is &lt; 5 ms to gateway. The clients at 100–200 ms are dropping packets, which translates to the "speed feels slow + connection drops" you're experiencing.
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section id="symptoms">
+    <h2><span class="num">4</span>Why WiFi Feels Slow — Symptom Breakdown</h2>
+    <p>Three independent things are stacking up. Each one alone wouldn't ruin your network. All three together = "feels like 50% speed drop".</p>
+
+    <h3>Symptom 1: Your devices see 2 different networks</h3>
+    <table>
+      <thead><tr><th>Band</th><th>SSID</th></tr></thead>
+      <tbody>
+        <tr><td>2.4 GHz</td><td><code>NoRed5</code></td></tr>
+        <tr><td>5 GHz</td><td><code>Ahmad_Not</code></td></tr>
+      </tbody>
+    </table>
+    <p>Your phone connects to <code>NoRed5</code> (2.4). You walk to the room where 5 GHz is strong. Phone <strong>stays on 2.4 GHz</strong> because it doesn't know <code>Ahmad_Not</code> is the same router. → slow.</p>
+
+    <h3>Symptom 2: Channel 6 is the worst in Dubai apartments</h3>
+    <p>Channel 6 is one of 3 non-overlapping channels (1, 6, 11), which means <em>every</em> router in your building is also on it. The Archer C7's <strong>default 2.4 GHz channel is 6</strong> = stomp fight with 30+ neighbors. Plus the gateway at <code>.1</code> is probably also on 6 = internal stomp fight too.</p>
+
+    <h3>Symptom 3: Asus "repeater" is half-bandwidth by design</h3>
+    <p>When the Asus is in "repeater" mode and connects wirelessly to the Archer C7, it has to:</p>
+    <ul>
+      <li>Receive packets from the Archer on 1 radio</li>
+      <li>Forward them out on the same or different radio</li>
+    </ul>
+    <p>Result: <strong>~50% of the bandwidth is wasted on the backhaul</strong> + ~10–30 ms extra latency per hop. You see this in the 50–200 ms ping to the gateway for Asus-connected clients.</p>
+  </section>
+
+  <!-- 5 -->
+  <section id="correction">
+    <h2><span class="num">5</span>Correction to My First Diagnosis</h2>
+    <div class="callout callout-warn">
+      <div class="callout-title">⚠ I had it wrong. Here's the correction.</div>
+      <p style="color:var(--text-bright); margin-top:4px">My initial theory was "double-NAT is killing your network" because the Archer C7 was on the same <code>192.168.0.x</code> subnet as the gateway. The screenshot you sent proved that wrong:</p>
+    </div>
+    <table>
+      <thead><tr><th>Field</th><th>Value</th><th>What it means</th></tr></thead>
+      <tbody>
+        <tr><td>WAN IP</td><td><code>0.0.0.0</code></td><td><strong style="color:var(--red)">🚨 WAN port is unplugged</strong></td></tr>
+        <tr><td>WAN Status</td><td>"WAN port is unplugged!" (red)</td><td>Confirmed</td></tr>
+        <tr><td>Traffic Statistics</td><td>0 bytes / 0 packets</td><td><strong style="color:var(--red)">No traffic has flowed through this router</strong></td></tr>
+        <tr><td>LAN IP</td><td><code>192.168.0.2</code></td><td>On same subnet as gateway</td></tr>
+        <tr><td>Operation Mode</td><td>"Wireless Router"</td><td>Misleading label — WAN unplugged means it's effectively AP</td></tr>
+      </tbody>
+    </table>
+    <p>Since the WAN is unplugged and zero traffic flows through it, the Archer C7 is <em>functioning</em> as an access point even though the menu says "Wireless Router". The ethernet cable from the gateway must be plugged into one of the <strong>Archer's LAN ports</strong>, not the WAN port.</p>
+    <div class="callout callout-info">
+      <div class="callout-title">💡 Don't fix what isn't broken</div>
+      <strong>Do NOT change the Archer C7's Operation Mode</strong> from "Wireless Router" to "Access Point" — that would re-enable NAT and break things. The current state is fine.
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section id="problems">
+    <h2><span class="num">6</span>The 4 Real Problems</h2>
+    <h3>Problem A — Different SSIDs on 2.4 vs 5 GHz (the #1 roaming/speed killer)</h3>
+    <p>Your devices can connect to either, but not both at the same time, and they don't know they're the same router. When your phone is connected to <code>NoRed5</code> and you walk to the 5 GHz-only zone, it <strong>stays on 2.4 GHz</strong> = slow.</p>
+
+    <h3>Problem B — 2.4 GHz on Channel 6, in Dubai that means CONFLICT</h3>
+    <p>Channel 6 is the most popular in dense apartments. You're competing with everyone in your building. The gateway is probably also on 6 → internal stomp fight.</p>
+
+    <h3>Problem C — 5 GHz auto-channel is set to 157, with WDS disabled</h3>
+    <p>Auto channel on 5 GHz causes "WiFi drops randomly" — a neighbor's radar pulse or new AP can trigger a channel switch = 5–10 sec disconnect. Lock it to a fixed channel.</p>
+
+    <h3>Problem D — The Asus "repeater" is in repeater mode (wireless backhaul)</h3>
+    <p>Same MAC roaming between <code>.12</code>, <code>.13</code>, <code>.21</code> = classic repeater behavior when parent AP signal wobbles. Half bandwidth + extra latency for any device connected to it.</p>
+  </section>
+
+  <!-- 7 -->
+  <section id="fix-plan">
+    <h2><span class="num">7</span>Step-by-Step Fix Plan (Ranked by Impact)</h2>
+    <p>Do these in order. Each step gives an immediate win. The full plan takes 30–45 minutes.</p>
+
+    <div class="step">
+      <div class="step-num">Step 1</div>
+      <h4>Match the SSIDs (fixes roaming + confusion)</h4>
+      <p>Goal: One network <code>Ahmad_Not</code> across both bands. Devices auto-pick the best band.</p>
+      <ol>
+        <li>Open <code>http://192.168.0.2</code> (you have this open already from the screenshot)</li>
+        <li>Click <strong>Wireless 2.4GHz</strong> in the left menu</li>
+        <li>Change <strong>Wireless Network Name (SSID)</strong> from <code>NoRed5</code> to <code>Ahmad_Not</code></li>
+        <li>Click <strong>Save</strong></li>
+        <li>Click <strong>Wireless 5GHz</strong></li>
+        <li>Confirm SSID is <code>Ahmad_Not</code></li>
+        <li>Click <strong>Save</strong></li>
+      </ol>
+      <p><strong>Result:</strong> All devices see ONE network. They auto-use 2.4 for distance, 5 for speed.</p>
+    </div>
+
+    <div class="step">
+      <div class="step-num">Step 2</div>
+      <h4>Move to non-overlapping channels (fixes interference)</h4>
+      <p>Goal: 2.4 GHz off channel 6. 5 GHz on a clean fixed channel.</p>
+      <ol>
+        <li><strong>Archer 2.4 GHz</strong> → set channel to <code>1</code> or <code>11</code> (not 6)</li>
+        <li><strong>Archer 5 GHz</strong> → set channel to <code>36</code> or <code>52</code> (clean UNII-1 band)</li>
+        <li>Then log into the main TP-Link gateway at <code>http://192.168.0.1</code></li>
+        <li>Set <strong>its</strong> 2.4 GHz to a different one of 1/6/11 than the Archer</li>
+      </ol>
+      <p><strong>Target state:</strong></p>
+      <table>
+        <thead><tr><th>Device</th><th>2.4 GHz channel</th><th>5 GHz channel</th></tr></thead>
+        <tbody>
+          <tr><td>TP-Link gateway (.1)</td><td><code>11</code></td><td><code>52</code></td></tr>
+          <tr><td>Archer C7 (.2)</td><td><code>1</code></td><td><code>36</code></td></tr>
+        </tbody>
+      </table>
+      <p>(Or vice versa — just make sure they're different.)</p>
+    </div>
+
+    <div class="step">
+      <div class="step-num">Step 3</div>
+      <h4>Lock the 5 GHz to a fixed channel (not Auto)</h4>
+      <p>Auto channel on 5 GHz is the most common cause of "WiFi drops randomly." Set it to a fixed channel and it stays put.</p>
+      <p>If you did Step 2, this is already done (you set the channel, not Auto). If not, do it now.</p>
+    </div>
+
+    <div class="step">
+      <div class="step-num">Step 4</div>
+      <h4>Deal with the Asus repeater (3 options, in order of preference)</h4>
+
+      <h4>Option A — Run a $5 ethernet cable (best)</h4>
+      <ol>
+        <li>Run an ethernet cable from the switch (or the Archer C7's LAN port) to the Asus</li>
+        <li>On the Asus, set <strong>Operation Mode → Access Point</strong></li>
+        <li>Full bandwidth at the far end. No wireless backhaul penalty.</li>
+      </ol>
+
+      <h4>Option B — Media Bridge mode (if you can't cable)</h4>
+      <ol>
+        <li>On the Asus, set <strong>Operation Mode → Media Bridge</strong> (a.k.a. Client Bridge)</li>
+        <li>Asus still uses Archer wirelessly as backhaul</li>
+        <li>But instead of re-broadcasting as a new AP, it just provides 4 ethernet ports at the far end</li>
+        <li>Plug far-end devices into it with cables</li>
+        <li>No half-bandwidth penalty. No WiFi re-broadcast.</li>
+      </ol>
+      <div class="callout callout-warn">
+        <div class="callout-title">⚠ Trade-off</div>
+        You lose the ability to put WiFi clients on the Asus this way. But the connection to the rest of the house is solid.
+      </div>
+
+      <h4>Option C — Keep repeater mode but force 5 GHz backhaul (worst option)</h4>
+      <ol>
+        <li>In Asus admin, Repeater mode → set the 5 GHz uplink to a different channel than Archer's 5 GHz</li>
+        <li>Asus uses 5 GHz to talk to Archer, 2.4 GHz for clients</li>
+        <li>Half the 5 GHz bandwidth is wasted on backhaul</li>
+      </ol>
+    </div>
+
+    <div class="step">
+      <div class="step-num">Step 5 (optional)</div>
+      <h4>Reboot everything in order</h4>
+      <p>After making all the changes, a clean reboot clears stuck leases and channel conflicts:</p>
+      <ol>
+        <li>Unplug all 3 boxes (gateway, Archer, Asus) from power</li>
+        <li>Plug in the <strong>main gateway</strong> → wait until fully booted (1–2 min, lights stable)</li>
+        <li>Plug in the <strong>Archer C7</strong> → wait 1 min</li>
+        <li>Plug in the <strong>Asus</strong> (if you kept it) → wait 1 min</li>
+        <li>Reconnect your phone/laptop to <code>Ahmad_Not</code> and test</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 8 -->
+  <section id="menu-paths">
+    <h2><span class="num">8</span>Exact Menu Paths to Click</h2>
+    <p>You're already on the Archer C7 Status page. From the left sidebar:</p>
+    <pre><code>1. <strong>Wireless 2.4GHz</strong>
+   → Wireless Settings
+   → Change SSID to "Ahmad_Not"
+   → Change Channel to "1" (or 11)
+   → Channel Width: leave as Auto (or 40MHz for 802.11n)
+   → Mode: keep "11bgn mixed" (most compatible)
+   → Save
+
+2. <strong>Wireless 5GHz</strong>
+   → Wireless Settings
+   → Confirm SSID is "Ahmad_Not"
+   → Change Channel from "Auto" to "36" (or 52, 100, 149)
+   → Mode: keep "11anac mixed"
+   → Save</code></pre>
+
+    <div class="callout callout-danger">
+      <div class="callout-title">✗ DO NOT touch</div>
+      <ul style="margin-top:6px">
+        <li><strong>WAN settings</strong> — leave the cable in a LAN port, not WAN</li>
+        <li><strong>DHCP</strong> — the gateway handles it</li>
+        <li><strong>Operation Mode</strong> — it says "Wireless Router" but the WAN is unplugged so it's effectively an AP. Don't change it.</li>
+        <li><strong>WDS</strong> — keep disabled</li>
+      </ul>
+    </div>
+
+    <h3>For the main TP-Link gateway at <code>http://192.168.0.1</code></h3>
+    <pre><code><strong>Wireless → 2.4GHz → Wireless Settings</strong>
+  → Channel: set to a different one than the Archer (1/6/11)
+  → SSID: should match "Ahmad_Not" (verify it does)
+  → Save
+
+<strong>Wireless → 5GHz → Wireless Settings</strong>
+  → Channel: set to a different one than the Archer (36/52/100/149)
+  → Save</code></pre>
+  </section>
+
+  <!-- 9 -->
+  <section id="expected">
+    <h2><span class="num">9</span>Expected Results</h2>
+    <table>
+      <thead>
+        <tr><th>Metric</th><th>Before</th><th>After Step 1–3</th><th>After Step 4 (full)</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>WiFi client latency to gateway</td>
+          <td>50–200 ms</td>
+          <td>10–20 ms</td>
+          <td>&lt; 10 ms</td>
+        </tr>
+        <tr>
+          <td>Same-room speed (5 GHz)</td>
+          <td>30–80 Mbps</td>
+          <td>100–200 Mbps</td>
+          <td>200+ Mbps</td>
+        </tr>
+        <tr>
+          <td>Far-room speed</td>
+          <td>5–20 Mbps (drops)</td>
+          <td>30–80 Mbps</td>
+          <td>100+ Mbps</td>
+        </tr>
+        <tr>
+          <td>Roaming behavior</td>
+          <td>Sticky 2.4, drops</td>
+          <td>Smooth on <code>Ahmad_Not</code></td>
+          <td>Seamless</td>
+        </tr>
+        <tr>
+          <td>Random disconnects</td>
+          <td>Several per day</td>
+          <td>Rare</td>
+          <td>None</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="callout callout-ok">
+      <div class="callout-title">✓ Minimum viable fix</div>
+      <strong>Step 1 + Step 2 alone</strong> (Archer C7 changes only, ~5 min) will fix 80% of what you're feeling. The rest is incremental polish.
+    </div>
+  </section>
+
+  <!-- 10 -->
+  <section id="checklist">
+    <h2><span class="num">10</span>Action Checklist</h2>
+    <p>Print or check off as you go:</p>
+    <ul class="checklist">
+      <li><input type="checkbox" id="c1"><label for="c1">Archer C7: 2.4 GHz SSID changed from <code>NoRed5</code> to <code>Ahmad_Not</code></label></li>
+      <li><input type="checkbox" id="c2"><label for="c2">Archer C7: 2.4 GHz channel changed from 6 to 1 or 11</label></li>
+      <li><input type="checkbox" id="c3"><label for="c3">Archer C7: 5 GHz channel changed from Auto to 36 or 52</label></li>
+      <li><input type="checkbox" id="c4"><label for="c4">Main gateway (.1): 2.4 GHz channel set to different non-overlapping channel than Archer</label></li>
+      <li><input type="checkbox" id="c5"><label for="c5">Main gateway (.1): 5 GHz channel set to fixed channel</label></li>
+      <li><input type="checkbox" id="c6"><label for="c6">Asus repeater: decided on Option A (cable as AP) / B (Media Bridge) / C (keep repeater)</label></li>
+      <li><input type="checkbox" id="c7"><label for="c7">Asus reconfigured to chosen mode</label></li>
+      <li><input type="checkbox" id="c8"><label for="c8">All 3 boxes rebooted in order: gateway → Archer → Asus</label></li>
+      <li><input type="checkbox" id="c9"><label for="c9">All devices reconnected to <code>Ahmad_Not</code></label></li>
+      <li><input type="checkbox" id="c10"><label for="c10">Speed test done in same room + far room (compare to baseline)</label></li>
+      <li><input type="checkbox" id="c11"><label for="c11">Ping test from this PC to .1, .2, .20, .30 (compare 50–200 ms to &lt;10 ms)</label></li>
+    </ul>
+  </section>
+
+  <!-- 11 -->
+  <section id="verify">
+    <h2><span class="num">11</span>How to Verify the Fix</h2>
+    <p>Once you've done the steps, tell me. I'll re-run the latency check from this PC.</p>
+    <h3>From this PC (cable, 192.168.0.50)</h3>
+    <p>Run in a terminal:</p>
+    <pre><code>ping -c 10 192.168.0.1   # gateway — should be &lt; 1 ms
+ping -c 10 192.168.0.2   # Archer C7 — should be &lt; 1 ms (wired)
+ping -c 10 192.168.0.20  # Huawei phone (should be &lt; 10 ms after fix, was 56 ms)
+ping -c 10 192.168.0.30  # Fujitsu (should be &lt; 10 ms after fix, was 89 ms)</code></pre>
+    <p>Before fix: <code>.12</code>, <code>.13</code>, <code>.32</code> were 200+ ms. After fix: should be &lt; 10 ms.</p>
+
+    <h3>From your phone (WiFi)</h3>
+    <ol>
+      <li>Disconnect from <code>Ahmad_Not</code> and reconnect (forces re-association)</li>
+      <li>Run a speed test (e.g., <code>fast.com</code> or the e& Speed Test app)</li>
+      <li>Stand next to the main router first, then move to far room</li>
+      <li>Same room speed should be 100–200 Mbps on 5 GHz</li>
+      <li>Far room speed should be 30–80 Mbps on 5 GHz, much more on 2.4</li>
+    </ol>
+  </section>
+
+  <!-- 12 -->
+  <section id="security">
+    <h2><span class="num">12</span>Security Notes</h2>
+    <div class="callout callout-info">
+      <div class="callout-title">🔒 Why I don't take your router password</div>
+      <p style="color:var(--text-bright); margin-top:4px">Even from you, the owner. My reasons:</p>
+      <ul style="margin-top:8px">
+        <li>This conversation is logged in a system other agents can see (and one day, the public)</li>
+        <li>A leaked router password = attacker owns your network forever</li>
+        <li>You changing the password after I touch it is one extra step for you; a network breach is hundreds of steps</li>
+        <li>Settings changes should always be you, on the keyboard in front of the router</li>
+      </ul>
+    </div>
+
+    <h3>What I CAN do</h3>
+    <ul>
+      <li>Read live network state (latency, device list, signal strength)</li>
+      <li>Diagnose and recommend</li>
+      <li>Verify after you make changes</li>
+      <li>Read screenshots of admin UIs and tell you what to click</li>
+    </ul>
+
+    <h3>What I will NEVER do</h3>
+    <ul>
+      <li>Log into your router admin</li>
+      <li>Accept the password (even via screenshot, even if you insist)</li>
+      <li>Run any "helper" tool that needs it</li>
+      <li>Modify any device config remotely</li>
+    </ul>
+
+    <h3>Bonus security tip (worth doing while you're in the admin UI)</h3>
+    <ul>
+      <li>Check <strong>Admin → Remote Management</strong> is DISABLED (off). Default is usually off, but verify.</li>
+      <li>Check <strong>Wireless → Password</strong> is WPA2-PSK or WPA2/WPA3 mixed. Not WEP or "no password".</li>
+      <li>Change the router admin password from default (e.g., admin/admin). Even if no one can reach the admin from the internet, defense in depth.</li>
+      <li>If your firmware has an update available, install it. Especially for the Asus repeater.</li>
+    </ul>
+  </section>
+
+  <footer>
+    <p>Built by <strong style="color:var(--accent)">Thor</strong> for <strong style="color:var(--accent)">NOFI</strong> · NofiTech Ind. · 2026-06-24</p>
+    <p style="margin-top:8px">Served from <code>http://192.168.0.50:9000</code> · Local network only · Not exposed to internet</p>
+  </footer>
+
+  </div><!-- /.container (main column) -->
+
+</div><!-- /.layout -->
+
+<script>
+  // Smooth scroll for sidebar links
+  document.querySelectorAll('.sidebar a').forEach(link => {
+    link.addEventListener('click', e => {
+      e.preventDefault();
+      const id = link.getAttribute('href').slice(1);
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        history.pushState(null, '', '#' + id);
+        document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+        link.classList.add('active');
+      }
+    });
+  });
+
+  // Highlight active section on scroll
+  const sections = document.querySelectorAll('section[id]');
+  const sidebarLinks = document.querySelectorAll('.sidebar a');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = entry.target.id;
+        sidebarLinks.forEach(a => {
+          a.classList.toggle('active', a.getAttribute('href') === '#' + id);
+        });
+      }
+    });
+  }, { rootMargin: '-30% 0px -60% 0px' });
+  sections.forEach(s => observer.observe(s));
+
+  // Save checklist state to localStorage
+  document.querySelectorAll('.checklist input[type="checkbox"]').forEach(box => {
+    const key = 'nofitech-net-' + box.id;
+    box.checked = localStorage.getItem(key) === '1';
+    box.addEventListener('change', () => {
+      localStorage.setItem(key, box.checked ? '1' : '0');
+    });
+  });
+</script>
+
+</body>
+</html>

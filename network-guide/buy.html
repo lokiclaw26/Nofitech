@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NOFI Network Shopping List — TP-Link Mesh Upgrade — NofiTech Ind.</title>
+<style>
+  :root {
+    --bg: #0a0e14;
+    --bg-card: #11161f;
+    --bg-elev: #1a212d;
+    --border: #232c3a;
+    --text: #d6dde8;
+    --text-dim: #8b95a7;
+    --text-bright: #ffffff;
+    --accent: #4ec9b0;
+    --accent-dim: #2a6f63;
+    --red: #f48771;
+    --red-bg: #2a1414;
+    --yellow: #dcdcaa;
+    --yellow-bg: #2a2614;
+    --green: #6a9955;
+    --green-bg: #142614;
+    --blue: #569cd6;
+    --orange: #ce9178;
+    --purple: #c586c0;
+    --code-bg: #0d1117;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    font-size: 15px;
+  }
+  .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px 80px; }
+  /* Layout with sidebar */
+  .layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 32px;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+  }
+  .layout > .container { padding: 0; max-width: none; }
+  /* Header */
+  header {
+    background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 48px 24px 40px;
+    text-align: center;
+  }
+  .badge {
+    display: inline-block;
+    padding: 4px 12px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  h1 {
+    font-size: 32px;
+    color: var(--text-bright);
+    font-weight: 700;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+  }
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 15px;
+    margin-bottom: 20px;
+  }
+  .meta {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    flex-wrap: wrap;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+  .meta span strong { color: var(--accent); font-weight: 600; }
+  /* Sidebar nav */
+  .sidebar {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 18px;
+  }
+  .sidebar h3 {
+    color: var(--text-dim);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar ol, .sidebar ul {
+    list-style: none;
+    counter-reset: item;
+  }
+  .sidebar li {
+    counter-increment: item;
+    margin-bottom: 2px;
+  }
+  .sidebar a {
+    color: var(--text);
+    text-decoration: none;
+    font-size: 13px;
+    display: block;
+    padding: 6px 8px;
+    border-radius: 4px;
+    line-height: 1.4;
+    border-left: 2px solid transparent;
+    transition: all 0.15s ease;
+  }
+  .sidebar a::before {
+    content: counter(item) ". ";
+    color: var(--text-dim);
+    font-weight: 600;
+    font-size: 11px;
+  }
+  .sidebar a:hover {
+    background: var(--bg-elev);
+    color: var(--text-bright);
+    border-left-color: var(--accent);
+  }
+  .sidebar a.active {
+    color: var(--accent);
+    border-left-color: var(--accent);
+    background: var(--bg-elev);
+  }
+  /* Section */
+  section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 32px;
+    margin-bottom: 24px;
+  }
+  section h2 {
+    color: var(--text-bright);
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  section h2 .num {
+    color: var(--accent);
+    font-size: 14px;
+    background: var(--accent-dim);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-weight: 700;
+  }
+  section h3 {
+    color: var(--text-bright);
+    font-size: 17px;
+    font-weight: 600;
+    margin: 24px 0 12px;
+  }
+  section h4 {
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 600;
+    margin: 16px 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  p { margin-bottom: 12px; color: var(--text); }
+  strong { color: var(--text-bright); }
+  em { color: var(--text-bright); font-style: normal; font-weight: 500; }
+  /* TL;DR box */
+  .tldr {
+    background: linear-gradient(135deg, #0d1117 0%, #1a212d 100%);
+    border: 1px solid var(--accent);
+    border-left: 4px solid var(--accent);
+    border-radius: 6px;
+    padding: 20px 24px;
+    margin: 16px 0 24px;
+  }
+  .tldr-label {
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .tldr-text { color: var(--text-bright); font-size: 15px; line-height: 1.7; }
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 13px;
+  }
+  th {
+    background: var(--bg-elev);
+    color: var(--text-bright);
+    text-align: left;
+    padding: 10px 12px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg-elev); }
+  td code, th code {
+    font-family: 'SF Mono', Monaco, Consolas, monospace;
+    font-size: 12px;
+    color: var(--orange);
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  /* Status badges */
+  .ok { color: var(--green); font-weight: 600; }
+  .warn { color: var(--yellow); font-weight: 600; }
+  .bad { color: var(--red); font-weight: 600; }
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .pill-ok { background: var(--green-bg); color: var(--green); }
+  .pill-warn { background: var(--yellow-bg); color: var(--yellow); }
+  .pill-bad { background: var(--red-bg); color: var(--red); }
+  /* Code blocks */
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    margin: 12px 0;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  code {
+    font-family: 'SF Mono', Monaco, Consolas, monospace;
+    color: var(--orange);
+  }
+  pre code { color: var(--text); }
+  /* Lists */
+  ul, ol { margin: 12px 0 12px 24px; }
+  li { margin-bottom: 6px; color: var(--text); }
+  li::marker { color: var(--accent); }
+  /* Steps */
+  .step {
+    background: var(--bg-elev);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+  .step-num {
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .step h4 { color: var(--text-bright); margin-top: 4px; }
+  /* Callouts */
+  .callout {
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin: 14px 0;
+    border-left: 3px solid;
+  }
+  .callout-info { background: #0d1a26; border-color: var(--blue); }
+  .callout-warn { background: var(--yellow-bg); border-color: var(--yellow); }
+  .callout-danger { background: var(--red-bg); border-color: var(--red); }
+  .callout-ok { background: var(--green-bg); border-color: var(--green); }
+  .callout-title {
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+  .callout-info .callout-title { color: var(--blue); }
+  .callout-warn .callout-title { color: var(--yellow); }
+  .callout-danger .callout-title { color: var(--red); }
+  .callout-ok .callout-title { color: var(--green); }
+  /* Product cards (custom for this page) */
+  .product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin: 16px 0;
+  }
+  .product-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+  }
+  .product-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+  }
+  .product-card.featured {
+    border-color: var(--accent);
+    border-width: 2px;
+    position: relative;
+  }
+  .product-card.featured::before {
+    content: "★ NOFI PICK";
+    position: absolute;
+    top: -10px;
+    left: 14px;
+    background: var(--accent);
+    color: var(--bg);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 3px;
+    letter-spacing: 1px;
+  }
+  .product-name {
+    color: var(--text-bright);
+    font-weight: 700;
+    font-size: 15px;
+    line-height: 1.3;
+  }
+  .product-tier {
+    color: var(--text-dim);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .product-price {
+    color: var(--accent);
+    font-size: 24px;
+    font-weight: 700;
+    margin-top: 4px;
+  }
+  .product-price .list {
+    color: var(--text-dim);
+    font-size: 13px;
+    text-decoration: line-through;
+    font-weight: 400;
+    margin-left: 6px;
+  }
+  .product-price .deal {
+    color: var(--yellow);
+    font-size: 11px;
+    background: var(--yellow-bg);
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-left: 6px;
+    font-weight: 700;
+  }
+  .product-rating {
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+  .product-rating strong { color: var(--yellow); }
+  .product-features {
+    list-style: none;
+    padding: 0;
+    margin: 4px 0 8px;
+  }
+  .product-features li {
+    color: var(--text-dim);
+    font-size: 12px;
+    padding: 2px 0 2px 14px;
+    position: relative;
+  }
+  .product-features li::before {
+    content: "✓";
+    color: var(--accent);
+    position: absolute;
+    left: 0;
+    font-weight: 700;
+  }
+  .buy-btn {
+    display: inline-block;
+    background: var(--accent);
+    color: var(--bg);
+    text-decoration: none;
+    padding: 10px 14px;
+    border-radius: 5px;
+    font-weight: 700;
+    font-size: 13px;
+    text-align: center;
+    margin-top: auto;
+    transition: background 0.15s ease;
+  }
+  .buy-btn:hover { background: #5fd9c0; }
+  .buy-btn .asin {
+    display: block;
+    color: var(--bg);
+    opacity: 0.6;
+    font-size: 10px;
+    font-weight: 400;
+    margin-top: 2px;
+    font-family: 'SF Mono', Monaco, monospace;
+  }
+  /* Cart summary card */
+  .cart {
+    background: var(--bg-elev);
+    border: 2px solid var(--accent);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 16px 0;
+  }
+  .cart h3 {
+    margin-top: 0;
+    color: var(--accent);
+  }
+  .cart-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .cart-row:last-of-type { border-bottom: none; }
+  .cart-row .name { color: var(--text); }
+  .cart-row .price { color: var(--accent); font-weight: 600; font-family: 'SF Mono', Monaco, monospace; }
+  .cart-total {
+    display: flex;
+    justify-content: space-between;
+    padding-top: 14px;
+    margin-top: 8px;
+    border-top: 2px solid var(--accent);
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .cart-total .price { color: var(--accent); font-size: 22px; }
+  /* Footer */
+  footer {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 12px;
+    padding: 32px 24px;
+    border-top: 1px solid var(--border);
+    margin-top: 48px;
+  }
+  /* Print */
+  @media print {
+    body { background: white; color: black; font-size: 12pt; }
+    .sidebar { display: none; }
+    section { background: white; border: 1px solid #ccc; page-break-inside: avoid; }
+    .buy-btn { border: 1px solid #333; }
+  }
+  @media (max-width: 900px) {
+    .layout {
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+    .sidebar {
+      position: static;
+      max-height: none;
+    }
+  }
+  @media (max-width: 768px) {
+    h1 { font-size: 24px; }
+    section { padding: 20px; }
+    .container, .layout { padding: 16px; }
+    .product-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <h3>📑 Shopping List</h3>
+    <ol>
+      <li><a href="#exec">Executive Summary</a></li>
+      <li><a href="#the-plan">The Plan: Why Mesh?</a></li>
+      <li><a href="#picks">Top Picks — TP-Link Only</a></li>
+      <li><a href="#nofi-pick">My Pick &amp; Why</a></li>
+      <li><a href="#cart">Prime Day Cart</a></li>
+      <li><a href="#install">Install Plan</a></li>
+      <li><a href="#verify">Post-Install Verify</a></li>
+      <li><a href="#pro-tips">Pro Tips</a></li>
+      <li><a href="#avoid">What NOT to Buy</a></li>
+    </ol>
+    <div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--border);font-size:12px;color:var(--text-dim);">
+      🔗 Other pages:
+      <ul style="margin-top:8px;">
+        <li><a href="index.html" style="border-left:2px solid var(--border);padding-left:8px;">📋 Network Diagnostic</a></li>
+      </ul>
+    </div>
+  </aside>
+
+  <div class="container">
+
+    <header>
+      <div class="badge">NOFI · TP-Link Only · Amazon.ae</div>
+      <h1>🛒 Network Upgrade Shopping List</h1>
+      <p class="subtitle">3 routers → 1 mesh system. One SSID. Zero wobble. Fixes all 4 problems from your network guide.</p>
+      <div class="meta">
+        <span>Prices verified: <strong>2026-06-24</strong></span>
+        <span>Region: <strong>UAE</strong></span>
+        <span>Brand lock: <strong>TP-Link</strong></span>
+        <span>Source: <strong>amazon.ae</strong></span>
+      </div>
+    </header>
+
+    <!-- 1 -->
+    <section id="exec">
+      <h2><span class="num">1</span>Executive Summary</h2>
+      <div class="tldr">
+        <div class="tldr-label">TL;DR</div>
+        <p class="tldr-text">
+          You said "3 routers all at once" — the right answer in 2026 is a <strong>3-pack mesh Wi-Fi system</strong>, not 3 standalone routers. Mesh = 1 unified network name, devices auto-roam between nodes, no Asus-style bridge wobble. It replaces the C7 + Asus repeater + whatever else in one shot. <strong>TP-Link Deco is the answer because you already own TP-Link</strong> and the Deco app is the same vendor UI you already know.
+        </p>
+      </div>
+      <h4>What you actually buy</h4>
+      <ul>
+        <li><strong>One box.</strong> 3-pack of identical mesh nodes. All same brand, same SSID.</li>
+        <li><strong>One app.</strong> "TP-Link Deco" on your phone — placement heatmap, AI roaming, channel auto-pick, security updates.</li>
+        <li><strong>One config.</strong> Set SSID once (use <code>Ahmad_Not</code> to keep all your devices). Password, done.</li>
+      </ul>
+    </section>
+
+    <!-- 2 -->
+    <section id="the-plan">
+      <h2><span class="num">2</span>The Plan: Why Mesh?</h2>
+      <p>Your current topology is: <strong>Etisalat ONT → Archer C7 (router) → Asus repeater (half-bandwidth bridge)</strong>. That's why you have:</p>
+
+      <table>
+        <thead>
+          <tr><th>Your problem</th><th>Why it happens today</th><th>How mesh fixes it</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Mismatched SSIDs (<code>NoRed5</code> + <code>Ahmad_Not</code>)</td>
+            <td>C7 broadcasts one, Asus extends the other, devices see 2 networks</td>
+            <td class="ok">One SSID, all nodes broadcast same name</td>
+          </tr>
+          <tr>
+            <td>Asus "repeater" halves bandwidth</td>
+            <td>Repeater mode = single radio for send + receive</td>
+            <td class="ok">Mesh nodes negotiate dedicated backhaul (or wired)</td>
+          </tr>
+          <tr>
+            <td>Devices "stick" to weak node</td>
+            <td>Old 802.11r/k/v not enabled on C7</td>
+            <td class="ok">Deco AI roaming + 802.11k/v built in</td>
+          </tr>
+          <tr>
+            <td>ch6 (2.4 GHz) + ch157 (5 GHz) clashing</td>
+            <td>Manually set, neighbors on same channels</td>
+            <td class="ok">Mesh auto-picks least-congested channel</td>
+          </tr>
+          <tr>
+            <td>"I want 3 routers"</td>
+            <td>3 standalones = 3 separate networks + double-NAT hell</td>
+            <td class="ok">3 mesh nodes = 1 logical network, all same VLAN</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout callout-info">
+        <div class="callout-title">ℹ️ Why TP-Link specifically?</div>
+        <p>NOFI locked brand to <strong>TP-Link</strong> on 2026-06-24. Reasons that matter here: (1) you already own a TP-Link router so you keep Tether/Deco app familiarity, (2) Deco is the most-reviewed mesh brand on amazon.ae (Deco M4 alone has 2,281 ratings), (3) TP-Link has Prime Day pricing consistently.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section id="picks">
+      <h2><span class="num">3</span>Top Picks — TP-Link Only</h2>
+      <p>All prices live-pulled from amazon.ae on 2026-06-24. Sorted by "what I'd actually buy for your place".</p>
+
+      <div class="product-grid">
+
+        <div class="product-card featured">
+          <div class="product-tier">Tier 1 · Best overall</div>
+          <div class="product-name">TP-Link Deco X55 (3-pack)</div>
+          <div class="product-price">AED 279 <span class="deal">Wi-Fi 6</span></div>
+          <div class="product-rating"><strong>★★★★½</strong> Wi-Fi 6 AX3000 · Mesh</div>
+          <ul class="product-features">
+            <li>Wi-Fi 6 (802.11ax) — newer than C7 by 2 generations</li>
+            <li>AI-driven roaming + auto channel</li>
+            <li>Covers up to 6,500 sq ft (3-pack)</li>
+            <li>3× Gigabit Ethernet per node</li>
+            <li>WPA3, HomeShield security</li>
+          </ul>
+          <a class="buy-btn" href="https://www.amazon.ae/dp/B09NBHLPNQ" target="_blank" rel="noopener">
+            Buy on amazon.ae →
+            <span class="asin">B09NBHLPNQ</span>
+          </a>
+        </div>
+
+        <div class="product-card">
+          <div class="product-tier">Tier 2 · Futureproof</div>
+          <div class="product-name">TP-Link Deco BE3600 (3-pack)</div>
+          <div class="product-price">AED 865</div>
+          <div class="product-rating"><strong>★★★★★</strong> 4.4 (690) · Wi-Fi 7 mesh</div>
+          <ul class="product-features">
+            <li>Wi-Fi 7 BE3600 + MLO (multi-link operation)</li>
+            <li>2× 2.5 Gbps Ethernet per node</li>
+            <li>2-pack and 3-pack options available</li>
+            <li>AI roaming, 4K-QAM, HomeShield</li>
+            <li>Skip-proof for 5+ years</li>
+          </ul>
+          <a class="buy-btn" href="https://www.amazon.ae/dp/B0FQ5P58JY" target="_blank" rel="noopener">
+            Buy on amazon.ae →
+            <span class="asin">B0FQ5P58JY</span>
+          </a>
+        </div>
+
+        <div class="product-card">
+          <div class="product-tier">Tier 3 · Budget / proven</div>
+          <div class="product-name">TP-Link Deco S7 (3-pack)</div>
+          <div class="product-price">AED 369 <span class="list">AED 599</span></div>
+          <div class="product-rating"><strong>★★★★★</strong> 4.7 (1,588) · AC1900 mesh</div>
+          <ul class="product-features">
+            <li>AC1900 (Wi-Fi 5) — proven, reliable</li>
+            <li>Most-reviewed Deco on amazon.ae</li>
+            <li>100+ device capacity</li>
+            <li>Gigabit Ethernet per node</li>
+            <li>Save AED 230 vs list price</li>
+          </ul>
+          <a class="buy-btn" href="https://www.amazon.ae/dp/B0BBV29JXX" target="_blank" rel="noopener">
+            Buy on amazon.ae →
+            <span class="asin">B0BBV29JXX</span>
+          </a>
+        </div>
+
+        <div class="product-card">
+          <div class="product-tier">Tier 4 · Bare minimum</div>
+          <div class="product-name">TP-Link Deco M4 (3-pack)</div>
+          <div class="product-price">AED 290 <span class="deal">Prime Day</span></div>
+          <div class="product-rating"><strong>★★★★★</strong> 4.6 (2,281) · AC1200 mesh</div>
+          <ul class="product-features">
+            <li>Cheapest 3-pack that works</li>
+            <li>AC1200 — Wi-Fi 5, dated in 2026</li>
+            <li>Works, but no Wi-Fi 6 futureproofing</li>
+            <li>Prime Day Deal pricing active</li>
+            <li>Decent starter if budget is the priority</li>
+          </ul>
+          <a class="buy-btn" href="https://www.amazon.ae/dp/B07L45LZP5" target="_blank" rel="noopener">
+            Buy on amazon.ae →
+            <span class="asin">B07L45LZP5</span>
+          </a>
+        </div>
+
+      </div>
+
+      <div class="callout callout-ok">
+        <div class="callout-title">🎯 NOFI PICK — DECO X55 3-PACK</div>
+        <p>Same money as the Archer C7 was when new (AED 279). Gets you <strong>Wi-Fi 6</strong>, fixes <strong>all 4 problems</strong>, and leaves the door open to add a 4th node later if your place grows.</p>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section id="nofi-pick">
+      <h2><span class="num">4</span>My Pick &amp; Why — Deco X55 3-pack</h2>
+
+      <h3>Why this one beats the others</h3>
+      <table>
+        <thead>
+          <tr><th>Comparison</th><th>Deco M4</th><th>Deco S7</th><th><strong>Deco X55</strong></th><th>Deco BE3600</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Wi-Fi generation</td>
+            <td>Wi-Fi 5 (AC)</td>
+            <td>Wi-Fi 5 (AC)</td>
+            <td class="ok"><strong>Wi-Fi 6 (AX)</strong></td>
+            <td>Wi-Fi 7 (BE)</td>
+          </tr>
+          <tr>
+            <td>Speed</td>
+            <td>1,167 Mbps</td>
+            <td>1,900 Mbps</td>
+            <td class="ok"><strong>3,000 Mbps</strong></td>
+            <td>3,600 Mbps</td>
+          </tr>
+          <tr>
+            <td>Coverage (3-pack)</td>
+            <td>4,000 sq ft</td>
+            <td>5,500 sq ft</td>
+            <td class="ok"><strong>6,500 sq ft</strong></td>
+            <td>7,500 sq ft</td>
+          </tr>
+          <tr>
+            <td>Price</td>
+            <td>AED 290</td>
+            <td>AED 369</td>
+            <td class="ok"><strong>AED 279</strong></td>
+            <td>AED 865</td>
+          </tr>
+          <tr>
+            <td>Best for</td>
+            <td>Budget</td>
+            <td>Reliability</td>
+            <td class="ok"><strong>Sweet spot</strong></td>
+            <td>Futureproof</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>The X55 is the <strong>price/performance sweet spot</strong>. Cheaper than the S7 in real terms (when accounting for Wi-Fi 6 capabilities), cheaper than the BE3600 by 3x, and covers a UAE villa/apartment easily. YouTube, Netflix 4K, Zoom, gaming — it handles all of it.</p>
+
+      <div class="callout callout-info">
+        <div class="callout-title">ℹ️ "But Wi-Fi 7 is the future"</div>
+        <p>Yes, but: (1) no device you own supports Wi-Fi 7 yet, (2) even iPhone 15 Pro is Wi-Fi 6E max, (3) Wi-Fi 7 is a 2027-2028 story for client devices, not 2026. Don't pay 3x for a feature your phones can't use.</p>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section id="cart">
+      <h2><span class="num">5</span>Prime Day Cart — What to Buy</h2>
+
+      <div class="cart">
+        <h3>🛒 Your Cart (Prime Day 2026)</h3>
+        <div class="cart-row">
+          <span class="name">TP-Link Deco X55 (3-pack) — main mesh</span>
+          <span class="price">AED 279</span>
+        </div>
+        <div class="cart-row" style="color:var(--text-dim);">
+          <span class="name">↳ <a href="https://www.amazon.ae/dp/B09NBHLPNQ" target="_blank" rel="noopener" style="color:var(--accent);">B09NBHLPNQ</a></span>
+          <span class="price" style="color:var(--text-dim);font-size:11px;">Wi-Fi 6</span>
+        </div>
+        <div class="cart-row">
+          <span class="name">Deco wall mount 3-pack <span style="color:var(--text-dim);font-size:11px;">(optional but recommended)</span></span>
+          <span class="price">AED 110</span>
+        </div>
+        <div class="cart-row" style="color:var(--text-dim);">
+          <span class="name">↳ <a href="https://www.amazon.ae/dp/B08V8XBLV7" target="_blank" rel="noopener" style="color:var(--accent);">B08V8XBLV7</a></span>
+          <span class="price" style="color:var(--text-dim);font-size:11px;">mounts high</span>
+        </div>
+        <div class="cart-total">
+          <span>Total (no shipping, Prime)</span>
+          <span class="price">AED 389</span>
+        </div>
+      </div>
+
+      <h4>Optional add-ons</h4>
+      <table>
+        <thead>
+          <tr><th>Item</th><th>ASIN</th><th>Price</th><th>Why</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><a href="https://www.amazon.ae/dp/B08V8XBLV7" target="_blank" rel="noopener">Deco wall mounts (3-pack)</a></td>
+            <td><code>B08V8XBLV7</code></td>
+            <td>AED 110</td>
+            <td>Higher placement = better coverage</td>
+          </tr>
+          <tr>
+            <td><a href="https://www.amazon.ae/dp/B0D6DY26XL" target="_blank" rel="noopener">Heavy-duty wall mounts (aluminum)</a></td>
+            <td><code>B0D6DY26XL</code></td>
+            <td>AED 149</td>
+            <td>For Deco BE-series if you go tier-2</td>
+          </tr>
+          <tr>
+            <td><a href="https://www.amazon.ae/dp/B07L45LZP5" target="_blank" rel="noopener">Deco M4 backup 3-pack</a></td>
+            <td><code>B07L45LZP5</code></td>
+            <td>AED 290</td>
+            <td>Skip — this is the tier-4 fallback, don't double-buy</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 6 -->
+    <section id="install">
+      <h2><span class="num">6</span>Install Plan — Step by Step</h2>
+      <p>Total time: <strong>~45 minutes</strong> from "package opened" to "everything working". You need a phone with the <strong>TP-Link Deco</strong> app installed.</p>
+
+      <div class="step">
+        <div class="step-num">Step 1 · Unbox</div>
+        <h4>Open the 3-pack box</h4>
+        <p>All 3 nodes are identical. Each has: 1× Deco unit, 1× power adapter, 1× flat Ethernet cable. Pick one node to be the <strong>main</strong> — that one goes near your Etisalat/du ONT (the small box on the wall where the fiber comes in).</p>
+      </div>
+
+      <div class="step">
+        <div class="step-num">Step 2 · Connect main node</div>
+        <h4>Plug main node into ONT</h4>
+        <p>Use the included Ethernet cable: one end → ONT's LAN port, other end → main Deco's WAN port (any port will do — Deco auto-detects). Power on. Wait ~2 minutes for boot (light goes from yellow → green/blue).</p>
+      </div>
+
+      <div class="step">
+        <div class="step-num">Step 3 · App setup</div>
+        <h4>TP-Link Deco app does the rest</h4>
+        <p>Open the app, sign in / create TP-Link account, scan QR code on main node. App asks for ISP type — pick <strong>Etisalat</strong> or <strong>du</strong> (whichever you have). WAN = DHCP. Done.</p>
+      </div>
+
+      <div class="step">
+        <div class="step-num">Step 4 · Add the other 2 nodes</div>
+        <h4>Placement matters</h4>
+        <p>Plug node 2 in <strong>upstairs</strong> or in the <strong>far room</strong> from the main node. App walks you through placement: it'll tell you if signal is weak, OK, or great. Repeat for node 3. Target: signal strength <strong>"great"</strong> from each node to the main.</p>
+        <p style="color:var(--text-dim);font-size:12px;">💡 Tip: Don't put nodes directly above each other on different floors — diagonal placement reduces floor/ceiling attenuation.</p>
+      </div>
+
+      <div class="step">
+        <div class="step-num">Step 5 · Set your SSID</div>
+        <h4>Keep "Ahmad_Not"</h4>
+        <p>Set Wi-Fi name to <code>Ahmad_Not</code> — same as your current SSID. Set a strong password. WPA3 if all your devices support it, WPA2/WPA3 mixed otherwise.</p>
+      </div>
+
+      <div class="step">
+        <div class="step-num">Step 6 · Decommission old gear</div>
+        <h4>Unplug Archer C7 and Asus repeater</h4>
+        <p>Once the new mesh is up and your phone is on the new SSID with internet working, <strong>unplug the Archer C7</strong> (power + Ethernet from ONT). Then <strong>unplug the Asus repeater</strong>. Don't factory-reset yet — leave them as-is for 1 week as fallback in case something goes wrong.</p>
+      </div>
+
+      <div class="step">
+        <div class="step-num">Step 7 · Wait for migration</div>
+        <h4>30 minutes, that's it</h4>
+        <p>Because you kept the SSID name, all your devices will <strong>automatically reconnect</strong> to the new mesh. Some may need a toggle (turn Wi-Fi off/on once). Phones, laptops, smart home devices, TVs — they all figure it out within ~30 min.</p>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="verify">
+      <h2><span class="num">7</span>Post-Install Verification</h2>
+      <p>Run through this checklist after the install. If any item fails, check the troubleshooting section below.</p>
+
+      <ul class="checklist">
+        <li><input type="checkbox" id="buy-v1"><label>Phone connects to <code>Ahmad_Not</code> without re-entering password</label></li>
+        <li><input type="checkbox" id="buy-v2"><label>Laptop gets internet at the same speed as the wired ONT (within 20%)</label></li>
+        <li><input type="checkbox" id="buy-v3"><label>Walk to the <strong>far room</strong> with phone — Wi-Fi bars stay full</label></li>
+        <li><input type="checkbox" id="buy-v4"><label>Deco app shows 3 nodes, all "Connected" with green status</label></li>
+        <li><input type="checkbox" id="buy-v5"><label>Deco app "Test Mesh" reports "Great" for all node-to-node links</label></li>
+        <li><input type="checkbox" id="buy-v6"><label>5 GHz connection shows up on phone Wi-Fi details (not just 2.4 GHz)</label></li>
+        <li><input type="checkbox" id="buy-v7"><label>Run <code>speedtest.net</code> from phone — speed within 10% of your plan's advertised speed</label></li>
+        <li><input type="checkbox" id="buy-v8"><label>Asus repeater power LED is OFF</label></li>
+        <li><input type="checkbox" id="buy-v9"><label>Archer C7 power LED is OFF (and ONT is now connected only to Deco)</label></li>
+        <li><input type="checkbox" id="buy-v10"><label>1 week later: factory-reset C7 + Asus and box them</label></li>
+      </ul>
+
+      <h4>Quick troubleshooting</h4>
+      <ul>
+        <li><strong>"Phone won't connect to Ahmad_Not"</strong> → Forget the network on phone, re-add manually with password</li>
+        <li><strong>"5 GHz shows 2.4 GHz only"</strong> → Device is too old for 5 GHz, or stuck on 2.4 — toggle Wi-Fi off/on</li>
+        <li><strong>"Speed is slow in far room"</strong> → Node is too far. Move it closer to main or add a 4th Deco node (X55 supports it)</li>
+        <li><strong>"Deco app says weak signal between nodes"</strong> → Move nodes closer, or connect them via Ethernet if you have in-wall wiring</li>
+      </ul>
+    </section>
+
+    <!-- 8 -->
+    <section id="pro-tips">
+      <h2><span class="num">8</span>Pro Tips From the Network Diagnostic Guide</h2>
+
+      <h4>🏠 Placement</h4>
+      <ul>
+        <li>Place nodes on <strong>inner walls</strong>, not exterior masonry (UAE villas have lots of concrete — kills signal)</li>
+        <li><strong>Don't hide nodes in cupboards</strong> or behind TVs — WiFi hates enclosed spaces</li>
+        <li>Aim for nodes at <strong>chest height or higher</strong> (wall mounts help)</li>
+      </ul>
+
+      <h4>🔌 Wired backhaul = best performance</h4>
+      <p>If you have Ethernet cabling in your walls (Cat5e or better), connect nodes 2 and 3 <strong>via Ethernet</strong> instead of relying on wireless mesh. This turns the mesh into a "wired backbone + wireless access" setup — fastest possible.</p>
+
+      <h4>📱 Use the Deco app, not the web UI</h4>
+      <p>Deco is managed <strong>100% from the app</strong>. The web UI is minimal. Install the app, enable notifications, and let it auto-update firmware.</p>
+
+      <h4>🔒 Security</h4>
+      <ul>
+        <li>Enable <strong>WPA3</strong> in Deco app if all your devices support it (most 2019+ do)</li>
+        <li>Set a <strong>guest SSID</strong> for visitors (different password, isolated from main)</li>
+        <li>Turn on <strong>HomeShield</strong> if available — built-in malware/phishing filter</li>
+        <li>Change the <strong>admin password</strong> from default (the app walks you through it)</li>
+      </ul>
+
+      <div class="callout callout-warn">
+        <div class="callout-title">⚠️ Do NOT enable "Bridge Mode" unless you know why</div>
+        <p>If you put the Deco in bridge mode you lose half its features (AI roaming, security, parental controls). Leave it in <strong>Router Mode</strong> — that's the default.</p>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="avoid">
+      <h2><span class="num">9</span>What NOT to Buy</h2>
+      <p>These are options that look tempting but will leave you with the same problems you have today.</p>
+
+      <table>
+        <thead>
+          <tr><th>Avoid this</th><th>Why</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>3× standalone routers</strong> (e.g., 3× Archer C7)</td>
+            <td class="bad">3 separate networks, double-NAT hell, no roaming. Same problem you have today but worse.</td>
+          </tr>
+          <tr>
+            <td><strong>1 router + 2 repeaters</strong> (any brand)</td>
+            <td class="bad">Repeaters halve bandwidth on their segment. Mesh > repeater, always.</td>
+          </tr>
+          <tr>
+            <td><strong>Asus / Netgear / Google Nest Wi-Fi</strong></td>
+            <td class="bad">NOFI locked brand to TP-Link. Different UI = learning curve.</td>
+          </tr>
+          <tr>
+            <td><strong>Wi-Fi 7 (Deco BE3600) "for futureproof"</strong></td>
+            <td class="warn">3× the price for a feature your devices can't use yet. Re-evaluate in 2027.</td>
+          </tr>
+          <tr>
+            <td><strong>AX10 / AX23 / C24 (entry Wi-Fi 6)</strong></td>
+            <td class="warn">Same class as your current C7 — won't actually fix anything.</td>
+          </tr>
+          <tr>
+            <td><strong>2.4 GHz-only "smart home" routers</strong></td>
+            <td class="bad">You need 5 GHz. Period.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout callout-danger">
+        <div class="callout-title">🚫 Do NOT mix brands in a "mesh"</div>
+        <p>EasyMesh is a standard, but in practice cross-brand mesh is buggy. Stick to <strong>one brand, one product line</strong>. All Deco nodes work together. Mixing Deco + Asus doesn't.</p>
+      </div>
+    </section>
+
+    <footer>
+      <p>Built by <strong style="color:var(--accent)">Thor</strong> for <strong style="color:var(--accent)">NOFI</strong> · NofiTech Ind. · 2026-06-24</p>
+      <p style="margin-top:8px">Served from <code>http://192.168.0.50:9000/buy.html</code> · Local network only · Prices from amazon.ae Prime Day 2026</p>
+      <p style="margin-top:8px;font-size:11px;"><a href="index.html" style="color:var(--accent);text-decoration:none;">← Back to Network Diagnostic Guide</a></p>
+    </footer>
+
+  </div><!-- /.container (main column) -->
+
+</div><!-- /.layout -->
+
+<script>
+  // Smooth scroll for sidebar links
+  document.querySelectorAll('.sidebar a').forEach(link => {
+    link.addEventListener('click', e => {
+      const href = link.getAttribute('href') || '';
+      if (!href.startsWith('#')) return; // external link, let browser handle
+      e.preventDefault();
+      const id = href.slice(1);
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        history.pushState(null, '', '#' + id);
+        document.querySelectorAll('.sidebar a').forEach(a => {
+          if (a.getAttribute('href') && a.getAttribute('href').startsWith('#')) {
+            a.classList.remove('active');
+          }
+        });
+        link.classList.add('active');
+      }
+    });
+  });
+
+  // Highlight active section on scroll
+  const sections = document.querySelectorAll('section[id]');
+  const sidebarLinks = document.querySelectorAll('.sidebar a[href^="#"]');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = entry.target.id;
+        sidebarLinks.forEach(a => {
+          a.classList.toggle('active', a.getAttribute('href') === '#' + id);
+        });
+      }
+    });
+  }, { rootMargin: '-30% 0px -60% 0px' });
+  sections.forEach(s => observer.observe(s));
+
+  // Save checklist state to localStorage (page-specific)
+  document.querySelectorAll('.checklist input[type="checkbox"]').forEach(box => {
+    const key = 'nofitech-buy-' + box.id;
+    box.checked = localStorage.getItem(key) === '1';
+    box.addEventListener('change', () => {
+      localStorage.setItem(key, box.checked ? '1' : '0');
+    });
+  });
+</script>
+
+</body>
+</html>

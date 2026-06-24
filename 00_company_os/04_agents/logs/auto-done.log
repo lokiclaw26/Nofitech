@@ -7003,3 +7003,363 @@ kanban-auto-done: [2026-06-24T09:42:48+04:00] === auto-done tick end moved=0 ded
 kanban-auto-done: [2026-06-24T09:44:48+04:00] === auto-done tick start ===
 kanban-auto-done: [2026-06-24T09:44:48+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
 kanban-auto-done: [2026-06-24T09:46:48+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T09:46:48+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T09:48:48+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T09:48:48+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T09:50:48+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T09:50:48+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T09:52:48+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T09:52:48+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T09:54:48+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T09:54:48+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T09:56:48+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T09:56:48+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T09:58:48+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T09:58:48+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:00:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:00:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:02:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:02:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:04:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:04:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:06:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:06:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:08:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:08:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:10:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:10:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:12:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:12:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:14:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:14:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:16:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:16:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:18:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:18:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:20:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:20:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:22:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:22:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:24:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:24:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:26:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:26:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:28:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:28:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:30:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:30:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:32:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:32:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:34:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:34:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:36:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:36:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:38:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:38:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:40:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:40:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:42:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:42:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:44:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:44:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:46:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:46:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:48:49+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:48:49+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:50:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:50:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:52:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:52:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:54:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:54:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:56:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:56:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T10:58:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T10:58:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:00:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:00:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:02:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:02:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:04:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:04:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:06:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:06:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:08:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:08:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:10:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:10:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:12:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:12:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:14:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:14:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:16:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:16:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:18:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:18:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:20:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:20:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:22:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:22:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:24:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:24:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:26:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:26:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:28:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:28:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:30:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:30:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:32:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:32:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:34:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:34:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:36:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:36:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:38:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:38:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:40:50+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:40:50+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:42:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:42:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:44:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:44:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:46:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:46:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:48:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:48:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:50:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:50:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:52:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:52:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:54:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:54:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:56:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:56:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T11:58:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T11:58:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:00:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:00:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:02:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:02:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:04:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:04:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:06:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:06:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:08:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:08:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:10:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:10:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:12:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:12:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:14:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:14:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:16:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:16:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:18:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:18:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:20:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:20:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:22:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:22:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:24:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:24:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:26:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:26:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:28:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:28:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:30:51+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:30:51+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:32:52+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:32:52+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:34:52+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:34:52+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:36:52+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:36:52+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:38:52+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:38:52+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:40:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:40:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:42:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:42:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:44:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:44:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:46:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:46:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:48:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:48:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:50:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:50:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:52:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:52:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:54:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:54:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:56:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:56:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T12:58:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T12:58:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:00:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:00:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:02:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:02:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:04:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:04:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:06:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:06:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:08:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:08:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:10:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:10:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:12:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:12:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:14:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:14:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:16:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:16:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:18:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:18:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:20:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:20:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:22:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:22:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:24:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:24:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:26:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:26:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:28:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:28:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:30:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:30:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:32:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:32:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:34:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:34:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:36:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:36:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:38:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:38:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:40:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:40:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:42:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:42:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:44:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:44:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:46:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:46:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:48:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:48:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:50:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:50:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:52:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:52:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:54:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:54:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:56:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:56:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T13:58:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T13:58:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:00:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:00:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:02:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:02:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:04:55+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:04:55+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:06:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:06:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:08:55+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:08:55+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:10:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:10:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:12:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:12:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:14:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:14:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:16:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:16:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:18:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:18:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:20:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:20:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:22:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:22:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:24:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:24:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:26:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:26:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:28:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:28:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:30:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:30:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:32:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:32:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:34:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:34:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:36:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:36:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:38:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:38:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:40:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:40:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:42:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:42:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:44:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:44:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:46:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:46:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:48:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:48:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:50:53+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:50:53+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:52:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:52:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:54:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:54:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:56:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:56:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T14:58:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T14:58:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T15:00:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T15:00:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T15:02:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T15:02:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T15:04:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T15:04:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T15:06:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T15:06:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T15:08:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T15:08:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T15:10:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T15:10:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T15:12:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T15:12:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T15:14:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T15:14:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T15:16:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T15:16:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T15:18:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T15:18:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T15:20:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T15:20:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T15:22:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T15:22:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T15:24:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T15:24:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T15:26:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T15:26:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T15:28:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T15:28:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T15:30:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T15:30:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T15:32:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T15:32:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T15:34:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T15:34:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T15:36:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T15:36:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T15:38:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T15:38:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T15:40:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T15:40:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T15:42:54+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T15:42:54+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T15:44:55+04:00] === auto-done tick start ===
+kanban-auto-done: [2026-06-24T15:44:55+04:00] === auto-done tick end moved=0 dedup=0 pid=0 errors=0 ===
+kanban-auto-done: [2026-06-24T15:46:55+04:00] === auto-done tick start ===
