@@ -513,14 +513,15 @@
 <div class="layout">
 
   <aside class="sidebar">
-    <h3>📑 Shopping List</h3>
+    <h3>📑 Plan & Reference</h3>
     <ol>
       <li><a href="#exec">Executive Summary</a></li>
-      <li><a href="#the-plan">The Plan: Why Mesh?</a></li>
-      <li><a href="#picks">Top Picks — TP-Link Only</a></li>
+      <li><a href="#fixes">🆕 1.5 Try These 5 Fixes First</a></li>
+      <li><a href="#the-plan">If Fixes Fail — Why Mesh</a></li>
+      <li><a href="#picks">Top Picks (Fallback)</a></li>
       <li><a href="#nofi-pick">My Pick &amp; Why</a></li>
-      <li><a href="#cart">Prime Day Cart</a></li>
-      <li><a href="#iot-setup">🆕 IoT Setup (2.4 GHz)</a></li>
+      <li><a href="#cart">Cart — Ready Reference</a></li>
+      <li><a href="#iot-setup">IoT Setup (2.4 GHz)</a></li>
       <li><a href="#install">Install Plan</a></li>
       <li><a href="#verify">Post-Install Verify</a></li>
       <li><a href="#pro-tips">Pro Tips</a></li>
@@ -565,24 +566,119 @@
     <section id="exec">
       <h2><span class="num">1</span>Executive Summary</h2>
       <div class="tldr">
-        <div class="tldr-label">TL;DR — Tomorrow (25 Jun) IoT-Safe Build</div>
+        <div class="tldr-label">TL;DR — Try Fix-First, Buy Mesh Only If It Doesn't Improve</div>
         <p class="tldr-text">
-          You're upgrading your whole network because the C7 + Asus bridge is dying. You have a fleet of <strong>2.4 GHz-only IoT devices</strong> (cameras, ESP32 microcontrollers, Tuya sensors) and you need delivery <strong>tomorrow</strong>. After re-scraping amazon.ae today (24 Jun 2026), here is the truth: <strong style="color:#f59e0b">tri-band is the right answer — the BE14000 (Deco BE68) at AED 879 delivers tomorrow with 3 left in stock.</strong> It uses a dedicated 6 GHz radio for mesh backhaul, which leaves both 2.4 GHz and 5 GHz radios 100% free for your IoT fleet. <strong>The XE75 Pro (1,225) I recommended in v2 does NOT deliver tomorrow — only 27–28 Jun.</strong> Three other tomorrow-delivery options ranked below, plus a budget fallback if 4× the cost doesn't fit.
+          Your symptom: <strong>speed inconsistency on phones / tablets / TV</strong>. Not coverage, not IoT drops. NOFI plan (locked 2026-06-24): <strong style="color:#10b981">spend 1–2 hours tonight + this weekend trying the fixes in §1.5 below first. Only buy the mesh if speed is still inconsistent after all of them.</strong> The mesh picks in §3 are now a <em>ready reference</em>, not a today-buy. If you do end up buying, the <strong style="color:#f59e0b">BE14000 (Deco BE68) at AED 879 is the new top pick</strong> — tri-band Wi-Fi 7, 3 left, delivers tomorrow if you decide.
         </p>
       </div>
-      <h4>What you actually buy</h4>
+      <h4>What you'll try first (in order, this page)</h4>
       <ul>
-        <li><strong>One box.</strong> 3-pack of identical mesh nodes. All same brand, same SSID.</li>
-        <li><strong>One app.</strong> "TP-Link Deco" on your phone — placement heatmap, AI roaming, channel auto-pick, security updates.</li>
-        <li><strong>One config.</strong> Set SSID once (use <code>Ahmad_Not</code> to keep all your devices). Password, done.</li>
-        <li><strong>Tri-band if you can.</strong> Dedicated backhaul radio = your 2.4 GHz cameras and ESP32s never share air with the mesh.</li>
+        <li><strong>Fix #1 — Single SSID (15 min).</strong> Set Asus repeater to extend <code>NoRed5</code>, not its own SSID. Eliminates "stuck to weak node" problem.</li>
+        <li><strong>Fix #2 — Move Asus off ch6 (5 min).</strong> 2.4 GHz channel 6 has a strong neighbor. Pick 1, 11, or use Auto.</li>
+        <li><strong>Fix #3 — Restart order (10 min).</strong> Etisalat ONT → wait 2 min → C7 → wait 2 min → Asus. Cures 80% of "random slowness".</li>
+        <li><strong>Fix #4 — Ethernet the Asus bridge (30 min).</strong> If you can run a cable from C7 to Asus, full bandwidth recovered. Game-changer.</li>
+        <li><strong>Fix #5 — Test speed before/after each fix.</strong> Use <a href="https://www.speedtest.net" target="_blank">speedtest.net</a> from each device. Need 3 consecutive tests ≥30 Mbps to call it "fixed".</li>
       </ul>
+
+      <div class="callout callout-warn">
+        <div class="callout-title">⚠ When to give up and buy the mesh</div>
+        <p>After Fix #1–5, if you still see <strong>phones/tablets/TV on inconsistent speed (any single speedtest &lt;30 Mbps on a device that gets &gt;80 Mbps at other times)</strong>, buy the BE14000 from §3. The mesh fixes root-cause (Asus repeater halves bandwidth + 2 SSIDs cause roaming bugs); tweaking the C7+Asus setup is a workaround.</p>
+      </div>
+    </section>
+
+    <!-- 1.5 -->
+    <section id="fixes">
+      <h2><span class="num">1.5</span>Try This First — 5 Fixes Before You Buy Mesh</h2>
+      <p>NOFI's plan is to try these with your existing hardware (C7 + Asus) before buying anything. Each fix is ~5–30 min. Run a <strong>speedtest on phone/tablet/TV before each fix</strong>, write down the number, then test again after. If after all 5 fixes the speed is still inconsistent, you have proof the hardware is the limit and the mesh buys you real improvement.</p>
+
+      <h3>Fix #1 — Single SSID on Asus repeater (15 min) — <em>biggest bang for the buck</em></h3>
+      <div class="callout callout-info">
+        <div class="callout-title">Why this matters</div>
+        <p>Your current setup: C7 broadcasts <code>NoRed5</code>, Asus broadcasts <code>Ahmad_Not</code>. Devices see <strong>2 different networks with 2 different passwords</strong>. They "stick" to whichever connected first even when the other has better signal — that's your "sometimes slow, sometimes fast" symptom right there.</p>
+      </div>
+      <ol>
+        <li>Connect a laptop to Asus on <code>Ahmad_Not</code> network.</li>
+        <li>Open browser to <code>192.168.1.1</code> or <code>router.asus.com</code> (Asus admin page).</li>
+        <li>Find the <strong>Wireless</strong> or <strong>Repeater mode</strong> setting.</li>
+        <li>Change Asus SSID to <code>NoRed5</code> (exact same as C7, same password).</li>
+        <li>Save + Asus reboots (~60 sec).</li>
+        <li><strong>Test:</strong> All phones/tablets/TV should auto-roam between C7 and Asus now. Walk around with phone, run speedtest — should NOT see drops when leaving one room.</li>
+      </ol>
+      <p><em>NOFI safety:</em> don't change C7 SSID, only change Asus. Keep password identical.</p>
+
+      <h3>Fix #2 — Move Asus off channel 6 (5 min)</h3>
+      <div class="callout callout-warn">
+        <div class="callout-title">Channel 6 is congested</div>
+        <p>From your earlier scan: neighbors are loud on channel 6 in your area. Your Asus is on ch6 = sharing air with them. 2.4 GHz has only 3 non-overlapping channels (1, 6, 11) — pick <strong>1 or 11</strong>, not 6.</p>
+      </div>
+      <ol>
+        <li>Open Asus admin (<code>router.asus.com</code>) → <strong>Wireless → 2.4 GHz → Channel</strong>.</li>
+        <li>Change from ch6 → ch1 or ch11.</li>
+        <li>Save + reboot Asus.</li>
+        <li><strong>Test:</strong> Speedtest next to Asus — should be ~20–40% faster if neighbors were the bottleneck.</li>
+      </ol>
+
+      <h3>Fix #3 — Restart order (10 min)</h3>
+      <p>Stale sessions, half-broken mesh connections, DHCP table overflow — all cause "random slowness". Power-cycling in the right order cures 80% of these.</p>
+      <ol>
+        <li>Power OFF everything: ONT, C7, Asus, plus any switches.</li>
+        <li>Wait 60 seconds (lets capacitors discharge, ARP cache flush).</li>
+        <li>Power ON Etisalat ONT first. Wait <strong>2 minutes</strong> for fiber sync (green PON light stable).</li>
+        <li>Power ON C7. Wait <strong>2 minutes</strong> for full boot.</li>
+        <li>Power ON Asus last. Wait <strong>1 minute</strong>.</li>
+        <li>Power ON any switches/access points after that.</li>
+        <li><strong>Test:</strong> Speedtest from 3 different devices. If they're all suddenly consistent, the issue was stale state — schedule a weekly Saturday reboot.</li>
+      </ol>
+
+      <h3>Fix #4 — Ethernet the Asus bridge (30 min) — <em>if you can run a cable</em></h3>
+      <div class="callout callout-ok">
+        <div class="callout-title">🎯 This is the real fix</div>
+        <p>The Asus is currently in <strong>repeater mode</strong> = single radio for send+receive, halves bandwidth. If you run an <strong>Ethernet cable from C7 to Asus</strong> and put Asus in <strong>Access Point (AP) mode</strong>, you recover the full bandwidth and the slowness disappears for good. Cheaper than mesh, but requires physical cable.</p>
+      </div>
+      <ol>
+        <li>Get a Cat6 Ethernet cable long enough (10m / 15m from amazon.ae ~AED 25–40).</li>
+        <li>Plug one end into any LAN port on C7.</li>
+        <li>Plug other end into Asus WAN port (not LAN).</li>
+        <li>In Asus admin, switch mode from <strong>Repeater</strong> → <strong>Access Point</strong>.</li>
+        <li>Set Asus SSID = same as C7 (<code>NoRed5</code>), same password.</li>
+        <li>Place Asus wherever Wi-Fi is weak (currently ~half-house).</li>
+        <li><strong>Test:</strong> Speedtest near Asus should now match wired speed (~80–100 Mbps), not half that.</li>
+      </ol>
+      <p><em>If you can't run a cable</em> (rental, walls too thick, etc.) — this is where the mesh wins. See §3.</p>
+
+      <h3>Fix #5 — Test speed before/after each fix</h3>
+      <ol>
+        <li>Install <a href="https://www.speedtest.net" target="_blank" rel="noopener">speedtest.net</a> app on phone + tablet + TV (if smart TV).</li>
+        <li><strong>Baseline</strong>: run speedtest 3 times on each device, write down. Note the time + device + result.</li>
+        <li>Apply each fix above, test again after each one. Same room, same time of day if possible.</li>
+        <li><strong>"Fixed" criteria</strong>: every device consistently ≥30 Mbps AND the spread between min/max is &lt;50%.</li>
+      </ol>
+
+      <h3>What success looks like</h3>
+      <div class="callout callout-ok">
+        <div class="callout-title">✅ You're done if...</div>
+        <ul>
+          <li>Phone in living room: 60–100 Mbps consistently</li>
+          <li>Tablet in bedroom: 40–70 Mbps consistently</li>
+          <li>TV in bedroom streaming 4K: works without buffering</li>
+          <li>Walk around house with phone: speed doesn't drop when changing rooms (roaming works)</li>
+        </ul>
+      </div>
+      <div class="callout callout-warn">
+        <div class="callout-title">🛒 You need the mesh if...</div>
+        <ul>
+          <li>After all 5 fixes, any device still shows &lt;30 Mbps sometimes (even after speedtest shows 80+ Mbps at other times)</li>
+          <li>Walk-test shows phone "sticking" to a weak node for &gt;10 seconds before roaming</li>
+          <li>4K streaming buffers even when close to router</li>
+        </ul>
+        <p>If yes → buy BE14000 from §3 (AED 879, 3 left, delivers tomorrow).</p>
+      </div>
     </section>
 
     <!-- 2 -->
     <section id="the-plan">
-      <h2><span class="num">2</span>The Plan: Why Mesh?</h2>
-      <p>Your current topology is: <strong>Etisalat ONT → Archer C7 (router) → Asus repeater (half-bandwidth bridge)</strong>. That's why you have:</p>
+      <h2><span class="num">2</span>If Fixes Don't Work — Why Mesh Beats C7+Asus</h2>
+      <p>Your current topology is: <strong>Etisalat ONT → Archer C7 (router) → Asus repeater (half-bandwidth bridge)</strong>. After trying the 5 fixes above, if speed is still inconsistent, here's why mesh wins — and what specifically changes:</p>
 
       <table>
         <thead>
@@ -618,8 +714,9 @@
       </table>
 
       <div class="callout callout-info">
-        <div class="callout-title">ℹ️ Why TP-Link specifically?</div>
-        <p>NOFI locked brand to <strong>TP-Link</strong> on 2026-06-24. Reasons that matter here: (1) you already own a TP-Link router so you keep Tether/Deco app familiarity, (2) Deco is the most-reviewed mesh brand on amazon.ae (Deco M4 alone has 2,281 ratings), (3) TP-Link has Prime Day pricing consistently.</p>
+        <div class="callout-title">ℹ️ Important: Mesh is fallback, not first choice</div>
+        <p><strong>Fix #4 (Ethernet cable from C7 to Asus + AP mode) achieves the same outcome as mesh for ~AED 30 in cabling</strong> — assuming you can run a Cat6 cable between the two. Mesh is the answer only when you <em>can't</em> run that cable. Spend the AED 879 on BE14000 only after Fix #4 fails (e.g., rental, can't drill, walls too thick).</p>
+        <p style="margin-top:8px;">Why TP-Link specifically (NOFI locked 2026-06-24): (1) you already own a TP-Link router so you keep Tether/Deco app familiarity, (2) Deco is the most-reviewed mesh brand on amazon.ae (Deco M4 alone has 2,281 ratings), (3) HomeShield IoT device isolation.</p>
       </div>
     </section>
 
