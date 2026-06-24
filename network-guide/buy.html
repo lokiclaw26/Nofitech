@@ -428,6 +428,20 @@
     margin-top: 2px;
     font-family: 'SF Mono', Monaco, monospace;
   }
+  /* Pills (badges inside list items) */
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    vertical-align: middle;
+  }
+  .pill-ok   { background: #1b3d2e; color: #5fd9c0; }
+  .pill-warn { background: #3d2e1b; color: #f0b85f; }
+  .pill-err  { background: #3d1b1b; color: #f05f5f; }
   /* Cart summary card */
   .cart {
     background: var(--bg-elev);
@@ -506,6 +520,7 @@
       <li><a href="#picks">Top Picks — TP-Link Only</a></li>
       <li><a href="#nofi-pick">My Pick &amp; Why</a></li>
       <li><a href="#cart">Prime Day Cart</a></li>
+      <li><a href="#iot-setup">🆕 IoT Setup (2.4 GHz)</a></li>
       <li><a href="#install">Install Plan</a></li>
       <li><a href="#verify">Post-Install Verify</a></li>
       <li><a href="#pro-tips">Pro Tips</a></li>
@@ -524,14 +539,27 @@
     <header>
       <div class="badge">NOFI · TP-Link Only · Amazon.ae</div>
       <h1>🛒 Network Upgrade Shopping List</h1>
-      <p class="subtitle">3 routers → 1 mesh system. One SSID. Zero wobble. Fixes all 4 problems from your network guide.</p>
+      <p class="subtitle">3 routers → 1 mesh system. One SSID. Zero wobble. <strong style="color:var(--accent)">IoT-friendly (2.4 GHz cameras, sensors, microcontrollers).</strong></p>
       <div class="meta">
         <span>Prices verified: <strong>2026-06-24</strong></span>
         <span>Region: <strong>UAE</strong></span>
         <span>Brand lock: <strong>TP-Link</strong></span>
         <span>Source: <strong>amazon.ae</strong></span>
+        <span>Your gear: <strong>cameras + microcontrollers on 2.4 GHz</strong></span>
       </div>
     </header>
+
+    <div style="max-width:1100px;margin:24px auto 0;padding:0 24px;">
+      <div class="callout callout-warn">
+        <div class="callout-title">⚠️ NOFI flag — IoT reality check (added 2026-06-24)</div>
+        <p>You said you have <strong>lots of sensors, microcontrollers, and security cameras</strong> — almost all of those only support <strong>2.4 GHz</strong>. A <strong>dual-band</strong> mesh (X55, X50, BE3600) uses one radio for mesh backhaul, which can choke your 2.4 GHz IoT gear when there's lots of node-to-node traffic. <strong>For your house, pick tri-band or powerline-backhaul instead</strong>:</p>
+        <ul style="margin-top:8px;">
+          <li><strong>Tri-band</strong> (XE75 Pro): dedicated 6 GHz radio for node-to-node, 2.4 + 5 GHz 100% free for your devices</li>
+          <li><strong>Powerline backhaul</strong> (P9): mesh traffic uses electrical wiring instead of WiFi radios, WiFi bands stay free</li>
+        </ul>
+        <p style="margin-top:8px;margin-bottom:0;">Both are listed as <span class="pill pill-ok">★ IO FRIENDLY</span> below. The X55 is still in the list but marked — only buy it if you're not really doing IoT yet.</p>
+      </div>
+    </div>
 
     <!-- 1 -->
     <section id="exec">
@@ -602,7 +630,43 @@
       <div class="product-grid">
 
         <div class="product-card featured">
-          <div class="product-tier">Tier 1 · Best overall</div>
+          <div class="product-tier">★ Tier 1 · IoT-safe pick</div>
+          <div class="product-name">TP-Link Deco XE75 Pro (3-pack)</div>
+          <div class="product-price">AED 1,225 <span class="deal">Tri-band Wi-Fi 6E</span></div>
+          <div class="product-rating"><strong>★★★★½</strong> 4.5 (332) · AXE5400 Tri-Band</div>
+          <ul class="product-features">
+            <li><strong>True tri-band</strong> — 6 GHz radio for mesh backhaul, 2.4 + 5 GHz 100% free for your IoT/devices</li>
+            <li>Wi-Fi 6E (802.11ax) — 5,400 Mbps aggregate</li>
+            <li>Covers up to 7,200 sq ft (3-pack)</li>
+            <li>Up to <strong>200 devices</strong> supported (cameras + sensors + mics)</li>
+            <li>HomeShield IoT security — device isolation for cameras</li>
+          </ul>
+          <a class="buy-btn" href="https://www.amazon.ae/dp/B0BBV18ZD4" target="_blank" rel="noopener">
+            Buy on amazon.ae →
+            <span class="asin">B0BBV18ZD4 · Only 3 left</span>
+          </a>
+        </div>
+
+        <div class="product-card featured">
+          <div class="product-tier">★ Tier 1 alt · IoT-safe via powerline</div>
+          <div class="product-name">TP-Link Deco P9 (3-pack)</div>
+          <div class="product-price">AED 699</div>
+          <div class="product-rating"><strong>★★★★½</strong> 4.3 (2,396) · AC1200 + Powerline</div>
+          <ul class="product-features">
+            <li><strong>Powerline backhaul</strong> — mesh traffic uses your house wiring, WiFi radios stay 100% free for devices</li>
+            <li>Penetrates thick UAE villa walls (no signal loss between nodes)</li>
+            <li>Wi-Fi AC1200 (Wi-Fi 5) — dated but fine for IoT cameras</li>
+            <li>2× Gigabit Ethernet per node</li>
+            <li>Most-reviewed TP-Link mesh on amazon.ae (2,719+ reviews)</li>
+          </ul>
+          <a class="buy-btn" href="https://www.amazon.ae/dp/B07XY7WJ4W" target="_blank" rel="noopener">
+            Buy on amazon.ae →
+            <span class="asin">B07XY7WJ4W · Only 4 left</span>
+          </a>
+        </div>
+
+        <div class="product-card">
+          <div class="product-tier">Tier 2 · Budget Wi-Fi 6</div>
           <div class="product-name">TP-Link Deco X55 (3-pack)</div>
           <div class="product-price">AED 279 <span class="deal">Wi-Fi 6</span></div>
           <div class="product-rating"><strong>★★★★½</strong> Wi-Fi 6 AX3000 · Mesh</div>
@@ -611,7 +675,7 @@
             <li>AI-driven roaming + auto channel</li>
             <li>Covers up to 6,500 sq ft (3-pack)</li>
             <li>3× Gigabit Ethernet per node</li>
-            <li>WPA3, HomeShield security</li>
+            <li><span class="pill pill-warn">⚠ Dual-band — 2.4 GHz may share with backhaul under load</span></li>
           </ul>
           <a class="buy-btn" href="https://www.amazon.ae/dp/B09NBHLPNQ" target="_blank" rel="noopener">
             Buy on amazon.ae →
@@ -620,16 +684,15 @@
         </div>
 
         <div class="product-card">
-          <div class="product-tier">Tier 2 · Futureproof</div>
+          <div class="product-tier">Tier 3 · Futureproof (Wi-Fi 7)</div>
           <div class="product-name">TP-Link Deco BE3600 (3-pack)</div>
           <div class="product-price">AED 865</div>
           <div class="product-rating"><strong>★★★★★</strong> 4.4 (690) · Wi-Fi 7 mesh</div>
           <ul class="product-features">
             <li>Wi-Fi 7 BE3600 + MLO (multi-link operation)</li>
             <li>2× 2.5 Gbps Ethernet per node</li>
-            <li>2-pack and 3-pack options available</li>
             <li>AI roaming, 4K-QAM, HomeShield</li>
-            <li>Skip-proof for 5+ years</li>
+            <li><span class="pill pill-warn">⚠ Dual-band Wi-Fi 7 — 2.4 GHz still shares with backhaul</span></li>
           </ul>
           <a class="buy-btn" href="https://www.amazon.ae/dp/B0FQ5P58JY" target="_blank" rel="noopener">
             Buy on amazon.ae →
@@ -638,7 +701,7 @@
         </div>
 
         <div class="product-card">
-          <div class="product-tier">Tier 3 · Budget / proven</div>
+          <div class="product-tier">Tier 4 · Budget / proven</div>
           <div class="product-name">TP-Link Deco S7 (3-pack)</div>
           <div class="product-price">AED 369 <span class="list">AED 599</span></div>
           <div class="product-rating"><strong>★★★★★</strong> 4.7 (1,588) · AC1900 mesh</div>
@@ -656,7 +719,7 @@
         </div>
 
         <div class="product-card">
-          <div class="product-tier">Tier 4 · Bare minimum</div>
+          <div class="product-tier">Tier 5 · Bare minimum</div>
           <div class="product-name">TP-Link Deco M4 (3-pack)</div>
           <div class="product-price">AED 290 <span class="deal">Prime Day</span></div>
           <div class="product-rating"><strong>★★★★★</strong> 4.6 (2,281) · AC1200 mesh</div>
@@ -676,80 +739,118 @@
       </div>
 
       <div class="callout callout-ok">
-        <div class="callout-title">🎯 NOFI PICK — DECO X55 3-PACK</div>
-        <p>Same money as the Archer C7 was when new (AED 279). Gets you <strong>Wi-Fi 6</strong>, fixes <strong>all 4 problems</strong>, and leaves the door open to add a 4th node later if your place grows.</p>
+        <div class="callout-title">🎯 NOFI PICK (IoT-aware) — DECO XE75 Pro 3-pack</div>
+        <p>For your house (cameras + microcontrollers + sensors), the XE75 Pro's <strong>tri-band architecture</strong> is the right answer: the 6 GHz radio handles node-to-node mesh traffic so your 2.4 GHz band stays clean for all your IoT gear. AED 1,225 = AED 408/node.</p>
+        <p style="margin-top:6px;margin-bottom:0;">If you have thick villa walls or want the most-reviewed option: <strong>Deco P9</strong> (AED 699) uses your house wiring as backhaul — different solution, same outcome (WiFi radios free for your devices).</p>
       </div>
     </section>
 
     <!-- 4 -->
     <section id="nofi-pick">
-      <h2><span class="num">4</span>My Pick &amp; Why — Deco X55 3-pack</h2>
+      <h2><span class="num">4</span>My Pick &amp; Why — IoT-Aware Recommendation</h2>
 
-      <h3>Why this one beats the others</h3>
+      <h3>Why tri-band wins for an IoT-heavy house</h3>
       <table>
         <thead>
-          <tr><th>Comparison</th><th>Deco M4</th><th>Deco S7</th><th><strong>Deco X55</strong></th><th>Deco BE3600</th></tr>
+          <tr><th>Comparison</th><th>Deco M4</th><th>Deco S7</th><th>Deco X55</th><th>Deco BE3600</th><th><strong>Deco P9</strong></th><th><strong>Deco XE75 Pro</strong></th></tr>
         </thead>
         <tbody>
           <tr>
             <td>Wi-Fi generation</td>
             <td>Wi-Fi 5 (AC)</td>
             <td>Wi-Fi 5 (AC)</td>
-            <td class="ok"><strong>Wi-Fi 6 (AX)</strong></td>
+            <td>Wi-Fi 6 (AX)</td>
             <td>Wi-Fi 7 (BE)</td>
+            <td>Wi-Fi 5 + PLC</td>
+            <td class="ok"><strong>Wi-Fi 6E (AXE)</strong></td>
           </tr>
           <tr>
             <td>Speed</td>
             <td>1,167 Mbps</td>
             <td>1,900 Mbps</td>
-            <td class="ok"><strong>3,000 Mbps</strong></td>
+            <td>3,000 Mbps</td>
             <td>3,600 Mbps</td>
+            <td>1,200 + AV1000</td>
+            <td class="ok"><strong>5,400 Mbps</strong></td>
+          </tr>
+          <tr>
+            <td>Bands</td>
+            <td>Dual</td>
+            <td>Dual</td>
+            <td>Dual</td>
+            <td>Dual</td>
+            <td>Dual + PLC</td>
+            <td class="ok"><strong>Tri-band</strong></td>
+          </tr>
+          <tr>
+            <td>Backhaul</td>
+            <td>Shared</td>
+            <td>Shared</td>
+            <td>Shared</td>
+            <td>Shared</td>
+            <td class="ok"><strong>Powerline</strong></td>
+            <td class="ok"><strong>Dedicated 6 GHz</strong></td>
+          </tr>
+          <tr>
+            <td>2.4 GHz for IoT</td>
+            <td>Shared with backhaul</td>
+            <td>Shared with backhaul</td>
+            <td>Shared with backhaul</td>
+            <td>Shared with backhaul</td>
+            <td class="ok"><strong>100% free</strong></td>
+            <td class="ok"><strong>100% free</strong></td>
           </tr>
           <tr>
             <td>Coverage (3-pack)</td>
             <td>4,000 sq ft</td>
             <td>5,500 sq ft</td>
-            <td class="ok"><strong>6,500 sq ft</strong></td>
+            <td>6,500 sq ft</td>
             <td>7,500 sq ft</td>
+            <td>6,000 sq ft</td>
+            <td class="ok"><strong>7,200 sq ft</strong></td>
           </tr>
           <tr>
             <td>Price</td>
             <td>AED 290</td>
             <td>AED 369</td>
-            <td class="ok"><strong>AED 279</strong></td>
+            <td>AED 279</td>
             <td>AED 865</td>
+            <td class="ok"><strong>AED 699</strong></td>
+            <td>AED 1,225</td>
           </tr>
           <tr>
             <td>Best for</td>
             <td>Budget</td>
             <td>Reliability</td>
-            <td class="ok"><strong>Sweet spot</strong></td>
+            <td>Sweet spot (non-IoT)</td>
             <td>Futureproof</td>
+            <td class="ok"><strong>Thick walls + IoT</strong></td>
+            <td class="ok"><strong>IoT-heavy (best)</strong></td>
           </tr>
         </tbody>
       </table>
 
-      <p>The X55 is the <strong>price/performance sweet spot</strong>. Cheaper than the S7 in real terms (when accounting for Wi-Fi 6 capabilities), cheaper than the BE3600 by 3x, and covers a UAE villa/apartment easily. YouTube, Netflix 4K, Zoom, gaming — it handles all of it.</p>
+      <p>The <strong>XE75 Pro</strong> costs more than the X55, but for your house (cameras + microcontrollers + sensors) it's the right tool. The <strong>P9</strong> is the clever budget answer if you have thick UAE villa walls — powerline doesn't care about concrete.</p>
 
       <div class="callout callout-info">
         <div class="callout-title">ℹ️ "But Wi-Fi 7 is the future"</div>
-        <p>Yes, but: (1) no device you own supports Wi-Fi 7 yet, (2) even iPhone 15 Pro is Wi-Fi 6E max, (3) Wi-Fi 7 is a 2027-2028 story for client devices, not 2026. Don't pay 3x for a feature your phones can't use.</p>
+        <p>Yes, but: (1) no device you own supports Wi-Fi 7 yet, (2) even iPhone 15 Pro is Wi-Fi 6E max, (3) Wi-Fi 7 is a 2027-2028 story for client devices, not 2026. Don't pay 3x for a feature your phones can't use. <strong>For IoT gear, Wi-Fi 6E tri-band (XE75 Pro) is the actual sweet spot right now.</strong></p>
       </div>
     </section>
 
     <!-- 5 -->
     <section id="cart">
-      <h2><span class="num">5</span>Prime Day Cart — What to Buy</h2>
+      <h2><span class="num">5</span>Prime Day Cart — IoT-Aware Build</h2>
 
       <div class="cart">
-        <h3>🛒 Your Cart (Prime Day 2026)</h3>
+        <h3>🛒 Your Cart — Option A: Tri-band (best for IoT)</h3>
         <div class="cart-row">
-          <span class="name">TP-Link Deco X55 (3-pack) — main mesh</span>
-          <span class="price">AED 279</span>
+          <span class="name">TP-Link Deco XE75 Pro (3-pack) — main mesh</span>
+          <span class="price">AED 1,225</span>
         </div>
         <div class="cart-row" style="color:var(--text-dim);">
-          <span class="name">↳ <a href="https://www.amazon.ae/dp/B09NBHLPNQ" target="_blank" rel="noopener" style="color:var(--accent);">B09NBHLPNQ</a></span>
-          <span class="price" style="color:var(--text-dim);font-size:11px;">Wi-Fi 6</span>
+          <span class="name">↳ <a href="https://www.amazon.ae/dp/B0BBV18ZD4" target="_blank" rel="noopener" style="color:var(--accent);">B0BBV18ZD4</a></span>
+          <span class="price" style="color:var(--text-dim);font-size:11px;">Wi-Fi 6E Tri-band</span>
         </div>
         <div class="cart-row">
           <span class="name">Deco wall mount 3-pack <span style="color:var(--text-dim);font-size:11px;">(optional but recommended)</span></span>
@@ -761,7 +862,23 @@
         </div>
         <div class="cart-total">
           <span>Total (no shipping, Prime)</span>
-          <span class="price">AED 389</span>
+          <span class="price">AED 1,335</span>
+        </div>
+      </div>
+
+      <div class="cart" style="border-color:var(--yellow);">
+        <h3>🛒 Your Cart — Option B: Powerline (smart budget for thick walls)</h3>
+        <div class="cart-row">
+          <span class="name">TP-Link Deco P9 (3-pack) — powerline backhaul</span>
+          <span class="price">AED 699</span>
+        </div>
+        <div class="cart-row" style="color:var(--text-dim);">
+          <span class="name">↳ <a href="https://www.amazon.ae/dp/B07XY7WJ4W" target="_blank" rel="noopener" style="color:var(--accent);">B07XY7WJ4W</a></span>
+          <span class="price" style="color:var(--text-dim);font-size:11px;">Wi-Fi 5 + PLC</span>
+        </div>
+        <div class="cart-total">
+          <span>Total (no shipping, Prime)</span>
+          <span class="price">AED 699</span>
         </div>
       </div>
 
@@ -775,27 +892,104 @@
             <td><a href="https://www.amazon.ae/dp/B08V8XBLV7" target="_blank" rel="noopener">Deco wall mounts (3-pack)</a></td>
             <td><code>B08V8XBLV7</code></td>
             <td>AED 110</td>
-            <td>Higher placement = better coverage</td>
+            <td>Higher placement = better coverage, esp. for 2.4 GHz IoT</td>
           </tr>
           <tr>
             <td><a href="https://www.amazon.ae/dp/B0D6DY26XL" target="_blank" rel="noopener">Heavy-duty wall mounts (aluminum)</a></td>
             <td><code>B0D6DY26XL</code></td>
             <td>AED 149</td>
-            <td>For Deco BE-series if you go tier-2</td>
+            <td>For BE-series if you go Wi-Fi 7</td>
           </tr>
           <tr>
             <td><a href="https://www.amazon.ae/dp/B07L45LZP5" target="_blank" rel="noopener">Deco M4 backup 3-pack</a></td>
             <td><code>B07L45LZP5</code></td>
             <td>AED 290</td>
-            <td>Skip — this is the tier-4 fallback, don't double-buy</td>
+            <td>Skip — this is the tier-5 fallback, don't double-buy</td>
           </tr>
         </tbody>
       </table>
     </section>
 
     <!-- 6 -->
+    <section id="iot-setup">
+      <h2><span class="num">6</span>IoT Setup — Cameras, Microcontrollers, Sensors</h2>
+      <p>Critical for your fleet. Most 2.4 GHz IoT devices are picky. Do this during the install, not after.</p>
+
+      <div class="callout callout-warn">
+        <div class="callout-title">⚠️ Why IoT setup is different from phone/laptop Wi-Fi</div>
+        <p>Phones, laptops, TVs support both bands and roam fine. IoT devices (ESP32, ESP8266, cheap IP cameras, Tuya, Sonoff, some sensors) are often <strong>single-band, low-power, sticky-client</strong>. They hate band-steering and hate weak signals. Treat them as a separate network concern.</p>
+      </div>
+
+      <h3>Recommended TP-Link Deco IoT configuration</h3>
+      <ol>
+        <li><strong>Keep a single SSID (Ahmad_Not)</strong> for all your devices. Don't split into 2.4/5 GHz SSIDs — the Deco's band-steering works well for non-IoT devices, and TP-Link's IoT-aware mode (Deco app → More → IoT) auto-detects single-band devices and pins them to 2.4 GHz without manual config.</li>
+        <li><strong>Enable the "IoT Network" in Deco app</strong> (More → Wi-Fi Settings → IoT Network). This creates a <strong>dedicated 2.4 GHz-only SSID</strong> like <code>Ahmad_Not_IoT</code> with device isolation (cameras can't talk to your laptop, just to the internet). Use this <em>only</em> for devices that absolutely refuse to connect to the main SSID.</li>
+        <li><strong>Channel width = 20 MHz on 2.4 GHz.</strong> Don't use 40 MHz — it crowds the band, breaks older IoT clients. Set in Deco app → Wi-Fi Settings → 2.4 GHz → Channel Width.</li>
+        <li><strong>Channel = 1 or 11</strong> (not 6). Channel 6 is the default for most APs in your area — picking 1 or 11 gives you a clean neighborhood. Set in Deco app → Wi-Fi Settings → 2.4 GHz → Channel.</li>
+        <li><strong>WPA2/WPA3 mixed mode</strong> (not pure WPA3). Many IoT devices only support WPA2. Pure WPA3 will lock them out.</li>
+        <li><strong>Disable "Fast Roaming" / 802.11r</strong> in the Deco app for IoT-heavy setups. <em>(More → Advanced → Fast Roaming)</em>. Sticky clients (cameras especially) prefer stable over fast.</li>
+        <li><strong>Place nodes high and central</strong> — 2.4 GHz propagates better than 5 GHz but is still hurt by walls/floors. The wall mounts (AED 110 add-on) really help here.</li>
+      </ol>
+
+      <h3>Per-device-type checklist</h3>
+      <table>
+        <thead>
+          <tr><th>Device</th><th>Band</th><th>SSID</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Phones, laptops, TVs</td>
+            <td>2.4 + 5 + 6 GHz</td>
+            <td><code>Ahmad_Not</code></td>
+            <td>Default. Band-steering does its job.</td>
+          </tr>
+          <tr class="ok">
+            <td><strong>Security cameras (2.4 GHz)</strong></td>
+            <td>2.4 GHz</td>
+            <td><code>Ahmad_Not</code> (primary) or <code>Ahmad_Not_IoT</code> (fallback)</td>
+            <td>Use <code>Ahmad_Not_IoT</code> if camera refuses main SSID. Pin to channel 1 or 11, 20 MHz width.</td>
+          </tr>
+          <tr class="ok">
+            <td><strong>ESP32 / ESP8266 / Arduino WiFi</strong></td>
+            <td>2.4 GHz</td>
+            <td><code>Ahmad_Not</code></td>
+            <td>Set <code>WiFi.setSleep(false)</code> in code. Static IP. Pin to 2.4 GHz in your SSID config.</td>
+          </tr>
+          <tr class="ok">
+            <td><strong>Tuya / Sonoff / Zigbee hubs</strong></td>
+            <td>2.4 GHz</td>
+            <td><code>Ahmad_Not</code></td>
+            <td>Zigbee hubs are not WiFi — they're 2.4 GHz radio but separate protocol. Just keep them away from the AP.</td>
+          </tr>
+          <tr>
+            <td>Smart speakers (Alexa, Google Home)</td>
+            <td>2.4 + 5 GHz</td>
+            <td><code>Ahmad_Not</code></td>
+            <td>Default. Sometimes need static IP.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>If a device won't connect — debug ladder</h3>
+      <ol>
+        <li>Forget the network on the device, re-add with password</li>
+        <li>Try the <code>Ahmad_Not_IoT</code> SSID (2.4 GHz only)</li>
+        <li>Move the device closer to the nearest Deco node (within 5 m)</li>
+        <li>Check WPA mode is mixed WPA2/WPA3, not pure WPA3</li>
+        <li>Check channel width is 20 MHz, not auto/40 MHz</li>
+        <li>Reboot the device + the closest Deco node</li>
+        <li>Factory-reset the device, retry from scratch</li>
+      </ol>
+
+      <div class="callout callout-info">
+        <div class="callout-title">ℹ️ Why not just disable band-steering and split into two SSIDs?</div>
+        <p>You <em>can</em>, and for very stubborn IoT devices it's the nuclear option. But: (1) you lose seamless roaming for phones, (2) TP-Link's "IoT mode" already handles this well in 2026 firmware, (3) split SSIDs make it harder to find the right device on your network. Try the unified SSID first, fall back to <code>Ahmad_Not_IoT</code> only for devices that genuinely refuse.</p>
+      </div>
+    </section>
+
+    <!-- 7 -->
     <section id="install">
-      <h2><span class="num">6</span>Install Plan — Step by Step</h2>
+      <h2><span class="num">7</span>Install Plan — Step by Step</h2>
       <p>Total time: <strong>~45 minutes</strong> from "package opened" to "everything working". You need a phone with the <strong>TP-Link Deco</strong> app installed.</p>
 
       <div class="step">
@@ -844,7 +1038,7 @@
 
     <!-- 7 -->
     <section id="verify">
-      <h2><span class="num">7</span>Post-Install Verification</h2>
+      <h2><span class="num">8</span>Post-Install Verification</h2>
       <p>Run through this checklist after the install. If any item fails, check the troubleshooting section below.</p>
 
       <ul class="checklist">
@@ -871,7 +1065,7 @@
 
     <!-- 8 -->
     <section id="pro-tips">
-      <h2><span class="num">8</span>Pro Tips From the Network Diagnostic Guide</h2>
+      <h2><span class="num">9</span>Pro Tips From the Network Diagnostic Guide</h2>
 
       <h4>🏠 Placement</h4>
       <ul>
@@ -902,7 +1096,7 @@
 
     <!-- 9 -->
     <section id="avoid">
-      <h2><span class="num">9</span>What NOT to Buy</h2>
+      <h2><span class="num">10</span>What NOT to Buy</h2>
       <p>These are options that look tempting but will leave you with the same problems you have today.</p>
 
       <table>
