@@ -1,0 +1,56 @@
+Task status: BLOCKED — root cause + partial fix in place, but unable to fully verify visually before hitting the tool-call cap.
+
+═══════════════════════════════════════════════
+WHAT NOFI ASKED
+═══════════════════════════════════════════════
+"check the Memory graph if working properly as i dont see new memories being bright shining star"
+
+═══════════════════════════════════════════════
+ROOT CAUSE FOUND
+═══════════════════════════════════════════════
+The "shining star" rendering code IS working correctly — when the camera is positioned at the latest node, the golden star + halo IS visible (confirmed by browser_vision screenshot — saw the orange/gold star cluster after manually flying the camera to it).
+
+The real bug is the AUTO-FLY-CAMERA-TO-STAR path failing silently:
+
+1. On page load, `flyCameraToNode()` in `code/memory-graph.html` polls node.x/y/z in a rAF loop with MAX_ATTEMPTS=30 (~500ms).
+2. With 1772 nodes starting at (0,0,0), the d3 simulation needs >500ms to scatter them and assign positions. The rAF chain gives up BEFORE positions are assigned.
+3. The camera never flies to the latest node. The latest node ends up ~1100+ units away from the default camera position, so the star is rendered but off-screen / imperceptibly small.
+4. The dev's workaround was the "⭐ Latest ⭐" banner click (line 1033, `wireShineBanner`) that manually flies to the star. NOFI doesn't know about it.
+
+═══════════════════════════════════════════════
+FIX APPLIED (committed to file, NOT yet committed to git)
+═══════════════════════════════════════════════
+File: /home/nofidofi/NofiTech-Ind/01_projects/mission-control/code/memory-graph.html
+
+Two changes inside `flyCameraToNode()` + `setShiningNode()`:
+
+A. `MAX_ATTEMPTS` 30 → 180 (~3s, enough for the simulation to assign positions to 1700+ nodes)
+B. Added a 3500ms `setTimeout` safety net that forces a fly-to regardless of rAF chain state (handles throttled tabs, rAF-chain-killed scenarios)
+C. `setShiningNode` now also calls `Graph.d3ReheatSimulation()` so the newest node gets an x/y/z assigned quickly when the star changes.
+
+═══════════════════════════════════════════════
+VERIFICATION
+═══════════════════════════════════════════════
+- Browser confirmed new code IS loaded (new comment, new MAX_ATTEMPTS=180, new safety-net timer all present in DOM)
+- Manual `Graph.cameraPosition(starPos, starLookAt, 500)` from console DID fly the camera and reveal the golden star (visual proof in screenshot)
+- Initial-load auto-fly path was NOT visually verified before the tool-call cap — couldn't reload page and observe final state
+
+═══════════════════════════════════════════════
+DISCOVERY (won't be acted on now)
+═══════════════════════════════════════════════
+3d-force-graph v1.77.0 has a cameraPosition API quirk: the 4-arg `cameraPosition(pos, center, duration, transitionMs)` form treats args differently than the documented signature. Calling with the 3-arg form works but the lookAt animation can be interrupted by OrbitControls re-orienting. The existing code already handles this via `ctrls.target.set(node.x, node.y, node.z)` after cameraPosition, which is correct.
+
+═══════════════════════════════════════════════
+STILL TO DO (when this session resumes)
+═══════════════════════════════════════════════
+1. Hard-reload the page in browser and confirm the star is visible from default load (no manual console intervention)
+2. If still not visible: check if the d3 simulation is actually running / reheat on every graphData
+3. Run existing tests in mission-control/tests/
+4. git commit + push the fix
+5. PATCH the kanban task MC-KANBAN-CREATE-20260626115149-159C23 to status=done with a result summary
+6. Append task_completed event to events.jsonl
+
+═══════════════════════════════════════════════
+LOG FILE (partial, written)
+═══════════════════════════════════════════════
+Will be written to: /home/nofidofi/NofiTech-Ind/00_company_os/04_agents/logs/2026-06-26/forge-MC-KANBAN-CREATE-20260626115149-159C23.md (pending final verification)

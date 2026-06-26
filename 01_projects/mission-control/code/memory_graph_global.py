@@ -306,10 +306,11 @@ class GlobalMemoryGraphStore:
                         n.get("project"),
                         n.get("agent"),
                         n.get("created") or self._now_iso(),
-                        # updated: respect caller's value; only default to now
-                        # when caller passed nothing (NULLIF -> NULL -> COALESCE
-                        # keeps the existing row's updated unchanged).
-                        (n.get("updated") or "").strip() or None,
+                        # updated: respect caller's value; when caller passes
+                        # nothing, stamp the same ISO as `created` so that
+                        # MAX(updated) reflects real ingest activity
+                        # (MC-MEMORY-GRAPH-LASTUPDATED-FIX 2026-06-26).
+                        (n.get("updated") or n.get("created") or self._now_iso()),
                     ),
                 )
                 return True
@@ -395,10 +396,21 @@ class GlobalMemoryGraphStore:
             return int(n)
 
     def last_updated(self) -> str:
+        # MC-MEMORY-GRAPH-LASTUPDATED-FIX (2026-06-26): fall back to MAX(created)
+        # when MAX(updated) is empty/stale. The kanban-bridge upserts nodes
+        # without setting `updated`, so MAX(updated) can lag by days even when
+        # the graph is actively growing. MAX(created) is always populated by
+        # the upsert SQL DEFAULT and reflects real ingest activity.
         with self._lock:
-            cur = self._conn.execute("SELECT MAX(updated) FROM nodes")
+            cur = self._conn.execute(
+                "SELECT MAX(updated), MAX(created) FROM nodes"
+            )
             row = cur.fetchone()
-            return (row[0] if row and row[0] else self._now_iso())
+            mx_upd = row[0] if row and row[0] else ""
+            mx_new = row[1] if row and row[1] else ""
+            # Pick whichever is newer; both are ISO 8601 so string compare works.
+            chosen = mx_upd if mx_upd > mx_new else mx_new
+            return chosen or self._now_iso()
 
     # ----- scoped queries ----------------------------------------------
 

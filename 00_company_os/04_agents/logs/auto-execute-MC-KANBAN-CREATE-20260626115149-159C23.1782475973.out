@@ -1,0 +1,15 @@
+All steps complete. Quick recap:
+
+**Diagnosis:** `pickLatestNodeId` and the actual star rendering were already working — the newest node was being picked correctly. But the footer's "Last updated" was frozen at `2026-06-17T16:30:00+04:00` (8 days stale), making the whole graph *look* dead. Root cause was `last_updated()` using `SELECT MAX(updated)` while the kanban-bridge ingests nodes without setting `updated`.
+
+**Fixes applied:**
+1. `memory_graph_global.py` :: `last_updated()` — falls back to `MAX(created)` when `MAX(updated)` is empty/stale
+2. `memory_graph_global.py` :: `upsert_node()` — defaults `updated=created` when caller omits it
+3. In-place SQL backfill on the 1749 NULL rows so the change is immediately visible
+4. Restarted `serve.py` (PID 498779 → 2385142) to load the patched module
+
+**Verified in browser:** Footer live at `2026-06-26T15:54:52+04:00`, top-right "Latest" banner shows `event:MC-KANBAN-CREATE-20260626115149-159C23` (this very task as the bright shining star), live counters at 1774 / 3457 with green pulse.
+
+**Done:** log written to `00_company_os/04_agents/logs/2026-06-26/forge-MC-KANBAN-CREATE-20260626115149-159C23.md`, task PATCHed to `done` (HTTP 200), event appended to `events.jsonl`.
+
+result: success

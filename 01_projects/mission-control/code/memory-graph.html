@@ -417,6 +417,12 @@
       // a fresh array reference, so we splice a no-op.
       shiningNodeId = newId;
       shineStartedAt = performance.now();
+      // MC-MEMORY-GRAPH-SHINING-FIX (2026-06-26): when the star changes, reheat
+      // the d3 simulation so the newest node gets an x/y/z assigned quickly.
+      // Without this, a newly-arrived node sits at (0,0,0) and the camera fly
+      // can race ahead of the simulation, ending up far from where the node
+      // eventually settles.
+      try { if (Graph && Graph.d3ReheatSimulation) Graph.d3ReheatSimulation(); } catch (e) {}
       if (Graph && currentGraphInitialized) {
         const gd = Graph.graphData();
         if (gd && gd.nodes && gd.nodes.length) {
@@ -443,10 +449,19 @@
       }
     }
 
+    // MC-MEMORY-GRAPH-SHINING-FIX (2026-06-26): the previous MAX_ATTEMPTS=30
+    // (~500ms) was too short for the first-ever graph load, where 1700+ nodes
+    // start at (0,0,0) and the d3 simulation needs ~2s to scatter them into
+    // finite positions. Bump to 180 frames (~3s) and add a setTimeout safety
+    // net that fires AFTER the rAF chain regardless of outcome. The safety
+    // net also handles the case where the rAF chain was cancelled mid-flight
+    // because the star changed.
     function flyCameraToNode(nodeId, durationMs) {
       let attempts = 0;
-      const MAX_ATTEMPTS = 30;
+      const MAX_ATTEMPTS = 180;
+      let done = false;
       const tryFly = () => {
+        if (done) return;
         attempts++;
         if (!Graph || !shiningNodeId || shiningNodeId !== nodeId) return;
         const gd = Graph.graphData();
@@ -459,6 +474,7 @@
           }
           return;
         }
+        done = true;
         try {
           Graph.cameraPosition(
             { x: node.x, y: node.y, z: node.z + 90 },
@@ -474,6 +490,35 @@
         }
       };
       requestAnimationFrame(tryFly);
+      // Safety net: after 3500ms, force a fly regardless of rAF chain state.
+      // This catches: (a) rAF chain killed by a star change mid-flight, (b) the
+      // browser tab being throttled, (c) the simulation never assigning x/y/z
+      // (we still fly to origin as a last resort).
+      setTimeout(() => {
+        if (done) return;
+        if (!Graph || !shiningNodeId || shiningNodeId !== nodeId) return;
+        const gd = Graph.graphData();
+        const node = (gd && gd.nodes) ? gd.nodes.find(n => n && n.id === nodeId) : null;
+        if (!node) return;
+        // Fall back to (0,0,0) if simulation never assigned coords.
+        const x = Number.isFinite(node.x) ? node.x : 0;
+        const y = Number.isFinite(node.y) ? node.y : 0;
+        const z = Number.isFinite(node.z) ? node.z : 0;
+        done = true;
+        try {
+          Graph.cameraPosition(
+            { x: x, y: y, z: z + 90 },
+            { x: x, y: y, z: z },
+            Math.min(durationMs, 800)
+          );
+          const ctrls = Graph.controls && Graph.controls();
+          if (ctrls && ctrls.target && ctrls.target.set) {
+            try { ctrls.target.set(x, y, z); } catch (e) {}
+          }
+        } catch (e) {
+          console.warn('shine: safety-net camera fly-to failed', e.message);
+        }
+      }, 3500);
     }
 
     // MC-MEMORY-GRAPH-3A (2026-06-17): LAN writes (e.g. /api/memory-graph/reset)

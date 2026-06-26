@@ -39,3 +39,5 @@
 2026-06-22T15:49:57+04:00  kanban-auto-execute: dispatch  MC-KANBAN-CREATE-20260622111708-F71B07  agent=argus  title='test ,, if ok write back all good'  priority=high
 2026-06-22T16:46:58+04:00  kanban-auto-execute: dispatch  MC-RESULT-VISIBLE-1  agent=forge  title='MC-RESULT-VISIBLE-1 — make agent results visible on kanban cards'  priority=high
 2026-06-23T00:38:08+04:00  kanban-auto-execute: dispatch  DIY-CODEX-V2-PORT-1  agent=forge  title='DIY-CODEX-V2-PORT-1 — upgrade diy-hub-v1 UI to match codex-v2 design + add Build Studio'  priority=high
+2026-06-26T15:57:52+04:00  kanban-auto-execute: dispatch  MC-KANBAN-CREATE-20260626115149-159C23  agent=forge  title='check the Memory graph if working properly as i dont see new memories being bright shining star'  priority=high
+2026-06-26T16:12:52+04:00  kanban-auto-execute: dispatch  MC-KANBAN-CREATE-20260626115149-159C23  agent=forge  title='check the Memory graph if working properly as i dont see new memories being bright shining star'  priority=high

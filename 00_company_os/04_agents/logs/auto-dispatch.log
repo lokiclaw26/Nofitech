@@ -35,3 +35,4 @@
 2026-06-22T15:20:56+04:00  MC-KANBAN-CREATE-20260622111708-F71B07  assignee=argus priority=high  title='test ,, if ok write back all good'  patch_ok=1
 2026-06-22T15:34:56+04:00  MC-RESULT-VISIBLE-1  assignee=forge priority=high  title='MC-RESULT-VISIBLE-1 — make agent results visible on kanban cards'  patch_ok=1
 2026-06-22T15:48:57+04:00  MC-KANBAN-CREATE-20260622111708-F71B07  assignee=argus priority=high  title='test ,, if ok write back all good'  patch_ok=1
+2026-06-26T15:54:52+04:00  MC-KANBAN-CREATE-20260626115149-159C23  assignee=forge priority=high  title='check the Memory graph if working properly as i dont see new memories being bright shining star'  patch_ok=1
