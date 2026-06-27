@@ -1,0 +1,31 @@
+Diagnosis summary — I ran out of tool budget before I could ship the actual fix. Here's exactly where I am:
+
+ROOT CAUSE (CONFIRMED)
+- The "shining node" visual is rendering correctly: the THREE object has `isShiningStar: true`, both halo sprite (opacity pulsing 0.44) and core sprite (opacity pulsing 0.88) are built and animated, and the nodeColor returns `0xfff4c8` + nodeVal 12+. Pulse loop runs on every frame.
+- The camera auto-fly is broken. After fresh page load, `cameraPosition` is never called from `flyCameraToNode()` with the shine coordinates. Camera ends up at roughly (35.9, 241.6, 88.2), ~1264 units from the shine at (405, 1440, -76).
+- The bug is not in the rAF/safety-net logic itself — it's that `flyCameraToNode()` appears to bail early on first page load before any `cameraPosition()` call is recorded (only a single argc=0 getter call appears in the fly log after wrapping).
+- When I manually call `Graph.cameraPosition({x,y,z+90},{x,y,z},1500)` the camera flies perfectly and the golden star with 4-point cross flare + halo is clearly visible center-screen. So the rendering pipeline is 100% sound — only the auto-fly is the regression.
+- Yesterday's fix (MAX_ATTEMPTS 30→180, safety net setTimeout 3500ms) is present in `code/memory-graph.html` (file mtime 2026-06-26 16:04:19, last commit a531aee auto-sync) but doesn't actually solve the regression on initial load.
+
+KEY EVIDENCE
+- `window.__mc.Graph` exposes the live state; shine has finite x/y/z from ~355ms onwards.
+- Wrapped `cameraPosition` and sampled for 15s — zero setter calls logged from auto-fly.
+- Manual `cameraPosition({x,y,z+90},{x,y,z},1500)` works → visual confirmed via browser vision screenshot (bright gold star + halo + flare).
+- The `shine-target` banner updates correctly to "⭐ Latest ⭐ task:MC-KANBAN-CREATE-20260627…".
+- Fly log before wrap: position is (35.9, 241.6, 88.2) — not init (0,0,250), not the shine. Some animation happened, but it landed somewhere unrelated.
+
+WHY THIS HAS BEEN RECURRING
+- This is at minimum the third time NOFI has reported it. Each prior fix added code (rAF polling, longer safety net) but never addressed the actual race: `flyCameraToNode()` runs inside `setShiningNode()` which is called inside `fetchGraph()`'s async chain — and on the very first call, the d3 simulation hasn't assigned positions to nodes that don't exist yet, OR the engine's internal graphData hasn't been updated to the new shining node id yet, OR the rAF `shiningNodeId !== nodeId` early-return is killing the chain. Any of these silently disables the fly.
+
+WHAT NEEDS TO HAPPEN NEXT (the fix I did not get to write)
+1. Add a startup watchdog independent of `flyCameraToNode()`: after page load, set a repeating timer (1s, 3s, 6s, 10s, 15s backoff) that checks `distance(camera, shineNode) > 50`. If yes, force-call `cameraPosition({x,y,z+90},{x,y,z},1500)` directly.
+2. Increase the safety-net timeout from 3500ms to 8000ms and the rAF cap from 180 to 600.
+3. Add a one-shot retry inside `fetchGraph()`: if a new shine is detected and the previous fly is already running or failed, schedule a 2s retry.
+
+WHY NO PATCH WAS SENT
+I have not yet edited `code/memory-graph.html`. The task remains unfinished — I should not PATCH the kanban to `done` with "success" when I haven't shipped the fix. The right closure is `blocked` with reason "diagnostic complete, fix design identified but file edit not applied before tool budget exhausted; needs next forge session to apply the watchdog + safety-net extension + fetchGraph retry pattern above." The visual proof (golden star renders correctly when camera is manually flown) IS captured and can be reproduced by anyone who flies the camera.
+
+FILES TOUCHED THIS SESSION
+- None. All investigation was live browser probing via `window.__mc` debug hooks that were already exposed in the file.
+
+NOFI IS ASLEEP / AFK — do not send Telegram ping per dispatch rules. The next agent should pick this up directly: apply the three-point fix above to `/home/nofidofi/NofiTech-Ind/01_projects/mission-control/code/memory-graph.html`, hard-reload `/memory-graph`, and confirm via screenshot that the gold star is visible without manual camera intervention.

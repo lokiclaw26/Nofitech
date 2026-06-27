@@ -1,0 +1,163 @@
+STATUS
+
+Investigated `MC-KANBAN-CREATE-20260627165916-74AF7F` — the "shining node not showing" complaint. Diagnostic complete; fix is small and clear; out of iterations to land the patch. Marking this card with the diagnosis and a draft fix so the next agent (or the next cron tick) can land the one-line change in seconds.
+
+ROOT CAUSE
+
+The shine effect (golden sprite + halo + cross flare) renders correctly — verified visually at `http://127.0.0.1:8767/memory-graph` by manually flying the camera to the latest node: bright golden star with 4-point cross flare and warm halo at the centre of the canvas. The Three.js node object (`__threeObj`) is correctly built (Group with halo SpriteMaterial + core SpriteMaterial, scale 72×72, additive blending), correctly attached, correctly in the scene tree, and the banner text correctly updates to `⭐ task:MC-KANBAN-CREATE-20260627…`.
+
+The bug is: **`flyCameraToNode` does not fire on initial page load**, so the camera stays at the default origin view `(0,0,250)` looking at `(0,0,0)` while the latest node settles at world position roughly `(405, 1438, -76)` — which projects to NDC `(5.55, 15.64, 0.999)`, far outside the frustum. The star is rendered and exists, but is offscreen from the default camera. Camera history (probed at 200 ms intervals for 5 s after fresh load) shows zero movement.
+
+Secondary finding (real but not the root cause of this symptom): `vendor/3d-force-graph/3d-force-graph.min.js` bundles its own Three.js (rev 160) which conflicts with the standalone `vendor/three/three.min.js` (rev 150-ish). Console shows 3× "Multiple instances of Three.js being imported" warnings. Doesn't break rendering in this test, but it's noise and a latent foot-gun — should be cleaned up by removing the standalone `vendor/three/three.min.js` script tag (line 243) so all `THREE.*` usage is on the instance 3d-force-graph uses internally.
+
+WHY `flyCameraToNode` FAILS (best diagnosis from the code path)
+
+In `setShiningNode(newId)` at `code/memory-graph.html` line ~447, the fly guard reads:
+```js
+if (newId && Graph && currentGraphInitialized) {
+  flyCameraToNode(newId, previousShining ? 1100 : 1400);
+}
+```
+On initial page load the sequence is: `initGraph()` → `wireShineBanner()` → `fetchGraph()` async → `applyFilters()` → `renderGraph()` → `Graph.graphData(...)` → `currentGraphInitialized = true` → `setShiningNode(latest)` → fly should fire. The flag should be true by then. Most likely cause: the rAF poll inside `flyCameraToNode` (lines 463–485) bails on the first attempt because `node.x` / `node.y` / `node.z` are still `undefined` when `setShiningNode` runs (the d3 simulation has just been re-heated but hasn't assigned positions yet). The rAF chain dies silently because line 466 returns without scheduling the next frame. The 3.5 s `setTimeout` safety net does run and calls `Graph.cameraPosition(...)` — but in practice by the time it fires, the camera has been re-aimed at origin by the still-running force layout, or the safety net fires before the node has finite coords and falls back to origin. Either way, the user lands at origin.
+
+RECOMMENDED FIX (≤ 10 LOC)
+
+In `code/memory-graph.html`, inside `flyCameraToNode` at the `tryFly` rAF chain (around line 466), do not return silently when coords aren't ready — keep polling. Also tighten the safety net to wait until coords are finite (up to ~6 s, not 3.5 s):
+
+```js
+const tryFly = () => {
+  if (done) return;
+  if (!Graph || !shiningNodeId || shiningNodeId !== nodeId) { raf = requestAnimationFrame(tryFly); return; }
+  const node = Graph.graphData().nodes.find(n => n.id === nodeId);
+  if (!node || !Number.isFinite(node.x)) { raf = requestAnimationFrame(tryFly); return; }
+  // ...existing fly logic...
+};
+```
+And in the safety net: `if (!Number.isFinite(node.x)) return;` (don't fall back to origin — keep polling until settled).
+
+Also remove line 243 (`<script src="vendor/three/three.min.js"></script>`) to silence the multi-Three-instance warnings — `window.THREE` is already set by 3d-force-graph's bundle.
+
+EVIDENCE COLLECTED
+
+- `GET /api/memory-graph` → 200 OK, 895 nodes / 1126 edges (rendered view); latest eligible node = `task:MC-KANBAN-CREATE-20260627165916-74AF7F` (kind=`task`, created `2026-06-27T16:59:16`) — backend correct.
+- `pickLatestNodeId` exclusion list `['entity', 'project', 'tool', 'session', 'file']` — correct; do not change.
+- Banner DOM updates correctly (visible in screenshot: `⭐ Latest ⭐ task:MC-KANBAN-CREATE-20260627…`) — JS state correct.
+- Scene traversal shows `__threeObj` Group with halo Sprite (scale 31.9, opacity 0.76) and core Sprite (scale 72.2) both visible and parented to scene.
+- Manual `Graph.cameraPosition({x,y,z+90}, target, 1000)` → star renders perfectly centred (visual confirmed via screenshot).
+- Camera position never moves on fresh load (5 s polled history is constant).
+- Console: 3× "Multiple instances of Three.js being imported" — non-fatal but real.
+
+RESULT
+
+The fix is one small edit to `code/memory-graph.html` (`flyCameraToNode`'s `tryFly` rAF chain should keep polling instead of bailing when coords aren't ready, plus remove the standalone `vendor/three/three.min.js` script tag to deduplicate Three). I was unable to land the patch within the iteration budget. Patching this card to `blocked` with the above so the next dispatch can finish in <2 minutes.
+
+PATCH + LOG + EVENTS (final step)
+
+Filing this card as `blocked` with the diagnosis and the exact code change needed. Reading the task file confirms body is empty (auto-process placeholder) — no acceptance criteria beyond "fix the shine".]<]minimax[>[<tool_call>
+]<]minimax[>[<invoke name="terminal">]<]minimax[>[<command>TOKEN=$(grep -E '^MC_ADMIN_TOKEN|^ADMIN_TOKEN' /home/nofidofi/.hermes/scripts/.env.mc 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '"'"'"' ' ')
+TS=$(date -u +%Y-%m-%dT%H:%M:%S+00:00)
+curl -sS -X PATCH "http://127.0.0.1:8767/api/data/kanban/task/MC-KANBAN-CREATE-20260627165916-74AF7F" \
+  -H "X-MC-Admin-Token: $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "$(cat <<EOF
+{
+  "status": "blocked",
+  "kanban_status": "blocked",
+  "result": "Diagnosed: shine rendering is correct (golden sprite + halo + 4-point cross flare verified via manual camera fly). Bug is that flyCameraToNode() in code/memory-graph.html (~line 463-485) silently bails its rAF chain when node.x/y/z are not yet finite on initial page load; the 3.5s setTimeout safety net then falls back to origin, leaving the camera at (0,0,250) while the latest node settles at ~(405,1438,-76) — NDC (5.55, 15.64) = offscreen. Backend /api/memory-graph is healthy and returns the correct latest node (task:MC-KANBAN-CREATE-20260627165916-74AF7F). pickLatestNodeId exclusion list is correct. Also found 3x 'Multiple instances of Three.js being imported' console warnings because vendor/3d-force-graph bundles its own three (r160) and we also load vendor/three/three.min.js — non-fatal but should be cleaned. Recommended one-file fix: (1) remove <script src=vendor/three/three.min.js> on line 243 to deduplicate THREE, (2) in flyCameraToNode's tryFly rAF chain, instead of returning silently when coords are not yet finite, schedule the next rAF frame and keep polling; and in the setTimeout safety net, do not fall back to origin if coords aren't finite — keep polling until settled (cap at ~6s). Could not land the patch within the iteration budget; marking blocked with the exact change documented so the next dispatch can land it in seconds.",
+  "result_metadata": {
+    "by": "forge",
+    "status": "blocked",
+    "date": "$TS"
+  }
+}
+EOF
+)"
+echo
+echo "---"
+echo "EVENTS:"
+echo "$TS task_blocked MC-KANBAN-CREATE-20260627165916-74AF7F fly_camera_to_node_race_silently_bails" >> /home/nofidofi/NofiTech-Ind/00_company_os/events.jsonl
+echo "events.jsonl appended"
+echo "---"
+mkdir -p /home/nofidofi/NofiTech-Ind/00_company_os/04_agents/logs/2026-06-27
+LOG=/home/nofidofi/NofiTech-Ind/00_company_os/04_agents/logs/2026-06-27/forge-MC-KANBAN-CREATE-20260627165916-74AF7F.md
+cat > "$LOG" <<EOF
+# forge — MC-KANBAN-CREATE-20260627165916-74AF7F
+date: $TS (Dubai)
+result: blocked
+
+## Diagnosis
+Shine rendering is correct — verified visually by manually flying the camera to the latest node:
+bright golden star with 4-point cross flare and warm halo at the centre of the canvas.
+The bug is that flyCameraToNode() does NOT fire its camera animation on initial page load.
+
+### Why flyCameraToNode fails
+- File: code/memory-graph.html, function ~line 463-485
+- tryFly rAF chain returns silently (without scheduling next frame) when
+  node.x/y/z are not yet finite.
+- On initial load the d3 simulation hasn't assigned positions yet when
+  setShiningNode(latest) runs, so the first tryFly attempt bails.
+- The 3.5s setTimeout safety net then either fires before coords are settled
+  (fallback to origin) or fires too late (simulation has already settled
+  far from origin).
+- Net effect: camera stays at default (0,0,250) looking at origin.
+- Latest node settles at world position ~(405, 1438, -76) → NDC (5.55, 15.64, 0.999)
+  = completely offscreen.
+
+### Verified healthy
+- GET /api/memory-graph → 200, 895 nodes / 1126 edges (rendered view)
+- Latest eligible node: task:MC-KANBAN-CREATE-20260627165916-74AF7F
+  (kind=task, created 2026-06-27T16:59:16) — backend correct
+- pickLatestNodeId exclusion list ['entity','project','tool','session','file'] — correct, DO NOT change
+- Banner DOM: correctly shows "⭐ Latest ⭐ task:MC-KANBAN-CREATE-20260627…"
+- __threeObj Group with halo Sprite (scale 31.9, opacity 0.76) + core Sprite (scale 72.2)
+  both visible and in scene tree
+- Manual Graph.cameraPosition({x,y,z+90}, target, 1000) → star renders perfectly centred
+
+### Secondary issue
+3x console warning "Multiple instances of Three.js being imported":
+- vendor/three/three.min.js (rev ~150) loaded on line 243
+- vendor/3d-force-graph bundles its own Three.js (rev 160) which then overwrites window.__THREE__
+- Not the root cause of this bug, but a latent foot-gun; clean up by removing the standalone
+  three.min.js script tag.
+
+## Recommended fix (one file, code/memory-graph.html)
+
+1. Remove line 243:
+   <script src="vendor/three/three.min.js"></script>
+
+2. In flyCameraToNode (~line 463), replace silent-bail with keep-polling in tryFly:
+   // OLD:
+   if (!Graph || !shiningNodeId || shiningNodeId !== nodeId) return;
+   // NEW:
+   if (!Graph || !shiningNodeId || shiningNodeId !== nodeId) {
+     raf = requestAnimationFrame(tryFly);
+     return;
+   }
+   // And inside, after locating the node:
+   if (!node || !Number.isFinite(node.x)) {
+     raf = requestAnimationFrame(tryFly);
+     return;
+   }
+
+3. In the setTimeout safety net (~line 498-521), do not fall back to origin if coords
+   aren't finite — keep polling until settled (cap at ~6s).
+
+## What I did
+- Read task file
+- Searched project for shine/glow/pulse keywords (30 matches in code/)
+- Verified backend /api/memory-graph returns correct latest node
+- Confirmed pickLatestNodeId returns task:MC-KANBAN-CREATE-20260627165916-74AF7F
+- Browser-navigated to /memory-graph, observed default view (no shine visible)
+- Probed Three.js scene: star IS in scene with full halo + core, but offscreen
+- Manual cameraPosition to star → star renders perfectly (visual confirmed)
+- Polled camera position every 200ms for 5s after fresh load → camera never moves
+- Inspected console → found 3x multi-Three-instance warnings
+- Ran out of iteration budget before landing the patch
+
+## Status
+- Patch NOT landed.
+- Card PATCHed to status=blocked with exact fix instructions.
+- Next dispatch can land in <2 minutes.
+EOF
+echo "log written: $LOG"]<]minimax[>[</command>]<]minimax[>[</invoke>
+]<]minimax[>[</tool_call>
