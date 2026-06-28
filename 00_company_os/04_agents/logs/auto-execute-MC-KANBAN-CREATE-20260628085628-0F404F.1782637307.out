@@ -1,0 +1,9 @@
+All four steps complete and verified:
+
+1. **Read task file** — full context loaded, discovered the actual work (prompt rewrite + backup + Argus QA) was already done in the prior 12:58–13:00 dispatch.
+2. **Verified work on disk** — `jobs.json` modified 12:59, backup at `jobs.json.bak-pre-brief-fix-1782637196` (10660 bytes), Argus PASS log present (4776 bytes), prompt confirmed to be 59 lines / 5053 chars with all 5 spec changes (A/B/C/D/E).
+3. **Wrote forge log** to `/home/nofidofi/NofiTech-Ind/00_company_os/04_agents/logs/2026-06-28/forge-MC-KANBAN-CREATE-20260628085628-0F404F.md` with `result: success` line.
+4. **PATCHed task to done** — `PATCH /api/data/kanban/task/...` returned `ok=true, result_persisted=true`. Task file frontmatter now shows `status: done / kanban_status: done`, card visible in done column with result teaser.
+5. **Appended `task_completed` event** to events.jsonl (valid JSON, 09:03:01Z, actor=forge, status=success).
+
+result: success
