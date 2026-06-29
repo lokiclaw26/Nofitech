@@ -20,8 +20,20 @@
   "pending_orders": 0,
   "app_health": "degraded",
   "warnings": [
-    "morning-brief cron 8691521f5597 read state.json with missing pending_orders/app_health/warnings fields (2026-06-27T08:01:05Z, errors.log)",
-    "kanban-delegate probe for MC-BRIEF-FIX-SCHEMA returned 403 missing MC_ADMIN_TOKEN (2026-06-28T12:54:32Z, errors.log)"
+    {
+      "text": "kanban-delegate probe for MC-BRIEF-FIX-SCHEMA returned 403 missing MC_ADMIN_TOKEN (2026-06-28T12:54:32Z, errors.log)",
+      "ts": "2026-06-28T13:00:00Z",
+      "resolved": false,
+      "resolved_at": null
+    }
   ],
-  "updated": "2026-06-28T13:00:00Z"
+  "updated": "2026-06-28T13:00:00Z",
+  "resolved_warnings": [
+    {
+      "text": "morning-brief cron 8691521f5597 read state.json with missing pending_orders/app_health/warnings fields (2026-06-27T08:01:05Z, errors.log)",
+      "ts": "2026-06-28T13:00:00Z",
+      "resolved": true,
+      "resolved_at": "2026-06-29T07:23:08.460596+00:00"
+    }
+  ]
 }
